@@ -1,0 +1,28 @@
+{
+  "name": "@getnote/cli",
+  "version": "0.1.0",
+  "description": "CLI tool for Get笔记 — manage notes and knowledge bases from the terminal",
+  "keywords": [
+    "getnote",
+    "cli",
+    "notes",
+    "knowledge-base"
+  ],
+  "homepage": "https://github.com/iswalle/getnote-cli",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iswalle/getnote-cli.git"
+  },
+  "license": "MIT",
+  "bin": {
+    "getnote": "./bin/getnote"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "README.md"
+  ]
+}
