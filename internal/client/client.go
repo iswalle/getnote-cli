@@ -31,14 +31,27 @@ func New(envTarget string) *Client {
 	if v := os.Getenv("GETNOTE_API_URL"); v != "" {
 		baseURL = v
 	} else if envTarget == "dev" {
-		baseURL = "https://api-dev.getnote.ai"
+		baseURL = "https://openapi-dev.biji.com"
 	}
 
 	cfg := config.Get()
+
+	// API key priority: flag (passed via root cmd override) > env var > config file
+	apiKey := cfg.APIKey
+	if v := os.Getenv("GETNOTE_API_KEY"); v != "" {
+		apiKey = v
+	}
+
+	// Client ID priority: env var > config file > default
+	clientID := cfg.ClientID
+	if v := os.Getenv("GETNOTE_CLIENT_ID"); v != "" {
+		clientID = v
+	}
+
 	return &Client{
 		baseURL:  baseURL,
-		apiKey:   cfg.APIKey,
-		clientID: cfg.ClientID,
+		apiKey:   apiKey,
+		clientID: clientID,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -63,16 +76,18 @@ type NoteListResponse struct {
 }
 
 // NoteList fetches a list of notes.
-// GET /api/v1/resource/note/list
+// GET /open/api/v1/resource/note/list
 func (c *Client) NoteList(params NoteListParams) (*NoteListResponse, error) {
 	q := url.Values{}
+	sinceID := "0"
+	if params.SinceID != "" {
+		sinceID = params.SinceID
+	}
+	q.Set("since_id", sinceID)
 	if params.Limit > 0 {
 		q.Set("limit", fmt.Sprintf("%d", params.Limit))
 	}
-	if params.SinceID != "" {
-		q.Set("since_id", params.SinceID)
-	}
-	return doGet[NoteListResponse](c, "/api/v1/resource/note/list", q)
+	return doGet[NoteListResponse](c, "/open/api/v1/resource/note/list", q)
 }
 
 // NoteGetResponse is the response from the note detail endpoint.
@@ -83,18 +98,19 @@ type NoteGetResponse struct {
 }
 
 // NoteGet fetches a single note by ID.
-// GET /api/v1/resource/note/detail?id=<note_id>
+// GET /open/api/v1/resource/note/detail?id=<note_id>
 func (c *Client) NoteGet(noteID string) (*NoteGetResponse, error) {
 	q := url.Values{"id": {noteID}}
-	return doGet[NoteGetResponse](c, "/api/v1/resource/note/detail", q)
+	return doGet[NoteGetResponse](c, "/open/api/v1/resource/note/detail", q)
 }
 
 // NoteSaveRequest is the request body for saving a note.
 type NoteSaveRequest struct {
-	URL     string   `json:"url,omitempty"`
-	Text    string   `json:"text,omitempty"`
-	Title   string   `json:"title,omitempty"`
-	Tags    []string `json:"tags,omitempty"`
+	NoteType string   `json:"note_type"`           // plain_text | link
+	Content  string   `json:"content,omitempty"`   // for plain_text
+	LinkURL  string   `json:"link_url,omitempty"`  // for link
+	Title    string   `json:"title,omitempty"`
+	Tags     []string `json:"tags,omitempty"`
 }
 
 // NoteSaveResponse is the response from the note save endpoint.
@@ -105,9 +121,9 @@ type NoteSaveResponse struct {
 }
 
 // NoteSave saves a new note (URL or plain text).
-// POST /api/v1/resource/note/save
+// POST /open/api/v1/resource/note/save
 func (c *Client) NoteSave(req NoteSaveRequest) (*NoteSaveResponse, error) {
-	return doPost[NoteSaveResponse](c, "/api/v1/resource/note/save", req)
+	return doPost[NoteSaveResponse](c, "/open/api/v1/resource/note/save", req)
 }
 
 // NoteUpdateRequest is the request body for updating a note.
@@ -126,9 +142,9 @@ type NoteUpdateResponse struct {
 }
 
 // NoteUpdate updates an existing note.
-// POST /api/v1/resource/note/update
+// POST /open/api/v1/resource/note/update
 func (c *Client) NoteUpdate(req NoteUpdateRequest) (*NoteUpdateResponse, error) {
-	return doPost[NoteUpdateResponse](c, "/api/v1/resource/note/update", req)
+	return doPost[NoteUpdateResponse](c, "/open/api/v1/resource/note/update", req)
 }
 
 // NoteDeleteRequest is the request body for deleting a note.
@@ -144,9 +160,9 @@ type NoteDeleteResponse struct {
 }
 
 // NoteDelete deletes a note by ID.
-// POST /api/v1/resource/note/delete
+// POST /open/api/v1/resource/note/delete
 func (c *Client) NoteDelete(noteID string) (*NoteDeleteResponse, error) {
-	return doPost[NoteDeleteResponse](c, "/api/v1/resource/note/delete", NoteDeleteRequest{ID: noteID})
+	return doPost[NoteDeleteResponse](c, "/open/api/v1/resource/note/delete", NoteDeleteRequest{ID: noteID})
 }
 
 // NoteTaskRequest is the request body for querying task progress.
@@ -162,9 +178,9 @@ type NoteTaskResponse struct {
 }
 
 // NoteTask queries the progress of a note-save task.
-// POST /api/v1/resource/note/task/progress
+// POST /open/api/v1/resource/note/task/progress
 func (c *Client) NoteTask(taskID string) (*NoteTaskResponse, error) {
-	return doPost[NoteTaskResponse](c, "/api/v1/resource/note/task/progress", NoteTaskRequest{TaskID: taskID})
+	return doPost[NoteTaskResponse](c, "/open/api/v1/resource/note/task/progress", NoteTaskRequest{TaskID: taskID})
 }
 
 // ---------------------------------------------------------------------------
@@ -179,9 +195,9 @@ type KBListResponse struct {
 }
 
 // KBList fetches all knowledge bases.
-// GET /api/v1/resource/knowledge/list
+// GET /open/api/v1/resource/knowledge/list
 func (c *Client) KBList() (*KBListResponse, error) {
-	return doGet[KBListResponse](c, "/api/v1/resource/knowledge/list", nil)
+	return doGet[KBListResponse](c, "/open/api/v1/resource/knowledge/list", url.Values{"page": {"1"}})
 }
 
 // KBCreateRequest is the request body for creating a knowledge base.
@@ -198,9 +214,9 @@ type KBCreateResponse struct {
 }
 
 // KBCreate creates a new knowledge base.
-// POST /api/v1/resource/knowledge/create
+// POST /open/api/v1/resource/knowledge/create
 func (c *Client) KBCreate(req KBCreateRequest) (*KBCreateResponse, error) {
-	return doPost[KBCreateResponse](c, "/api/v1/resource/knowledge/create", req)
+	return doPost[KBCreateResponse](c, "/open/api/v1/resource/knowledge/create", req)
 }
 
 // KBNotesParams holds parameters for listing notes in a knowledge base.
@@ -217,13 +233,13 @@ type KBNotesResponse struct {
 }
 
 // KBNotes fetches notes in a knowledge base.
-// GET /api/v1/resource/knowledge/notes
+// GET /open/api/v1/resource/knowledge/notes
 func (c *Client) KBNotes(params KBNotesParams) (*KBNotesResponse, error) {
-	q := url.Values{"topic_id": {params.TopicID}}
+	q := url.Values{"topic_id": {params.TopicID}, "page": {"1"}}
 	if params.Limit > 0 {
 		q.Set("limit", fmt.Sprintf("%d", params.Limit))
 	}
-	return doGet[KBNotesResponse](c, "/api/v1/resource/knowledge/notes", q)
+	return doGet[KBNotesResponse](c, "/open/api/v1/resource/knowledge/notes", q)
 }
 
 // KBNotesBatchAddRequest is the request body for batch-adding notes to a KB.
@@ -240,10 +256,10 @@ type KBNotesBatchAddResponse struct {
 }
 
 // KBNotesAdd adds notes to a knowledge base.
-// POST /api/v1/resource/knowledge/note/batch-add
+// POST /open/api/v1/resource/knowledge/note/batch-add
 func (c *Client) KBNotesAdd(topicID string, noteIDs []string) (*KBNotesBatchAddResponse, error) {
 	req := KBNotesBatchAddRequest{TopicID: topicID, NoteIDs: noteIDs}
-	return doPost[KBNotesBatchAddResponse](c, "/api/v1/resource/knowledge/note/batch-add", req)
+	return doPost[KBNotesBatchAddResponse](c, "/open/api/v1/resource/knowledge/note/batch-add", req)
 }
 
 // KBNotesRemoveRequest is the request body for removing notes from a KB.
@@ -260,10 +276,10 @@ type KBNotesRemoveResponse struct {
 }
 
 // KBNotesRemove removes notes from a knowledge base.
-// POST /api/v1/resource/knowledge/note/remove
+// POST /open/api/v1/resource/knowledge/note/remove
 func (c *Client) KBNotesRemove(topicID string, noteIDs []string) (*KBNotesRemoveResponse, error) {
 	req := KBNotesRemoveRequest{TopicID: topicID, NoteIDs: noteIDs}
-	return doPost[KBNotesRemoveResponse](c, "/api/v1/resource/knowledge/note/remove", req)
+	return doPost[KBNotesRemoveResponse](c, "/open/api/v1/resource/knowledge/note/remove", req)
 }
 
 // ---------------------------------------------------------------------------

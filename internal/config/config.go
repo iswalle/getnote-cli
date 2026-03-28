@@ -9,7 +9,7 @@ import (
 
 const (
 	DefaultClientID  = "getnote-cli"
-	DefaultAPIBaseURL = "https://api.getnote.ai"
+	DefaultAPIBaseURL = "https://openapi.biji.com"
 )
 
 // Config holds the CLI configuration.

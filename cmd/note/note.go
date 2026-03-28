@@ -58,9 +58,11 @@ Otherwise it is saved as a plain-text note.`,
 
 			req := client.NoteSaveRequest{Title: title, Tags: tags}
 			if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
-				req.URL = input
+				req.NoteType = "link"
+				req.LinkURL = input
 			} else {
-				req.Text = input
+				req.NoteType = "plain_text"
+				req.Content = input
 			}
 
 			resp, err := c.NoteSave(req)

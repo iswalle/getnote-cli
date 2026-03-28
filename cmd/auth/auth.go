@@ -23,12 +23,12 @@ func NewAuthCmd() *cobra.Command {
 }
 
 func newLoginCmd() *cobra.Command {
-	var apiKey string
+	var apiKey, clientID string
 
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Save your API key",
-		Long:  "Save an API key to ~/.getnote/config.json for future commands.",
+		Long:  "Save an API key (and optional Client ID) to ~/.getnote/config.json for future commands.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if apiKey == "" {
 				return fmt.Errorf("--api-key is required")
@@ -36,7 +36,9 @@ func newLoginCmd() *cobra.Command {
 
 			cfg := config.Get()
 			cfg.APIKey = apiKey
-			if cfg.ClientID == "" {
+			if clientID != "" {
+				cfg.ClientID = clientID
+			} else if cfg.ClientID == "" {
 				cfg.ClientID = config.DefaultClientID
 			}
 
@@ -50,6 +52,7 @@ func newLoginCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&apiKey, "api-key", "", "API key to save (required)")
+	cmd.Flags().StringVar(&clientID, "client-id", "", "Client ID to save (optional, defaults to getnote-cli)")
 	_ = cmd.MarkFlagRequired("api-key")
 	return cmd
 }
