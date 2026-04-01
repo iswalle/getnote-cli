@@ -26,6 +26,15 @@ test:
 lint:
 	go vet ./...
 
+INSTALL_DIR ?= $(shell \
+	if [ -d /usr/local/bin ] && [ -w /usr/local/bin ]; then echo /usr/local/bin; \
+	elif [ -d $(HOME)/go/bin ]; then echo $(HOME)/go/bin; \
+	elif [ -d $(HOME)/.local/bin ]; then echo $(HOME)/.local/bin; \
+	elif [ -d $(HOME)/bin ]; then echo $(HOME)/bin; \
+	else echo /usr/local/bin; fi)
+
 install: build
-	mkdir -p /usr/local/bin
-	mv $(BINARY) /usr/local/bin/getnote
+	@echo "Installing to $(INSTALL_DIR)/getnote"
+	@mkdir -p $(INSTALL_DIR)
+	install -m 755 $(BINARY) $(INSTALL_DIR)/getnote
+	@echo "Done. Run: getnote --help"
