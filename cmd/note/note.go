@@ -59,12 +59,8 @@ func NewNoteCmd() *cobra.Command {
 			if n.Content != "" {
 				table.Append([]string{"Content", truncate(n.Content, 200)})
 			}
-			if len(n.Tags) > 0 {
-				tagNames := make([]string, len(n.Tags))
-				for i, t := range n.Tags {
-					tagNames[i] = t.Name
-				}
-				table.Append([]string{"Tags", strings.Join(tagNames, ", ")})
+			if tags := n.TagNames(); len(tags) > 0 {
+				table.Append([]string{"Tags", strings.Join(tags, ", ")})
 			}
 			table.Render()
 			return nil

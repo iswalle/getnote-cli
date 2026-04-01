@@ -62,22 +62,48 @@ func New(envTarget string) *Client {
 // Note API
 // ---------------------------------------------------------------------------
 
+// NoteTag represents a tag on a note.
+type NoteTag struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"` // system | manual | ai
+}
+
 // Note represents a single note item.
+// Tags can be []string (kb/notes API) or []NoteTag (note/list API);
+// use TagNames() to get plain tag names regardless of format.
 type Note struct {
-	ID        json.Number `json:"id"`
-	NoteID    json.Number `json:"note_id"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	NoteType  string `json:"note_type"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-	Tags      []struct {
-		Name string `json:"name"`
-	} `json:"tags"`
-	WebPage *struct {
+	ID        json.Number       `json:"id"`
+	NoteID    json.Number       `json:"note_id"`
+	Title     string            `json:"title"`
+	Content   string            `json:"content"`
+	NoteType  string            `json:"note_type"`
+	CreatedAt string            `json:"created_at"`
+	UpdatedAt string            `json:"updated_at"`
+	Tags      []json.RawMessage `json:"tags"`
+	WebPage   *struct {
 		URL     string `json:"url"`
 		Excerpt string `json:"excerpt"`
 	} `json:"web_page,omitempty"`
+}
+
+// TagNames returns tag names regardless of whether tags are strings or objects.
+func (n *Note) TagNames() []string {
+	var names []string
+	for _, raw := range n.Tags {
+		// try string first
+		var s string
+		if json.Unmarshal(raw, &s) == nil {
+			names = append(names, s)
+			continue
+		}
+		// try object
+		var t NoteTag
+		if json.Unmarshal(raw, &t) == nil && t.Name != "" {
+			names = append(names, t.Name)
+		}
+	}
+	return names
 }
 
 // NoteListData is the data field of the note list response.
