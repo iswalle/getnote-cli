@@ -62,6 +62,32 @@ func New(envTarget string) *Client {
 // Note API
 // ---------------------------------------------------------------------------
 
+// Note represents a single note item.
+type Note struct {
+	ID        json.Number `json:"id"`
+	NoteID    json.Number `json:"note_id"`
+	Title     string `json:"title"`
+	Content   string `json:"content"`
+	NoteType  string `json:"note_type"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	Tags      []struct {
+		Name string `json:"name"`
+	} `json:"tags"`
+	WebPage *struct {
+		URL     string `json:"url"`
+		Excerpt string `json:"excerpt"`
+	} `json:"web_page,omitempty"`
+}
+
+// NoteListData is the data field of the note list response.
+type NoteListData struct {
+	Notes      []Note      `json:"notes"`
+	HasMore    bool        `json:"has_more"`
+	NextCursor json.Number `json:"next_cursor"`
+	Total      int         `json:"total"`
+}
+
 // NoteListParams holds parameters for listing notes.
 type NoteListParams struct {
 	Limit   int
@@ -70,9 +96,8 @@ type NoteListParams struct {
 
 // NoteListResponse is the response from the note list endpoint.
 type NoteListResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool         `json:"success"`
+	Data    NoteListData `json:"data"`
 }
 
 // NoteList fetches a list of notes.
@@ -90,11 +115,15 @@ func (c *Client) NoteList(params NoteListParams) (*NoteListResponse, error) {
 	return doGet[NoteListResponse](c, "/open/api/v1/resource/note/list", q)
 }
 
+// NoteGetData is the data field of the note detail response.
+type NoteGetData struct {
+	Note Note `json:"note"`
+}
+
 // NoteGetResponse is the response from the note detail endpoint.
 type NoteGetResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool        `json:"success"`
+	Data    NoteGetData `json:"data"`
 }
 
 // NoteGet fetches a single note by ID.
@@ -170,11 +199,18 @@ type NoteTaskRequest struct {
 	TaskID string `json:"task_id"`
 }
 
+// NoteTaskData is the data field of the task progress response.
+type NoteTaskData struct {
+	TaskID string `json:"task_id"`
+	Status string `json:"status"`   // pending | processing | done | failed
+	NoteID string `json:"note_id"`
+	Msg    string `json:"msg"`
+}
+
 // NoteTaskResponse is the response from the task progress endpoint.
 type NoteTaskResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool         `json:"success"`
+	Data    NoteTaskData `json:"data"`
 }
 
 // NoteTask queries the progress of a note-save task.

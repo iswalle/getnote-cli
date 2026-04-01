@@ -104,14 +104,17 @@ func newListCmd() *cobra.Command {
 				return printJSON(cmd, resp)
 			}
 
-			// Table output
 			table := tablewriter.NewWriter(cmd.OutOrStdout())
 			table.SetHeader([]string{"ID", "Title", "Type", "Created"})
 			table.SetBorder(false)
 			table.SetAutoWrapText(false)
-
-			// Render raw JSON data rows if server returns them
-			renderDataRows(table, resp.Data)
+			for _, n := range resp.Data.Notes {
+				id := n.NoteID.String()
+				if id == "" || id == "0" {
+					id = n.ID.String()
+				}
+				table.Append([]string{id, n.Title, n.NoteType, n.CreatedAt})
+			}
 			table.Render()
 			return nil
 		},
@@ -138,11 +141,27 @@ func newGetCmd() *cobra.Command {
 				return printJSON(cmd, resp)
 			}
 
-			// Table output: print key-value pairs
+			n := resp.Data.Note
 			table := tablewriter.NewWriter(cmd.OutOrStdout())
 			table.SetHeader([]string{"Field", "Value"})
 			table.SetBorder(false)
-			renderKV(table, resp.Data)
+			table.SetAutoWrapText(false)
+			table.Append([]string{"ID", n.NoteID.String()})
+			table.Append([]string{"Title", n.Title})
+			table.Append([]string{"Type", n.NoteType})
+			table.Append([]string{"Created", n.CreatedAt})
+			table.Append([]string{"Updated", n.UpdatedAt})
+			if n.WebPage != nil {
+				table.Append([]string{"URL", n.WebPage.URL})
+				table.Append([]string{"Excerpt", n.WebPage.Excerpt})
+			}
+			if len(n.Content) > 0 {
+				content := n.Content
+				if len(content) > 200 {
+					content = content[:200] + "..."
+				}
+				table.Append([]string{"Content", content})
+			}
 			table.Render()
 			return nil
 		},
@@ -242,10 +261,18 @@ func newTaskCmd() *cobra.Command {
 				return printJSON(cmd, resp)
 			}
 
+			d := resp.Data
 			table := tablewriter.NewWriter(cmd.OutOrStdout())
 			table.SetHeader([]string{"Field", "Value"})
 			table.SetBorder(false)
-			renderKV(table, resp.Data)
+			table.Append([]string{"Task ID", d.TaskID})
+			table.Append([]string{"Status", d.Status})
+			if d.NoteID != "" {
+				table.Append([]string{"Note ID", d.NoteID})
+			}
+			if d.Msg != "" {
+				table.Append([]string{"Message", d.Msg})
+			}
 			table.Render()
 			return nil
 		},
@@ -262,45 +289,4 @@ func printJSON(cmd *cobra.Command, v interface{}) error {
 	return enc.Encode(v)
 }
 
-// renderDataRows tries to render a slice of maps as table rows.
-func renderDataRows(table *tablewriter.Table, data interface{}) {
-	if data == nil {
-		return
-	}
-	b, err := json.Marshal(data)
-	if err != nil {
-		return
-	}
-	var rows []map[string]interface{}
-	if err := json.Unmarshal(b, &rows); err != nil {
-		// Fallback: print raw JSON as a single cell
-		table.Append([]string{string(b)})
-		return
-	}
-	for _, row := range rows {
-		id := fmt.Sprintf("%v", row["id"])
-		title := fmt.Sprintf("%v", row["title"])
-		noteType := fmt.Sprintf("%v", row["type"])
-		created := fmt.Sprintf("%v", row["created_at"])
-		table.Append([]string{id, title, noteType, created})
-	}
-}
 
-// renderKV renders a map as key-value table rows.
-func renderKV(table *tablewriter.Table, data interface{}) {
-	if data == nil {
-		return
-	}
-	b, err := json.Marshal(data)
-	if err != nil {
-		return
-	}
-	var m map[string]interface{}
-	if err := json.Unmarshal(b, &m); err != nil {
-		table.Append([]string{"data", string(b)})
-		return
-	}
-	for k, v := range m {
-		table.Append([]string{k, fmt.Sprintf("%v", v)})
-	}
-}
