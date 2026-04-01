@@ -1,6 +1,6 @@
 # getnote-cli
 
-CLI tool for [Get笔记](https://getnote.ai) — manage notes and knowledge bases from the terminal.
+CLI tool for [Get笔记](https://biji.com) — manage notes and knowledge bases from the terminal.
 
 Designed for both humans and AI agents.
 
@@ -10,12 +10,6 @@ Designed for both humans and AI agents.
 
 ```bash
 npm install -g @getnote/cli
-```
-
-### Homebrew (macOS)
-
-```bash
-brew install iswalle/tap/getnote
 ```
 
 ### Manual
