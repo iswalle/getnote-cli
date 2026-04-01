@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/iswalle/getnote-cli/internal/client"
+	"github.com/iswalle/getnote-cli/internal/ui"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -54,10 +55,10 @@ func NewNoteCmd() *cobra.Command {
 				table.Append([]string{"URL", n.WebPage.URL})
 			}
 			if n.WebPage != nil && n.WebPage.Excerpt != "" {
-				table.Append([]string{"Excerpt", truncate(n.WebPage.Excerpt, 120)})
+				table.Append([]string{"Excerpt", ui.Truncate(n.WebPage.Excerpt, 120)})
 			}
 			if n.Content != "" {
-				table.Append([]string{"Content", truncate(n.Content, 200)})
+				table.Append([]string{"Content", ui.Truncate(n.Content, 200)})
 			}
 			if tags := n.TagNames(); len(tags) > 0 {
 				table.Append([]string{"Tags", strings.Join(tags, ", ")})
@@ -184,12 +185,6 @@ func newDeleteCmd() *cobra.Command {
 	return cmd
 }
 
-func truncate(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	return s[:max] + "..."
-}
 
 func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")

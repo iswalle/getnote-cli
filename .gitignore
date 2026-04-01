@@ -1,0 +1,5 @@
+getnote-cli
+getnote-cli.exe
+dist/
+*.test
+*.out

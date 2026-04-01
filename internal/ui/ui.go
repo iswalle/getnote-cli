@@ -63,17 +63,20 @@ func isWide(r rune) bool {
 }
 
 // Truncate shortens s to fit within max display columns, appending "…".
+// Safe for multi-byte UTF-8 — never cuts in the middle of a rune.
 func Truncate(s string, max int) string {
 	width := 0
+	lastSafe := 0 // byte index of last safe cut point
 	for i, r := range s {
 		w := 1
 		if isWide(r) {
 			w = 2
 		}
 		if width+w > max {
-			return s[:i] + "…"
+			return s[:lastSafe] + "…"
 		}
 		width += w
+		lastSafe = i + utf8.RuneLen(r)
 	}
 	return s
 }

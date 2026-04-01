@@ -51,16 +51,21 @@ func NewNotesCmd() *cobra.Command {
 			}
 
 			printHeader(cmd)
-			for _, n := range resp.Data.Notes {
+			shown := resp.Data.Notes
+			if limit > 0 && len(shown) > limit {
+				shown = shown[:limit]
+			}
+			for _, n := range shown {
 				printRow(cmd, n)
 			}
 
-			if resp.Data.HasMore {
+			hasMore := resp.Data.HasMore || len(resp.Data.Notes) > len(shown)
+			if hasMore {
 				fmt.Fprintf(cmd.OutOrStdout(),
 					"\n(showing %d of more notes — use --since-id %s for next page, or --all)\n",
-					len(resp.Data.Notes), resp.Data.NextCursor.String())
+					len(shown), resp.Data.NextCursor.String())
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes)\n", len(resp.Data.Notes))
+				fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes)\n", len(shown))
 			}
 			return nil
 		},
