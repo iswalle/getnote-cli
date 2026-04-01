@@ -12,6 +12,7 @@ import (
 	"github.com/iswalle/getnote-cli/cmd/save"
 	"github.com/iswalle/getnote-cli/cmd/task"
 	"github.com/iswalle/getnote-cli/internal/config"
+	"github.com/iswalle/getnote-cli/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -22,8 +23,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "getnote",
-	Short: "CLI tool for Get笔记",
+	Use:     "getnote",
+	Short:   "CLI tool for Get笔记",
+	Version: version.Version,
 	Long: `getnote is a command-line tool for interacting with Get笔记.
 It allows both humans and AI agents to manage notes and knowledge bases
 from the terminal.`,
@@ -52,6 +54,7 @@ func init() {
 	rootCmd.AddCommand(note.NewNoteCmd())
 	rootCmd.AddCommand(kbs.NewKbsCmd())
 	rootCmd.AddCommand(kb.NewKbCmd())
+	rootCmd.AddCommand(newVersionCmd())
 }
 
 func initConfig() {

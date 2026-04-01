@@ -3,10 +3,11 @@ package notes
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/iswalle/getnote-cli/internal/client"
-	"github.com/olekukonko/tablewriter"
+	"github.com/iswalle/getnote-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -27,12 +28,12 @@ func NewNotesCmd() *cobra.Command {
 			c := client.New(envTarget(cmd))
 
 			if all {
-				return listAll(cmd, c)
+				return streamAll(cmd, c)
 			}
 
 			resp, err := c.NoteList(client.NoteListParams{Limit: limit, SinceID: sinceID})
 			if err != nil {
-				return err
+				return ui.FriendlyError(err)
 			}
 
 			if outputFormat(cmd) == "json" {
@@ -41,23 +42,17 @@ func NewNotesCmd() *cobra.Command {
 				return enc.Encode(resp)
 			}
 
-			table := tablewriter.NewWriter(cmd.OutOrStdout())
-			table.SetHeader([]string{"ID", "Title", "Type", "Created"})
-			table.SetBorder(false)
-			table.SetAutoWrapText(false)
+			printHeader(cmd)
 			for _, n := range resp.Data.Notes {
-				id := n.NoteID.String()
-				if id == "" || id == "0" {
-					id = n.ID.String()
-				}
-				table.Append([]string{id, n.Title, n.NoteType, n.CreatedAt})
+				printRow(cmd, n)
 			}
-			table.Render()
 
 			if resp.Data.HasMore {
 				fmt.Fprintf(cmd.OutOrStdout(),
-					"\n(showing %d notes, use --since-id %s for next page, or --all for everything)\n",
+					"\n(showing %d of more notes — use --since-id %s for next page, or --all)\n",
 					len(resp.Data.Notes), resp.Data.NextCursor.String())
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes)\n", len(resp.Data.Notes))
 			}
 			return nil
 		},
@@ -65,29 +60,23 @@ func NewNotesCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes per page")
 	cmd.Flags().StringVar(&sinceID, "since-id", "", "Pagination cursor (note ID)")
-	cmd.Flags().BoolVar(&all, "all", false, "Fetch all notes (auto-paginate)")
+	cmd.Flags().BoolVar(&all, "all", false, "Fetch all notes (auto-paginate, streams output)")
 	return cmd
 }
 
-func listAll(cmd *cobra.Command, c *client.Client) error {
-	table := tablewriter.NewWriter(cmd.OutOrStdout())
-	table.SetHeader([]string{"ID", "Title", "Type", "Created"})
-	table.SetBorder(false)
-	table.SetAutoWrapText(false)
+// streamAll fetches all notes page by page, printing each row immediately.
+func streamAll(cmd *cobra.Command, c *client.Client) error {
+	printHeader(cmd)
 
 	sinceID := "0"
 	total := 0
 	for {
 		resp, err := c.NoteList(client.NoteListParams{Limit: 20, SinceID: sinceID})
 		if err != nil {
-			return err
+			return ui.FriendlyError(err)
 		}
 		for _, n := range resp.Data.Notes {
-			id := n.NoteID.String()
-			if id == "" || id == "0" {
-				id = n.ID.String()
-			}
-			table.Append([]string{id, n.Title, n.NoteType, n.CreatedAt})
+			printRow(cmd, n)
 			total++
 		}
 		if !resp.Data.HasMore {
@@ -96,9 +85,25 @@ func listAll(cmd *cobra.Command, c *client.Client) error {
 		sinceID = resp.Data.NextCursor.String()
 		time.Sleep(500 * time.Millisecond) // respect QPS limit
 	}
-	table.Render()
 	fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes total)\n", total)
 	return nil
+}
+
+const colID = 20
+const colTitle = 60
+const colType = 16
+const colCreated = 20
+
+func printHeader(cmd *cobra.Command) {
+	fmt.Fprintf(cmd.OutOrStdout(), "%-*s  %-*s  %-*s  %-*s\n",
+		colID, "ID", colTitle, "Title", colType, "Type", colCreated, "Created")
+	fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", colID+colTitle+colType+colCreated+6))
+}
+
+func printRow(cmd *cobra.Command, n client.Note) {
+	title := ui.Truncate(n.Title, colTitle)
+	fmt.Fprintf(cmd.OutOrStdout(), "%-*s  %-*s  %-*s  %-*s\n",
+		colID, ui.NoteID(n.NoteID, n.ID), colTitle, title, colType, n.NoteType, colCreated, n.CreatedAt)
 }
 
 func outputFormat(cmd *cobra.Command) string {

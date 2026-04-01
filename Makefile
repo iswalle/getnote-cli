@@ -1,6 +1,6 @@
 BINARY     := getnote-cli
 VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-LDFLAGS    := -ldflags "-X main.version=$(VERSION) -s -w"
+LDFLAGS    := -ldflags "-X github.com/iswalle/getnote-cli/internal/version.Version=$(VERSION) -s -w"
 BUILD_DIR  := dist
 
 .PHONY: build build-all clean test lint install

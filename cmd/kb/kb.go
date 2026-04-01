@@ -3,9 +3,11 @@ package kb
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/iswalle/getnote-cli/internal/client"
+	"github.com/iswalle/getnote-cli/internal/ui"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -26,12 +28,12 @@ func NewKbCmd() *cobra.Command {
 			c := client.New(envTarget(cmd))
 
 			if all {
-				return listAllKBNotes(cmd, c, args[0])
+				return streamAllKBNotes(cmd, c, args[0])
 			}
 
 			resp, err := c.KBNotes(client.KBNotesParams{TopicID: args[0], Limit: limit})
 			if err != nil {
-				return err
+				return ui.FriendlyError(err)
 			}
 
 			if outputFormat(cmd) == "json" {
@@ -49,8 +51,10 @@ func NewKbCmd() *cobra.Command {
 
 			if resp.Data.HasMore {
 				fmt.Fprintf(cmd.OutOrStdout(),
-					"\n(showing %d notes, use --all for everything)\n",
+					"\n(showing %d of more notes — use --all for everything)\n",
 					len(resp.Data.Notes))
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes)\n", len(resp.Data.Notes))
 			}
 			return nil
 		},
@@ -65,39 +69,42 @@ func NewKbCmd() *cobra.Command {
 	return cmd
 }
 
-func listAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) error {
-	table := tablewriter.NewWriter(cmd.OutOrStdout())
-	table.SetHeader([]string{"ID", "Title", "Type", "Created"})
-	table.SetBorder(false)
-	table.SetAutoWrapText(false)
+func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) error {
+	const colID = 20
+	const colTitle = 60
+	const colType = 16
+	const colCreated = 20
+	fmt.Fprintf(cmd.OutOrStdout(), "%-*s  %-*s  %-*s  %-*s\n",
+		colID, "ID", colTitle, "Title", colType, "Type", colCreated, "Created")
+	fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", colID+colTitle+colType+colCreated+6))
 
 	page := 1
 	total := 0
 	for {
 		resp, err := c.KBNotes(client.KBNotesParams{TopicID: topicID, Limit: 20, Page: page})
 		if err != nil {
-			return err
+			return ui.FriendlyError(err)
 		}
-		renderNoteRows(table, resp.Data)
-		total += len(resp.Data.Notes)
+		for _, n := range resp.Data.Notes {
+			id := ui.NoteID(n.NoteID, n.ID)
+			title := ui.Truncate(n.Title, colTitle)
+			fmt.Fprintf(cmd.OutOrStdout(), "%-*s  %-*s  %-*s  %-*s\n",
+				colID, id, colTitle, title, colType, n.NoteType, colCreated, n.CreatedAt)
+			total++
+		}
 		if !resp.Data.HasMore {
 			break
 		}
 		page++
-		time.Sleep(500 * time.Millisecond) // respect QPS limit
+		time.Sleep(500 * time.Millisecond)
 	}
-	table.Render()
 	fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes total)\n", total)
 	return nil
 }
 
 func renderNoteRows(table *tablewriter.Table, data client.NoteListData) {
 	for _, n := range data.Notes {
-		id := n.NoteID.String()
-		if id == "" || id == "0" {
-			id = n.ID.String()
-		}
-		table.Append([]string{id, n.Title, n.NoteType, n.CreatedAt})
+		table.Append([]string{ui.NoteID(n.NoteID, n.ID), n.Title, n.NoteType, n.CreatedAt})
 	}
 }
 

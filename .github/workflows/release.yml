@@ -43,7 +43,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           VERSION=${GITHUB_REF_NAME}
-          go build -ldflags "-X main.version=${VERSION} -s -w" -o ${{ matrix.name }} .
+          go build -ldflags "-X github.com/iswalle/getnote-cli/internal/version.Version=${VERSION} -s -w" -o ${{ matrix.name }} .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
