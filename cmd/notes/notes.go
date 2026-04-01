@@ -3,6 +3,7 @@ package notes
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/iswalle/getnote-cli/internal/client"
 	"github.com/olekukonko/tablewriter"
@@ -93,6 +94,7 @@ func listAll(cmd *cobra.Command, c *client.Client) error {
 			break
 		}
 		sinceID = resp.Data.NextCursor.String()
+		time.Sleep(500 * time.Millisecond) // respect QPS limit
 	}
 	table.Render()
 	fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes total)\n", total)

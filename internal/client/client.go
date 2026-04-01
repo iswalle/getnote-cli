@@ -390,24 +390,51 @@ func doPost[T any](c *Client, path string, payload interface{}) (*T, error) {
 }
 
 func doRequest[T any](c *Client, req *http.Request) (*T, error) {
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
+	const maxRetries = 3
+	backoff := time.Second
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
-	}
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Clone the request body for retries (body is consumed on each Do)
+		var bodyBytes []byte
+		if req.Body != nil && req.Body != http.NoBody {
+			bodyBytes, _ = io.ReadAll(req.Body)
+			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
 
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-	}
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("request failed: %w", err)
+		}
 
-	var result T
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("parsing response: %w", err)
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("reading response: %w", err)
+		}
+
+		// 429: rate limited — back off and retry
+		if resp.StatusCode == http.StatusTooManyRequests {
+			if attempt == maxRetries {
+				return nil, fmt.Errorf("rate limited after %d retries: %s", maxRetries, string(body))
+			}
+			time.Sleep(backoff)
+			backoff *= 2 // exponential: 1s → 2s → 4s
+			// restore body for next attempt
+			if bodyBytes != nil {
+				req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			}
+			continue
+		}
+
+		if resp.StatusCode >= 400 {
+			return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+		}
+
+		var result T
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, fmt.Errorf("parsing response: %w", err)
+		}
+		return &result, nil
 	}
-	return &result, nil
+	return nil, fmt.Errorf("request failed after retries")
 }

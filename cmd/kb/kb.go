@@ -3,6 +3,7 @@ package kb
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/iswalle/getnote-cli/internal/client"
 	"github.com/olekukonko/tablewriter"
@@ -83,6 +84,7 @@ func listAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) error 
 			break
 		}
 		page++
+		time.Sleep(500 * time.Millisecond) // respect QPS limit
 	}
 	table.Render()
 	fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes total)\n", total)

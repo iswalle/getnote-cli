@@ -21,26 +21,26 @@ Download the latest binary from [Releases](https://github.com/iswalle/getnote-cl
 ```bash
 git clone https://github.com/iswalle/getnote-cli.git
 cd getnote-cli
-make build
+make install
 ```
 
 ## Quick Start
 
 ```bash
-# Authenticate
-getnote auth login --api-key <your-api-key>
+# Authenticate (OAuth browser flow)
+getnote auth login
 
 # Save a URL
-getnote note save https://example.com/article --title "Great article"
+getnote save https://example.com/article --title "Great article"
 
 # Save plain text
-getnote note save "Remember to review the docs"
+getnote save "Remember to review the docs" --tag work
 
 # List recent notes
-getnote note list
+getnote notes
 
-# List knowledge bases
-getnote kb list
+# List all notes (auto-paginate)
+getnote notes --all
 ```
 
 ## Commands
@@ -48,40 +48,58 @@ getnote kb list
 ### Authentication
 
 ```
-getnote auth login --api-key <key>   Save API key to ~/.getnote/config.json
+getnote auth login                   Authenticate via OAuth (browser)
+getnote auth login --api-key <key>   Authenticate with API key directly
 getnote auth status                  Show authentication status
-getnote auth logout                  Remove saved API key
+getnote auth logout                  Remove saved credentials
+```
+
+### Save & Tasks
+
+```
+getnote save <url|text>              Save a URL or text note
+  --title <title>                    Optional title
+  --tag <tag>                        Tag (repeatable)
+
+getnote task <task_id>               Check the progress of an async save task
 ```
 
 ### Notes
 
 ```
-getnote note save <url|text>         Save a URL or text note
-  --title <title>                    Optional title
-  --tag <tag>                        Tag (repeatable)
-
-getnote note list                    List recent notes
-  --limit <n>                        Number of results (default 20)
+getnote notes                        List recent notes (default 20)
+  --limit <n>                        Number of notes (default 20)
   --since-id <id>                    Pagination cursor
+  --all                              Fetch all notes (auto-paginate)
 
-getnote note get <note_id>           Get note details
-getnote note update <note_id>        Update title, content, or tags
-getnote note delete <note_id>        Delete a note (prompts for confirmation)
-getnote note task <task_id>          Check save-task progress
+getnote note <id>                    Show note details
+  --field <name>                     Output a single field as plain text
+                                     (id, title, content, type,
+                                      created_at, updated_at, url, excerpt)
+
+getnote note update <id>             Update a note
+  --title <title>
+  --content <content>                plain_text notes only
+  --tag <tags>                       Comma-separated, replaces existing tags
+
+getnote note delete <id>             Delete a note (moves to trash)
+  -y, --yes                          Skip confirmation
 ```
 
 ### Knowledge Bases
 
 ```
-getnote kb list                      List all knowledge bases
+getnote kbs                          List all knowledge bases
+
+getnote kb <topic_id>                List notes in a knowledge base
+  --limit <n>                        Number of notes (default 20)
+  --all                              Fetch all notes (auto-paginate)
+
 getnote kb create <name>             Create a knowledge base
   --desc <description>
 
-getnote kb notes <topic_id>          List notes in a knowledge base
-  --limit <n>
-
-getnote kb add <topic_id> <note_id> [note_id...]    Add notes
-getnote kb remove <topic_id> <note_id> [note_id...] Remove notes
+getnote kb add <topic_id> <note_id> [note_id...]     Add notes
+getnote kb remove <topic_id> <note_id> [note_id...]  Remove notes
 ```
 
 ## Global Flags
@@ -89,17 +107,32 @@ getnote kb remove <topic_id> <note_id> [note_id...] Remove notes
 | Flag | Description |
 |------|-------------|
 | `--api-key <key>` | Override API key for this command |
-| `--output json\|table` | Output format (default: `table`) |
+| `-o, --output json\|table` | Output format (default: `table`) |
 | `--env prod\|dev` | Target environment (default: `prod`) |
+
+## Field Output (Pipe-friendly)
+
+Use `--field` to extract a single value for use in scripts:
+
+```bash
+# Get note content
+getnote note 1234567890 --field content
+
+# Get source URL of a link note
+getnote note 1234567890 --field url
+
+# Pipe into another command
+getnote note 1234567890 --field content | pbcopy
+```
 
 ## Configuration
 
-The CLI stores credentials in `~/.getnote/config.json`:
+Credentials are stored in `~/.getnote/config.json`:
 
 ```json
 {
-  "api_key": "your-api-key",
-  "client_id": "getnote-cli"
+  "api_key": "gk_live_xxx",
+  "client_id": "cli_xxx"
 }
 ```
 
@@ -108,11 +141,12 @@ Environment variables (higher priority than config file):
 | Variable | Description |
 |----------|-------------|
 | `GETNOTE_API_KEY` | API key |
+| `GETNOTE_CLIENT_ID` | Client ID |
 | `GETNOTE_API_URL` | Override the API base URL |
 
 ## AI Agent Usage
 
-All commands support `--output json` for machine-readable output. See the [skills/](./skills/) directory for agent skill documentation.
+All commands support `-o json` for machine-readable output. See the [skills/](./skills/) directory for agent skill documentation.
 
 ## License
 
