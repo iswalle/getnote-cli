@@ -37,4 +37,8 @@ install: build
 	@echo "Installing to $(INSTALL_DIR)/getnote"
 	@mkdir -p $(INSTALL_DIR)
 	install -m 755 $(BINARY) $(INSTALL_DIR)/getnote
-	@echo "Done. Run: getnote --help"
+	@echo "Done."
+	@if ! $(INSTALL_DIR)/getnote auth status 2>/dev/null | grep -q "Authenticated"; then \
+		echo ""; \
+		$(INSTALL_DIR)/getnote auth login; \
+	fi
