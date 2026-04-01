@@ -286,19 +286,23 @@ func (c *Client) KBCreate(req KBCreateRequest) (*KBCreateResponse, error) {
 type KBNotesParams struct {
 	TopicID string
 	Limit   int
+	Page    int
 }
 
 // KBNotesResponse is the response from the knowledge base notes endpoint.
 type KBNotesResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool         `json:"success"`
+	Data    NoteListData `json:"data"`
 }
 
 // KBNotes fetches notes in a knowledge base.
 // GET /open/api/v1/resource/knowledge/notes
 func (c *Client) KBNotes(params KBNotesParams) (*KBNotesResponse, error) {
-	q := url.Values{"topic_id": {params.TopicID}, "page": {"1"}}
+	page := 1
+	if params.Page > 0 {
+		page = params.Page
+	}
+	q := url.Values{"topic_id": {params.TopicID}, "page": {fmt.Sprintf("%d", page)}}
 	if params.Limit > 0 {
 		q.Set("limit", fmt.Sprintf("%d", params.Limit))
 	}

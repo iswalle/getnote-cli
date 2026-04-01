@@ -6,7 +6,11 @@ import (
 
 	"github.com/iswalle/getnote-cli/cmd/auth"
 	"github.com/iswalle/getnote-cli/cmd/kb"
+	"github.com/iswalle/getnote-cli/cmd/kbs"
 	"github.com/iswalle/getnote-cli/cmd/note"
+	"github.com/iswalle/getnote-cli/cmd/notes"
+	"github.com/iswalle/getnote-cli/cmd/save"
+	"github.com/iswalle/getnote-cli/cmd/task"
 	"github.com/iswalle/getnote-cli/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -19,7 +23,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "getnote",
-	Short: "CLI tool for Get笔记 (getnote)",
+	Short: "CLI tool for Get笔记",
 	Long: `getnote is a command-line tool for interacting with Get笔记.
 It allows both humans and AI agents to manage notes and knowledge bases
 from the terminal.`,
@@ -42,24 +46,24 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&envTarget, "env", "prod", "Environment: prod or dev")
 
 	rootCmd.AddCommand(auth.NewAuthCmd())
+	rootCmd.AddCommand(save.NewSaveCmd())
+	rootCmd.AddCommand(task.NewTaskCmd())
+	rootCmd.AddCommand(notes.NewNotesCmd())
 	rootCmd.AddCommand(note.NewNoteCmd())
+	rootCmd.AddCommand(kbs.NewKbsCmd())
 	rootCmd.AddCommand(kb.NewKbCmd())
 }
 
 func initConfig() {
 	cfg := config.Get()
 
-	// --api-key flag takes highest priority
 	if apiKey != "" {
 		cfg.APIKey = apiKey
 		return
 	}
 
-	// GETNOTE_API_KEY env var takes second priority
 	if envKey := os.Getenv("GETNOTE_API_KEY"); envKey != "" {
 		cfg.APIKey = envKey
 		return
 	}
-
-	// Fall back to config file (already loaded by config.Get())
 }

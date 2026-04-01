@@ -1,7 +1,6 @@
 package note
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,124 +11,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewNoteCmd returns the note command tree.
+// NewNoteCmd returns the note command (detail + update + delete).
 func NewNoteCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "note",
-		Short: "Manage notes",
-		Long:  "Save, list, get, update, delete, search, and query note tasks.",
-	}
-
-	cmd.AddCommand(newSaveCmd())
-	cmd.AddCommand(newListCmd())
-	cmd.AddCommand(newGetCmd())
-	cmd.AddCommand(newUpdateCmd())
-	cmd.AddCommand(newDeleteCmd())
-	cmd.AddCommand(newTaskCmd())
-	return cmd
-}
-
-// outputFormat reads the --output flag from the root persistent flags.
-func outputFormat(cmd *cobra.Command) string {
-	f, _ := cmd.Root().PersistentFlags().GetString("output")
-	return f
-}
-
-// envTarget reads the --env flag from the root persistent flags.
-func envTarget(cmd *cobra.Command) string {
-	e, _ := cmd.Root().PersistentFlags().GetString("env")
-	return e
-}
-
-func newSaveCmd() *cobra.Command {
-	var title string
-	var tags []string
+	var field string
 
 	cmd := &cobra.Command{
-		Use:   "save <url|text>",
-		Short: "Save a note",
-		Long: `Save a note from a URL or plain text.
-If the argument starts with http:// or https://, it is saved as a link note.
-Otherwise it is saved as a plain-text note.`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			input := args[0]
-			c := client.New(envTarget(cmd))
-
-			req := client.NoteSaveRequest{Title: title, Tags: tags}
-			if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
-				req.NoteType = "link"
-				req.LinkURL = input
-			} else {
-				req.NoteType = "plain_text"
-				req.Content = input
-			}
-
-			resp, err := c.NoteSave(req)
-			if err != nil {
-				return err
-			}
-
-			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Note saved successfully.")
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVar(&title, "title", "", "Optional title for the note")
-	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Tag to apply (can be specified multiple times)")
-	return cmd
-}
-
-func newListCmd() *cobra.Command {
-	var limit int
-	var sinceID string
-
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List recent notes",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
-			resp, err := c.NoteList(client.NoteListParams{
-				Limit:   limit,
-				SinceID: sinceID,
-			})
-			if err != nil {
-				return err
-			}
-
-			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
-			}
-
-			table := tablewriter.NewWriter(cmd.OutOrStdout())
-			table.SetHeader([]string{"ID", "Title", "Type", "Created"})
-			table.SetBorder(false)
-			table.SetAutoWrapText(false)
-			for _, n := range resp.Data.Notes {
-				id := n.NoteID.String()
-				if id == "" || id == "0" {
-					id = n.ID.String()
-				}
-				table.Append([]string{id, n.Title, n.NoteType, n.CreatedAt})
-			}
-			table.Render()
-			return nil
-		},
-	}
-
-	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes to return")
-	cmd.Flags().StringVar(&sinceID, "since-id", "", "Cursor for pagination (note ID)")
-	return cmd
-}
-
-func newGetCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <note_id>",
-		Short: "Get note details",
+		Use:   "note <id>",
+		Short: "Show note details",
 		Args:  cobra.ExactArgs(1),
+		Example: `  getnote note 1234567890
+  getnote note 1234567890 --field content
+  getnote note 1234567890 --field url`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New(envTarget(cmd))
 			resp, err := c.NoteGet(args[0])
@@ -137,8 +29,15 @@ func newGetCmd() *cobra.Command {
 				return err
 			}
 
+			// --field: output single field as plain text
+			if field != "" {
+				return printField(resp.Data.Note, field)
+			}
+
 			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
 			}
 
 			n := resp.Data.Note
@@ -151,29 +50,71 @@ func newGetCmd() *cobra.Command {
 			table.Append([]string{"Type", n.NoteType})
 			table.Append([]string{"Created", n.CreatedAt})
 			table.Append([]string{"Updated", n.UpdatedAt})
-			if n.WebPage != nil {
+			if n.WebPage != nil && n.WebPage.URL != "" {
 				table.Append([]string{"URL", n.WebPage.URL})
-				table.Append([]string{"Excerpt", n.WebPage.Excerpt})
 			}
-			if len(n.Content) > 0 {
-				content := n.Content
-				if len(content) > 200 {
-					content = content[:200] + "..."
+			if n.WebPage != nil && n.WebPage.Excerpt != "" {
+				table.Append([]string{"Excerpt", truncate(n.WebPage.Excerpt, 120)})
+			}
+			if n.Content != "" {
+				table.Append([]string{"Content", truncate(n.Content, 200)})
+			}
+			if len(n.Tags) > 0 {
+				tagNames := make([]string, len(n.Tags))
+				for i, t := range n.Tags {
+					tagNames[i] = t.Name
 				}
-				table.Append([]string{"Content", content})
+				table.Append([]string{"Tags", strings.Join(tagNames, ", ")})
 			}
 			table.Render()
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, title, content, type, created_at, updated_at, url, excerpt)")
+	cmd.AddCommand(newUpdateCmd())
+	cmd.AddCommand(newDeleteCmd())
+	return cmd
+}
+
+// printField outputs a single field from a note as plain text.
+func printField(n client.Note, field string) error {
+	var val string
+	switch field {
+	case "id":
+		val = n.NoteID.String()
+	case "title":
+		val = n.Title
+	case "content":
+		val = n.Content
+	case "type":
+		val = n.NoteType
+	case "created_at":
+		val = n.CreatedAt
+	case "updated_at":
+		val = n.UpdatedAt
+	case "url":
+		if n.WebPage != nil {
+			val = n.WebPage.URL
+		}
+	case "excerpt":
+		if n.WebPage != nil {
+			val = n.WebPage.Excerpt
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "unknown field %q; valid: id, title, content, type, created_at, updated_at, url, excerpt\n", field)
+		os.Exit(1)
+	}
+	fmt.Println(val)
+	return nil
 }
 
 func newUpdateCmd() *cobra.Command {
 	var title, content, tags string
 
 	cmd := &cobra.Command{
-		Use:   "update <note_id>",
-		Short: "Update a note",
+		Use:   "update <id>",
+		Short: "Update a note's title, content, or tags",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req := client.NoteUpdateRequest{ID: args[0]}
@@ -185,6 +126,12 @@ func newUpdateCmd() *cobra.Command {
 			}
 			if tags != "" {
 				req.Tags = strings.Split(tags, ",")
+				for i := range req.Tags {
+					req.Tags[i] = strings.TrimSpace(req.Tags[i])
+				}
+			}
+			if req.Title == "" && req.Content == "" && req.Tags == nil {
+				return fmt.Errorf("at least one of --title, --content, --tag is required")
 			}
 
 			c := client.New(envTarget(cmd))
@@ -194,16 +141,18 @@ func newUpdateCmd() *cobra.Command {
 			}
 
 			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Note updated successfully.")
+			fmt.Fprintln(cmd.OutOrStdout(), "✓ Note updated.")
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&title, "title", "", "New title")
-	cmd.Flags().StringVar(&content, "content", "", "New content")
-	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tags (replaces existing tags)")
+	cmd.Flags().StringVar(&content, "content", "", "New content (plain_text notes only)")
+	cmd.Flags().StringVar(&tags, "tag", "", "Tags (comma-separated, replaces existing)")
 	return cmd
 }
 
@@ -211,82 +160,47 @@ func newDeleteCmd() *cobra.Command {
 	var yes bool
 
 	cmd := &cobra.Command{
-		Use:   "delete <note_id>",
-		Short: "Delete a note",
+		Use:   "delete <id>",
+		Short: "Delete a note (moves to trash)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			noteID := args[0]
-
 			if !yes {
-				fmt.Fprintf(cmd.OutOrStdout(), "Delete note %s? [y/N] ", noteID)
-				reader := bufio.NewReader(os.Stdin)
-				line, _ := reader.ReadString('\n')
-				if strings.ToLower(strings.TrimSpace(line)) != "y" {
-					fmt.Fprintln(cmd.OutOrStdout(), "Aborted.")
+				fmt.Fprintf(cmd.OutOrStdout(), "Delete note %s? [y/N] ", args[0])
+				var confirm string
+				fmt.Scanln(&confirm)
+				if strings.ToLower(confirm) != "y" {
+					fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
 					return nil
 				}
 			}
 
 			c := client.New(envTarget(cmd))
-			resp, err := c.NoteDelete(noteID)
+			_, err := c.NoteDelete(args[0])
 			if err != nil {
 				return err
 			}
-
-			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Note deleted successfully.")
+			fmt.Fprintln(cmd.OutOrStdout(), "✓ Note moved to trash.")
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt")
 	return cmd
 }
 
-func newTaskCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "task <task_id>",
-		Short: "Query the progress of a note-save task",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
-			resp, err := c.NoteTask(args[0])
-			if err != nil {
-				return err
-			}
-
-			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
-			}
-
-			d := resp.Data
-			table := tablewriter.NewWriter(cmd.OutOrStdout())
-			table.SetHeader([]string{"Field", "Value"})
-			table.SetBorder(false)
-			table.Append([]string{"Task ID", d.TaskID})
-			table.Append([]string{"Status", d.Status})
-			if d.NoteID != "" {
-				table.Append([]string{"Note ID", d.NoteID})
-			}
-			if d.Msg != "" {
-				table.Append([]string{"Message", d.Msg})
-			}
-			table.Render()
-			return nil
-		},
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
 	}
+	return s[:max] + "..."
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-func printJSON(cmd *cobra.Command, v interface{}) error {
-	enc := json.NewEncoder(cmd.OutOrStdout())
-	enc.SetIndent("", "  ")
-	return enc.Encode(v)
+func outputFormat(cmd *cobra.Command) string {
+	f, _ := cmd.Root().PersistentFlags().GetString("output")
+	return f
 }
 
-
+func envTarget(cmd *cobra.Command) string {
+	e, _ := cmd.Root().PersistentFlags().GetString("env")
+	return e
+}

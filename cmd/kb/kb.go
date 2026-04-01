@@ -9,56 +9,93 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
-// NewKbCmd returns the kb command tree.
+// NewKbCmd returns the kb command (notes in KB + create + add + remove).
 func NewKbCmd() *cobra.Command {
+	var limit int
+	var all bool
+
 	cmd := &cobra.Command{
-		Use:   "kb",
-		Short: "Manage knowledge bases",
-		Long:  "List, create knowledge bases and manage their notes.",
-	}
-
-	cmd.AddCommand(newListCmd())
-	cmd.AddCommand(newCreateCmd())
-	cmd.AddCommand(newNotesCmd())
-	cmd.AddCommand(newAddCmd())
-	cmd.AddCommand(newRemoveCmd())
-	return cmd
-}
-
-func outputFormat(cmd *cobra.Command) string {
-	f, _ := cmd.Root().PersistentFlags().GetString("output")
-	return f
-}
-
-func envTarget(cmd *cobra.Command) string {
-	e, _ := cmd.Root().PersistentFlags().GetString("env")
-	return e
-}
-
-func newListCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "list",
-		Short: "List all knowledge bases",
+		Use:   "kb <topic_id>",
+		Short: "List notes in a knowledge base",
+		Args:  cobra.ExactArgs(1),
+		Example: `  getnote kb vnrOAaGY
+  getnote kb vnrOAaGY --limit 5
+  getnote kb vnrOAaGY --all`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New(envTarget(cmd))
-			resp, err := c.KBList()
+
+			if all {
+				return listAllKBNotes(cmd, c, args[0])
+			}
+
+			resp, err := c.KBNotes(client.KBNotesParams{TopicID: args[0], Limit: limit})
 			if err != nil {
 				return err
 			}
 
 			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
 			}
 
 			table := tablewriter.NewWriter(cmd.OutOrStdout())
-			table.SetHeader([]string{"ID", "Name", "Description", "Notes"})
+			table.SetHeader([]string{"ID", "Title", "Type", "Created"})
 			table.SetBorder(false)
 			table.SetAutoWrapText(false)
-			renderKBRows(table, resp.Data)
+			renderNoteRows(table, resp.Data)
 			table.Render()
+
+			if resp.Data.HasMore {
+				fmt.Fprintf(cmd.OutOrStdout(),
+					"\n(showing %d notes, use --all for everything)\n",
+					len(resp.Data.Notes))
+			}
 			return nil
 		},
+	}
+
+	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes per page")
+	cmd.Flags().BoolVar(&all, "all", false, "Fetch all notes (auto-paginate)")
+
+	cmd.AddCommand(newCreateCmd())
+	cmd.AddCommand(newAddCmd())
+	cmd.AddCommand(newRemoveCmd())
+	return cmd
+}
+
+func listAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) error {
+	table := tablewriter.NewWriter(cmd.OutOrStdout())
+	table.SetHeader([]string{"ID", "Title", "Type", "Created"})
+	table.SetBorder(false)
+	table.SetAutoWrapText(false)
+
+	page := 1
+	total := 0
+	for {
+		resp, err := c.KBNotes(client.KBNotesParams{TopicID: topicID, Limit: 20, Page: page})
+		if err != nil {
+			return err
+		}
+		renderNoteRows(table, resp.Data)
+		total += len(resp.Data.Notes)
+		if !resp.Data.HasMore {
+			break
+		}
+		page++
+	}
+	table.Render()
+	fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes total)\n", total)
+	return nil
+}
+
+func renderNoteRows(table *tablewriter.Table, data client.NoteListData) {
+	for _, n := range data.Notes {
+		id := n.NoteID.String()
+		if id == "" || id == "0" {
+			id = n.ID.String()
+		}
+		table.Append([]string{id, n.Title, n.NoteType, n.CreatedAt})
 	}
 }
 
@@ -71,58 +108,20 @@ func newCreateCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New(envTarget(cmd))
-			resp, err := c.KBCreate(client.KBCreateRequest{
-				Name:        args[0],
-				Description: desc,
-			})
+			resp, err := c.KBCreate(client.KBCreateRequest{Name: args[0], Description: desc})
 			if err != nil {
 				return err
 			}
-
 			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Knowledge base created successfully.")
+			fmt.Fprintln(cmd.OutOrStdout(), "✓ Knowledge base created.")
 			return nil
 		},
 	}
-
-	cmd.Flags().StringVar(&desc, "desc", "", "Description for the knowledge base")
-	return cmd
-}
-
-func newNotesCmd() *cobra.Command {
-	var limit int
-
-	cmd := &cobra.Command{
-		Use:   "notes <topic_id>",
-		Short: "List notes in a knowledge base",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
-			resp, err := c.KBNotes(client.KBNotesParams{
-				TopicID: args[0],
-				Limit:   limit,
-			})
-			if err != nil {
-				return err
-			}
-
-			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
-			}
-
-			table := tablewriter.NewWriter(cmd.OutOrStdout())
-			table.SetHeader([]string{"ID", "Title", "Type", "Created"})
-			table.SetBorder(false)
-			table.SetAutoWrapText(false)
-			renderNoteRows(table, resp.Data)
-			table.Render()
-			return nil
-		},
-	}
-
-	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes to return")
+	cmd.Flags().StringVar(&desc, "desc", "", "Description")
 	return cmd
 }
 
@@ -132,19 +131,12 @@ func newAddCmd() *cobra.Command {
 		Short: "Add notes to a knowledge base",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			topicID := args[0]
-			noteIDs := args[1:]
-
 			c := client.New(envTarget(cmd))
-			resp, err := c.KBNotesAdd(topicID, noteIDs)
+			_, err := c.KBNotesAdd(args[0], args[1:])
 			if err != nil {
 				return err
 			}
-
-			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Added %d note(s) to knowledge base %s.\n", len(noteIDs), topicID)
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Added %d note(s) to %s.\n", len(args[1:]), args[0])
 			return nil
 		},
 	}
@@ -156,63 +148,23 @@ func newRemoveCmd() *cobra.Command {
 		Short: "Remove notes from a knowledge base",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			topicID := args[0]
-			noteIDs := args[1:]
-
 			c := client.New(envTarget(cmd))
-			resp, err := c.KBNotesRemove(topicID, noteIDs)
+			_, err := c.KBNotesRemove(args[0], args[1:])
 			if err != nil {
 				return err
 			}
-
-			if outputFormat(cmd) == "json" {
-				return printJSON(cmd, resp)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Removed %d note(s) from knowledge base %s.\n", len(noteIDs), topicID)
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed %d note(s) from %s.\n", len(args[1:]), args[0])
 			return nil
 		},
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-func printJSON(cmd *cobra.Command, v interface{}) error {
-	enc := json.NewEncoder(cmd.OutOrStdout())
-	enc.SetIndent("", "  ")
-	return enc.Encode(v)
+func outputFormat(cmd *cobra.Command) string {
+	f, _ := cmd.Root().PersistentFlags().GetString("output")
+	return f
 }
 
-func renderKBRows(table *tablewriter.Table, data client.KBListData) {
-	for _, t := range data.Topics {
-		table.Append([]string{
-			t.TopicID,
-			t.Name,
-			t.Description,
-			fmt.Sprintf("%d", t.Stats.NoteCount),
-		})
-	}
-}
-
-func renderNoteRows(table *tablewriter.Table, data interface{}) {
-	if data == nil {
-		return
-	}
-	b, err := json.Marshal(data)
-	if err != nil {
-		return
-	}
-	var rows []map[string]interface{}
-	if err := json.Unmarshal(b, &rows); err != nil {
-		table.Append([]string{string(b)})
-		return
-	}
-	for _, row := range rows {
-		id := fmt.Sprintf("%v", row["id"])
-		title := fmt.Sprintf("%v", row["title"])
-		noteType := fmt.Sprintf("%v", row["type"])
-		created := fmt.Sprintf("%v", row["created_at"])
-		table.Append([]string{id, title, noteType, created})
-	}
+func envTarget(cmd *cobra.Command) string {
+	e, _ := cmd.Root().PersistentFlags().GetString("env")
+	return e
 }
