@@ -27,4 +27,5 @@ lint:
 	go vet ./...
 
 install: build
+	mkdir -p /usr/local/bin
 	mv $(BINARY) /usr/local/bin/getnote
