@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+
 // NewKbCmd returns the kb command tree.
 func NewKbCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -183,25 +184,14 @@ func printJSON(cmd *cobra.Command, v interface{}) error {
 	return enc.Encode(v)
 }
 
-func renderKBRows(table *tablewriter.Table, data interface{}) {
-	if data == nil {
-		return
-	}
-	b, err := json.Marshal(data)
-	if err != nil {
-		return
-	}
-	var rows []map[string]interface{}
-	if err := json.Unmarshal(b, &rows); err != nil {
-		table.Append([]string{string(b)})
-		return
-	}
-	for _, row := range rows {
-		id := fmt.Sprintf("%v", row["id"])
-		name := fmt.Sprintf("%v", row["name"])
-		desc := fmt.Sprintf("%v", row["description"])
-		count := fmt.Sprintf("%v", row["note_count"])
-		table.Append([]string{id, name, desc, count})
+func renderKBRows(table *tablewriter.Table, data client.KBListData) {
+	for _, t := range data.Topics {
+		table.Append([]string{
+			t.TopicID,
+			t.Name,
+			t.Description,
+			fmt.Sprintf("%d", t.Stats.NoteCount),
+		})
 	}
 }
 

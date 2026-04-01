@@ -187,11 +187,38 @@ func (c *Client) NoteTask(taskID string) (*NoteTaskResponse, error) {
 // Knowledge Base API
 // ---------------------------------------------------------------------------
 
+// KBTopic represents a single knowledge base.
+type KBTopic struct {
+	ID          string      `json:"id"`
+	TopicID     string      `json:"topic_id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Cover       string      `json:"cover"`
+	Scope       string      `json:"scope"`
+	CreatedAt   string      `json:"created_at"`
+	UpdatedAt   string      `json:"updated_at"`
+	Stats       KBTopicStats `json:"stats"`
+}
+
+// KBTopicStats holds knowledge base statistics.
+type KBTopicStats struct {
+	NoteCount    int `json:"note_count"`
+	FileCount    int `json:"file_count"`
+	BloggerCount int `json:"blogger_count"`
+	LiveCount    int `json:"live_count"`
+}
+
+// KBListData is the data field of the knowledge base list response.
+type KBListData struct {
+	Topics  []KBTopic `json:"topics"`
+	HasMore bool      `json:"has_more"`
+	Total   int       `json:"total"`
+}
+
 // KBListResponse is the response from the knowledge base list endpoint.
 type KBListResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool       `json:"success"`
+	Data    KBListData `json:"data"`
 }
 
 // KBList fetches all knowledge bases.
