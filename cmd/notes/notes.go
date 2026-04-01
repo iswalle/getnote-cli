@@ -3,13 +3,21 @@ package notes
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/iswalle/getnote-cli/internal/client"
 	"github.com/iswalle/getnote-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
+
+const sep = "  "
+
+var cols = []ui.ColSpec{
+	{Value: "ID", Width: 20},
+	{Value: "Title", Width: 52},
+	{Value: "Type", Width: 14},
+	{Value: "Created", Width: 19},
+}
 
 // NewNotesCmd returns the top-level notes (list) command.
 func NewNotesCmd() *cobra.Command {
@@ -67,7 +75,6 @@ func NewNotesCmd() *cobra.Command {
 // streamAll fetches all notes page by page, printing each row immediately.
 func streamAll(cmd *cobra.Command, c *client.Client) error {
 	printHeader(cmd)
-
 	sinceID := "0"
 	total := 0
 	for {
@@ -83,27 +90,25 @@ func streamAll(cmd *cobra.Command, c *client.Client) error {
 			break
 		}
 		sinceID = resp.Data.NextCursor.String()
-		time.Sleep(500 * time.Millisecond) // respect QPS limit
+		time.Sleep(500 * time.Millisecond)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes total)\n", total)
 	return nil
 }
 
-const colID = 20
-const colTitle = 60
-const colType = 16
-const colCreated = 20
-
 func printHeader(cmd *cobra.Command) {
-	fmt.Fprintf(cmd.OutOrStdout(), "%-*s  %-*s  %-*s  %-*s\n",
-		colID, "ID", colTitle, "Title", colType, "Type", colCreated, "Created")
-	fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", colID+colTitle+colType+colCreated+6))
+	fmt.Fprint(cmd.OutOrStdout(), ui.PrintHeader(cols, sep))
+	fmt.Fprint(cmd.OutOrStdout(), ui.DividerLine(cols, sep))
 }
 
 func printRow(cmd *cobra.Command, n client.Note) {
-	title := ui.Truncate(n.Title, colTitle)
-	fmt.Fprintf(cmd.OutOrStdout(), "%-*s  %-*s  %-*s  %-*s\n",
-		colID, ui.NoteID(n.NoteID, n.ID), colTitle, title, colType, n.NoteType, colCreated, n.CreatedAt)
+	row := []ui.ColSpec{
+		{Value: ui.NoteID(n.NoteID, n.ID), Width: cols[0].Width},
+		{Value: n.Title, Width: cols[1].Width},
+		{Value: n.NoteType, Width: cols[2].Width},
+		{Value: n.CreatedAt, Width: cols[3].Width},
+	}
+	fmt.Fprint(cmd.OutOrStdout(), ui.PrintRow(row, sep))
 }
 
 func outputFormat(cmd *cobra.Command) string {

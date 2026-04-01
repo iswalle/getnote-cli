@@ -3,7 +3,6 @@ package kb
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/iswalle/getnote-cli/internal/client"
@@ -69,14 +68,18 @@ func NewKbCmd() *cobra.Command {
 	return cmd
 }
 
+var noteCols = []ui.ColSpec{
+	{Value: "ID", Width: 20},
+	{Value: "Title", Width: 52},
+	{Value: "Type", Width: 14},
+	{Value: "Created", Width: 19},
+}
+
+const colSep = "  "
+
 func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) error {
-	const colID = 20
-	const colTitle = 60
-	const colType = 16
-	const colCreated = 20
-	fmt.Fprintf(cmd.OutOrStdout(), "%-*s  %-*s  %-*s  %-*s\n",
-		colID, "ID", colTitle, "Title", colType, "Type", colCreated, "Created")
-	fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", colID+colTitle+colType+colCreated+6))
+	fmt.Fprint(cmd.OutOrStdout(), ui.PrintHeader(noteCols, colSep))
+	fmt.Fprint(cmd.OutOrStdout(), ui.DividerLine(noteCols, colSep))
 
 	page := 1
 	total := 0
@@ -86,10 +89,13 @@ func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) erro
 			return ui.FriendlyError(err)
 		}
 		for _, n := range resp.Data.Notes {
-			id := ui.NoteID(n.NoteID, n.ID)
-			title := ui.Truncate(n.Title, colTitle)
-			fmt.Fprintf(cmd.OutOrStdout(), "%-*s  %-*s  %-*s  %-*s\n",
-				colID, id, colTitle, title, colType, n.NoteType, colCreated, n.CreatedAt)
+			row := []ui.ColSpec{
+				{Value: ui.NoteID(n.NoteID, n.ID), Width: noteCols[0].Width},
+				{Value: n.Title, Width: noteCols[1].Width},
+				{Value: n.NoteType, Width: noteCols[2].Width},
+				{Value: n.CreatedAt, Width: noteCols[3].Width},
+			}
+			fmt.Fprint(cmd.OutOrStdout(), ui.PrintRow(row, colSep))
 			total++
 		}
 		if !resp.Data.HasMore {
@@ -104,7 +110,12 @@ func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) erro
 
 func renderNoteRows(table *tablewriter.Table, data client.NoteListData) {
 	for _, n := range data.Notes {
-		table.Append([]string{ui.NoteID(n.NoteID, n.ID), n.Title, n.NoteType, n.CreatedAt})
+		table.Append([]string{
+			ui.NoteID(n.NoteID, n.ID),
+			ui.Truncate(n.Title, 40),
+			n.NoteType,
+			n.CreatedAt,
+		})
 	}
 }
 
