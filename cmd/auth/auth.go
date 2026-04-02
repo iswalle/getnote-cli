@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -104,9 +106,10 @@ func runDeviceFlow(out io.Writer) error {
 	}
 	deadline := time.Now().Add(time.Duration(d.ExpiresIn) * time.Second)
 
-	// Step 2: show user the link
+	// Step 2: show user the link and try to open browser
 	fmt.Fprintf(out, "\n🔗 Open this URL to authorize:\n\n   %s\n\n", d.VerificationURI)
 	fmt.Fprintf(out, "⚠️  Confirm code on the page: %s\n\n", d.UserCode)
+	openBrowser(d.VerificationURI)
 	fmt.Fprintf(out, "Waiting for authorization")
 
 	// Step 3: poll
@@ -218,4 +221,20 @@ func maskKey(key string) string {
 	}
 	copy(masked[len(key)-4:], key[len(key)-4:])
 	return string(masked)
+}
+
+// openBrowser attempts to open the URL in the default browser. Silently ignores errors.
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		return
+	}
+	_ = cmd.Start()
 }
