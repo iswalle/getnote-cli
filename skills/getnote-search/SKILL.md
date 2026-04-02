@@ -1,6 +1,6 @@
 ---
 name: getnote-search
-version: 0.2.0
+version: 0.3.0
 description: Semantic search across notes in Get笔记 via the getnote CLI
 ---
 
@@ -22,8 +22,12 @@ getnote search <query> [--kb <topic_id>] [--limit <n>]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--kb` | — | Limit search to a knowledge base (topic_id) |
+| `--kb` | — | Limit search to a knowledge base (`topic_id`) |
 | `--limit` | 10 | Max results (max 10) |
+
+Results are ranked by semantic relevance (high → low). Each result includes: `note_id`, `title`, `content` (excerpt), `created_at`, `note_type`.
+
+> Note: `note_id` is only populated for `NOTE` type results. Other types (`FILE`, `BLOGGER`, `LIVE`, etc.) return an empty `note_id`.
 
 ```bash
 # Search across all notes
@@ -42,6 +46,6 @@ getnote search "机器学习" --limit 5 -o json
 
 - Use `-o json` when parsing results programmatically.
 - Get `topic_id` for `--kb` from `getnote kbs -o json`.
-- Results are ranked by semantic relevance, not recency.
-- Max `--limit` is 10; use `getnote notes` for broader browsing.
+- For `NOTE` type results, use `getnote note <note_id>` to get the full content.
+- Max `--limit` is 10; use `getnote notes` for browsing without a query.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.

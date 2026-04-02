@@ -1,12 +1,12 @@
 ---
 name: getnote-note
-version: 0.2.0
+version: 0.3.0
 description: Manage notes in Get笔记 via the getnote CLI
 ---
 
 # getnote-note Skill
 
-Manage individual notes in Get笔记 — save, list, get, update, delete, and track save tasks.
+Save, list, view, update, and delete notes in Get笔记.
 
 ## Prerequisites
 
@@ -25,19 +25,17 @@ getnote save <url|text|image_path> [--title <title>] [--tag <tag>]...
 | `--title` | Optional title |
 | `--tag` | Tag to apply; may be repeated |
 
-- URL (`http://` or `https://`) → saved as link note
-- Local image path → saved as image note
-- Otherwise → saved as text note
+- URL (`http://` or `https://`) → link note (async, auto-polls until done)
+- Local image path → image note (async, auto-polls until done)
+- Otherwise → text note (sync)
 
-**Examples:**
 ```bash
 getnote save https://example.com --title "Great article"
 getnote save "Remember to review the docs" --tag work --tag important
 getnote save ./screenshot.png --title "Design mockup"
 ```
 
-URL saves are async; the CLI auto-polls until done, then shows the result.
-In `-o json` mode, silently polls and returns the final note JSON.
+In `-o json` mode, silently polls and returns the final note JSON (including `title`, `content`/summary, `note_type`, `tags`, `created_at`).
 
 ---
 
@@ -47,34 +45,37 @@ In `-o json` mode, silently polls and returns the final note JSON.
 getnote task <task_id>
 ```
 
-Check progress of an async save task (returned by `save` for URLs).
+Manually check progress of an async save task.
 
 ```bash
-getnote task task_xyz789
 getnote task task_xyz789 -o json
 ```
+
+Returns `status` (`pending` / `processing` / `success` / `failed`) and `note_id` when done.
 
 ---
 
 ### List recent notes
 
 ```
-getnote notes [--limit <n>] [--since-id <id>] [--all]
+getnote notes [--since-id <id>] [--all]
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--limit` | 20 | Notes per page |
-| `--since-id` | — | Pagination cursor (last note ID seen) |
-| `--all` | — | Fetch all notes (auto-paginate, streams output) |
+Returns 20 notes per page (fixed). No `--limit` flag.
+
+| Flag | Description |
+|------|-------------|
+| `--since-id` | Pagination cursor (last note ID seen) |
+| `--all` | Fetch all notes (auto-paginate, streams output) |
 
 ```bash
 getnote notes
-getnote notes --limit 5
 getnote notes --all
 getnote notes --since-id 1234567890
 getnote notes -o json
 ```
+
+**Note types**: `plain_text` / `img_text` / `link` / `audio` / `meeting` / `local_audio` / `internal_record` / `class_audio` / `recorder_audio` / `recorder_flash_audio`
 
 ---
 
@@ -84,9 +85,18 @@ getnote notes -o json
 getnote note <id> [--field <field>]
 ```
 
-| Flag | Description |
+Returns full note including content, tags, attachments. Use `--field` to extract a single value.
+
+| `--field` values | Description |
 |------|-------------|
-| `--field` | Output a single field: `id` / `title` / `content` / `type` / `created_at` / `updated_at` / `url` / `excerpt` |
+| `id` | Note ID |
+| `title` | Title |
+| `content` | Content / AI summary |
+| `type` | Note type |
+| `created_at` | Creation time |
+| `updated_at` | Last updated time |
+| `url` | Source URL (link notes) |
+| `excerpt` | Excerpt |
 
 ```bash
 getnote note 1234567890
@@ -107,12 +117,15 @@ getnote note update <id> [--title <title>] [--content <content>] [--tag <tags>]
 |------|-------------|
 | `--title` | New title |
 | `--content` | New content (plain_text notes only) |
-| `--tag` | Comma-separated tags (replaces all existing tags) |
+| `--tag` | Comma-separated tags — **replaces all existing tags** |
 
 ```bash
 getnote note update 1234567890 --title "Updated title"
 getnote note update 1234567890 --tag "work,important"
 ```
+
+> ⚠️ `--tag` replaces all tags. For partial tag changes use `getnote tag add/remove`.
+> ⚠️ Content update only works on `plain_text` notes.
 
 ---
 
@@ -124,12 +137,7 @@ getnote note delete <id> [-y]
 
 Moves note to trash.
 
-| Flag | Description |
-|------|-------------|
-| `-y` | Skip confirmation prompt |
-
 ```bash
-getnote note delete 1234567890
 getnote note delete 1234567890 -y
 ```
 
@@ -138,6 +146,6 @@ getnote note delete 1234567890 -y
 ## Agent Usage Notes
 
 - Use `-o json` when parsing responses programmatically.
-- `save` for URLs is async; in `-o json` mode the CLI auto-polls and returns the final note — no manual `task` polling needed.
-- `note update --tag` replaces **all** existing tags; use `getnote tag add/remove` for partial updates.
+- `notes` list returns **20 per page** (no `--limit`); paginate with `--since-id`.
+- Note IDs are int64 — always handle as strings to avoid precision loss in JavaScript.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
