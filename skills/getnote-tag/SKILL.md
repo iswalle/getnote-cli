@@ -1,65 +1,60 @@
 ---
 name: getnote-tag
-version: 0.1.0
+version: 0.2.0
 description: Manage note tags in Get笔记 via the getnote CLI
 ---
 
 # getnote-tag Skill
 
-Add, list, and remove tags on notes in Get笔记.
+Add, list, and remove tags on notes.
 
 ## Prerequisites
 
 - `getnote` CLI installed and authenticated (`getnote auth status` should show "Authenticated")
-- API key configured via `getnote auth login --api-key <key>` or the `GETNOTE_API_KEY` environment variable
 
 ## Commands
 
 ### List tags on a note
 
 ```
-getnote tag list <note_id> [--output json|table]
+getnote tag list <note_id>
 ```
 
-**Examples:**
+Returns all tags including their IDs (needed for `tag remove`).
+
 ```bash
 getnote tag list 1896830231705320746
-getnote tag list 1896830231705320746 --output json
+getnote tag list 1896830231705320746 -o json
 ```
-
-Returns tag list including tag IDs (needed for `tag remove`).
 
 ---
 
-### Add a tag to a note
+### Add a tag
 
 ```
 getnote tag add <note_id> <tag>
 ```
 
-**Examples:**
 ```bash
 getnote tag add 1896830231705320746 工作
-getnote tag add 1896830231705320746 阅读
 ```
 
 ---
 
-### Remove a tag from a note
+### Remove a tag
 
 ```
 getnote tag remove <note_id> <tag_id>
 ```
 
-> ⚠️ Requires **tag ID** (not tag name). Use `getnote tag list <note_id>` to find the tag ID first.
+> ⚠️ Requires **tag ID** (integer), not tag name. Run `getnote tag list <note_id>` first to get the ID.
 > System tags cannot be removed.
 
-**Examples:**
 ```bash
-# First, find the tag ID
-getnote tag list 1896830231705320746 --output json
+# Get tag IDs first
+getnote tag list 1896830231705320746 -o json
 
-# Then remove by tag ID
+# Remove by tag ID
 getnote tag remove 1896830231705320746 123
 ```
 
@@ -67,7 +62,6 @@ getnote tag remove 1896830231705320746 123
 
 ## Agent Usage Notes
 
-- Use `--output json` on `tag list` to get tag IDs for use with `tag remove`.
-- `tag remove` takes a **tag ID** (integer), not a tag name — always call `tag list` first if you only have the name.
-- System tags cannot be deleted; the CLI will return an error if attempted.
+- `tag remove` takes a **tag ID**, not a name — always call `tag list` first if you only have the name.
+- For bulk tag replacement, use `getnote note update --tag` instead (replaces all tags at once).
 - Exit code `0` = success; non-zero = error. Error details go to stderr.

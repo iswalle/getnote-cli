@@ -1,35 +1,48 @@
 ---
 name: getnote-kb
-version: 0.1.0
+version: 0.2.0
 description: Manage knowledge bases in Get笔记 via the getnote CLI
 ---
 
 # getnote-kb Skill
 
-Manage knowledge bases (话题/topic) in Get笔记 — list, create, and add or remove notes.
+Manage knowledge bases in Get笔记 — list, create, browse notes, add/remove notes.
 
 ## Prerequisites
 
 - `getnote` CLI installed and authenticated (`getnote auth status` should show "Authenticated")
-- API key configured via `getnote auth login --api-key <key>` or the `GETNOTE_API_KEY` environment variable
 
 ## Commands
 
-### List knowledge bases
+### List all knowledge bases
 
 ```
-getnote kb list [--output json|table]
+getnote kbs
 ```
 
-Returns all knowledge bases accessible to the authenticated user.
-
-**Examples:**
 ```bash
-# Human-friendly table
-getnote kb list
+getnote kbs
+getnote kbs -o json
+```
 
-# Machine-readable JSON
-getnote kb list --output json
+---
+
+### List notes in a knowledge base
+
+```
+getnote kb <topic_id> [--limit <n>] [--all]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--limit` | 20 | Notes per page |
+| `--all` | — | Fetch all notes (auto-paginate) |
+
+```bash
+getnote kb vnrOAaGY
+getnote kb vnrOAaGY --limit 5
+getnote kb vnrOAaGY --all
+getnote kb vnrOAaGY -o json
 ```
 
 ---
@@ -40,38 +53,9 @@ getnote kb list --output json
 getnote kb create <name> [--desc <description>]
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--desc` | Optional description for the knowledge base |
-
-**Examples:**
 ```bash
 getnote kb create "Research Papers"
 getnote kb create "Project Docs" --desc "Documentation links for the main project"
-```
-
----
-
-### List notes in a knowledge base
-
-```
-getnote kb notes <topic_id> [--limit <n>] [--output json|table]
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--limit` | 20 | Maximum number of notes to return |
-
-**Examples:**
-```bash
-# List notes in a knowledge base
-getnote kb notes kb_abc123
-
-# Get more results
-getnote kb notes kb_abc123 --limit 50
-
-# Machine-readable output
-getnote kb notes kb_abc123 --output json
 ```
 
 ---
@@ -82,15 +66,11 @@ getnote kb notes kb_abc123 --output json
 getnote kb add <topic_id> <note_id> [note_id...]
 ```
 
-Supports adding multiple notes in a single call.
+Supports multiple note IDs in one call.
 
-**Examples:**
 ```bash
-# Add a single note
-getnote kb add kb_abc123 note_xyz789
-
-# Add multiple notes at once
-getnote kb add kb_abc123 note_xyz789 note_def456 note_ghi012
+getnote kb add vnrOAaGY 1234567890
+getnote kb add vnrOAaGY 1234567890 9876543210
 ```
 
 ---
@@ -101,23 +81,16 @@ getnote kb add kb_abc123 note_xyz789 note_def456 note_ghi012
 getnote kb remove <topic_id> <note_id> [note_id...]
 ```
 
-Supports removing multiple notes in a single call.
-
-**Examples:**
 ```bash
-# Remove a single note
-getnote kb remove kb_abc123 note_xyz789
-
-# Remove multiple notes at once
-getnote kb remove kb_abc123 note_xyz789 note_def456
+getnote kb remove vnrOAaGY 1234567890
+getnote kb remove vnrOAaGY 1234567890 9876543210
 ```
 
 ---
 
 ## Agent Usage Notes
 
-- Use `--output json` for all commands when parsing responses programmatically.
-- To get a `topic_id`, first call `getnote kb list --output json` and extract the `id` field.
-- `kb add` and `kb remove` accept multiple note IDs in a single call — prefer batching over multiple calls.
+- Use `-o json` when parsing results programmatically.
+- Get `topic_id` from `getnote kbs -o json` (the `id` field).
+- `kb add` / `kb remove` accept multiple note IDs — prefer batching over multiple calls.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
-- Combine with `getnote note list --output json` to get note IDs before adding them to a knowledge base.

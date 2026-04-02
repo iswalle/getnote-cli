@@ -1,12 +1,12 @@
 ---
 name: getnote-auth
-version: 0.1.0
+version: 0.2.0
 description: Manage authentication for Get笔记 CLI
 ---
 
 # getnote-auth Skill
 
-Log in, log out, and check authentication status for the `getnote` CLI.
+Log in, log out, and check authentication status.
 
 ## Commands
 
@@ -16,19 +16,16 @@ Log in, log out, and check authentication status for the `getnote` CLI.
 getnote auth login [--api-key <key>] [--client-id <id>]
 ```
 
-Two modes:
-
 | Mode | Command | Description |
 |------|---------|-------------|
-| OAuth (recommended) | `getnote auth login` | Opens browser to authorize; saves credentials automatically |
-| API Key | `getnote auth login --api-key <key>` | Saves API key directly, no browser needed |
+| OAuth (recommended) | `getnote auth login` | Opens browser to authorize |
+| API Key | `getnote auth login --api-key <key>` | Saves key directly, no browser |
 
-**Examples:**
 ```bash
-# OAuth flow (opens browser)
+# OAuth flow
 getnote auth login
 
-# Direct API key
+# API key directly
 getnote auth login --api-key gk_live_xxx
 
 # API key + Client ID
@@ -45,9 +42,6 @@ API keys start with `gk_live_`. Get yours at: https://www.biji.com/settings/deve
 getnote auth status
 ```
 
-Shows whether the CLI is authenticated and which API key is in use.
-
-**Example:**
 ```bash
 getnote auth status
 ```
@@ -60,9 +54,8 @@ getnote auth status
 getnote auth logout
 ```
 
-Removes the saved API key from local config.
+Removes saved credentials from local config.
 
-**Example:**
 ```bash
 getnote auth logout
 ```
@@ -71,7 +64,7 @@ getnote auth logout
 
 ## Agent Usage Notes
 
-- Always run `getnote auth status` before other commands to verify authentication.
+- Always run `getnote auth status` first to verify authentication before other commands.
 - If not authenticated, prompt the user to run `getnote auth login`.
-- The `--api-key` flag on any command overrides the saved config temporarily (does not save).
-- Credentials are stored locally; `auth logout` removes them.
+- `--api-key` on any command is a temporary override and does not save credentials.
+- Credentials are stored in `~/.getnote/config.json`; `auth logout` removes them.

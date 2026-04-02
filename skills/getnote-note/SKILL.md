@@ -1,6 +1,6 @@
 ---
 name: getnote-note
-version: 0.1.0
+version: 0.2.0
 description: Manage notes in Get笔记 via the getnote CLI
 ---
 
@@ -11,68 +11,69 @@ Manage individual notes in Get笔记 — save, list, get, update, delete, and tr
 ## Prerequisites
 
 - `getnote` CLI installed and authenticated (`getnote auth status` should show "Authenticated")
-- API key configured via `getnote auth login --api-key <key>` or the `GETNOTE_API_KEY` environment variable
 
 ## Commands
 
 ### Save a note
 
 ```
-getnote note save <url|text> [--title <title>] [--tag <tag>]...
+getnote save <url|text|image_path> [--title <title>] [--tag <tag>]...
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--title` | Optional title for the note |
+| `--title` | Optional title |
 | `--tag` | Tag to apply; may be repeated |
 
-- If the argument starts with `http://` or `https://`, it is saved as a **link note**.
-- Otherwise it is saved as a **text note**.
+- URL (`http://` or `https://`) → saved as link note
+- Local image path → saved as image note
+- Otherwise → saved as text note
 
 **Examples:**
 ```bash
-# Save a URL
-getnote note save https://example.com/article --title "Interesting article" --tag reading
-
-# Save plain text
-getnote note save "Remember to review the API docs" --tag todo
-
-# Save with multiple tags
-getnote note save https://docs.example.com --tag docs --tag reference
+getnote save https://example.com --title "Great article"
+getnote save "Remember to review the docs" --tag work --tag important
+getnote save ./screenshot.png --title "Design mockup"
 ```
 
-The response includes a `task_id` you can use to track progress:
+URL saves are async; the CLI auto-polls until done, then shows the result.
+In `-o json` mode, silently polls and returns the final note JSON.
+
+---
+
+### Track save task
+
+```
+getnote task <task_id>
+```
+
+Check progress of an async save task (returned by `save` for URLs).
+
 ```bash
-getnote note task <task_id>
+getnote task task_xyz789
+getnote task task_xyz789 -o json
 ```
 
 ---
 
-### List notes
+### List recent notes
 
 ```
-getnote note list [--limit <n>] [--since-id <id>] [--output json|table]
+getnote notes [--limit <n>] [--since-id <id>] [--all]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--limit` | 20 | Maximum number of notes to return |
-| `--since-id` | — | Cursor for pagination (ID of last note seen) |
-| `--output` | table | Output format: `table` or `json` |
+| `--limit` | 20 | Notes per page |
+| `--since-id` | — | Pagination cursor (last note ID seen) |
+| `--all` | — | Fetch all notes (auto-paginate, streams output) |
 
-**Examples:**
 ```bash
-# List recent 20 notes
-getnote note list
-
-# List 50 notes
-getnote note list --limit 50
-
-# Paginate using cursor
-getnote note list --since-id note_abc123
-
-# Machine-readable JSON output
-getnote note list --output json
+getnote notes
+getnote notes --limit 5
+getnote notes --all
+getnote notes --since-id 1234567890
+getnote notes -o json
 ```
 
 ---
@@ -80,13 +81,18 @@ getnote note list --output json
 ### Get note details
 
 ```
-getnote note get <note_id>
+getnote note <id> [--field <field>]
 ```
 
-**Example:**
+| Flag | Description |
+|------|-------------|
+| `--field` | Output a single field: `id` / `title` / `content` / `type` / `created_at` / `updated_at` / `url` / `excerpt` |
+
 ```bash
-getnote note get note_abc123
-getnote note get note_abc123 --output json
+getnote note 1234567890
+getnote note 1234567890 --field content
+getnote note 1234567890 --field url
+getnote note 1234567890 -o json
 ```
 
 ---
@@ -94,18 +100,18 @@ getnote note get note_abc123 --output json
 ### Update a note
 
 ```
-getnote note update <note_id> [--title <title>] [--content <content>] [--tags <tag1,tag2>]
+getnote note update <id> [--title <title>] [--content <content>] [--tag <tags>]
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--title` | New title |
-| `--content` | New content body |
-| `--tags` | Comma-separated tags (replaces all existing tags) |
+| `--content` | New content (plain_text notes only) |
+| `--tag` | Comma-separated tags (replaces all existing tags) |
 
-**Example:**
 ```bash
-getnote note update note_abc123 --title "Updated title" --tags "work,important"
+getnote note update 1234567890 --title "Updated title"
+getnote note update 1234567890 --tag "work,important"
 ```
 
 ---
@@ -113,44 +119,25 @@ getnote note update note_abc123 --title "Updated title" --tags "work,important"
 ### Delete a note
 
 ```
-getnote note delete <note_id> [--yes]
+getnote note delete <id> [-y]
 ```
+
+Moves note to trash.
 
 | Flag | Description |
 |------|-------------|
-| `--yes` | Skip the confirmation prompt |
+| `-y` | Skip confirmation prompt |
 
-**Examples:**
 ```bash
-# Interactive confirmation
-getnote note delete note_abc123
-
-# Skip confirmation (useful in scripts)
-getnote note delete note_abc123 --yes
-```
-
----
-
-### Query task progress
-
-```
-getnote note task <task_id>
-```
-
-Use this after `note save` to check whether a URL has been processed.
-
-**Example:**
-```bash
-getnote note task task_xyz789
-getnote note task task_xyz789 --output json
+getnote note delete 1234567890
+getnote note delete 1234567890 -y
 ```
 
 ---
 
 ## Agent Usage Notes
 
-- Use `--output json` for all commands when parsing responses programmatically.
-- `note save` may be async for URLs; poll `note task <task_id>` until `status` is `done`.
-- `note list --output json` returns a JSON array suitable for further processing with `jq`.
-- Pass `--yes` to `note delete` to avoid interactive prompts in automated workflows.
+- Use `-o json` when parsing responses programmatically.
+- `save` for URLs is async; in `-o json` mode the CLI auto-polls and returns the final note — no manual `task` polling needed.
+- `note update --tag` replaces **all** existing tags; use `getnote tag add/remove` for partial updates.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
