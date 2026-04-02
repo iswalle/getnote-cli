@@ -74,6 +74,9 @@ async function main() {
 
     fs.chmodSync(binaryPath, 0o755);
     console.log(`getnote installed at ${binaryPath}`);
+
+    // Create symlink in npm global bin directory so `getnote` is on PATH
+    createSymlink(binaryPath, binaryName);
   } catch (err) {
     console.error('Failed to install getnote:', err.message);
     process.exit(1);
@@ -83,3 +86,23 @@ async function main() {
 }
 
 main();
+
+// Create a symlink in the npm global bin directory after download.
+// npm only creates the symlink at install time when the file already exists;
+// since we download the binary in postinstall, we need to do it ourselves.
+function createSymlink(binaryPath, binaryName) {
+  try {
+    const npmPrefix = execSync('npm prefix -g', { encoding: 'utf8' }).trim();
+    const globalBin = path.join(npmPrefix, 'bin');
+    const symlinkPath = path.join(globalBin, binaryName);
+
+    if (fs.existsSync(globalBin)) {
+      try { fs.unlinkSync(symlinkPath); } catch (_) {}
+      fs.symlinkSync(binaryPath, symlinkPath);
+      console.log(`Symlink created: ${symlinkPath} -> ${binaryPath}`);
+    }
+  } catch (err) {
+    // Non-fatal: user can run the binary directly or add it to PATH manually
+    console.warn(`Could not create symlink (you may need to add ${path.dirname(binaryPath)} to PATH): ${err.message}`);
+  }
+}
