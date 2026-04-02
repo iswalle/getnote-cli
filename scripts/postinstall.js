@@ -3,7 +3,6 @@
 
 'use strict';
 
-const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -17,21 +16,12 @@ function getPlatform() {
   const platform = os.platform();
   const arch = os.arch();
 
-  const platformMap = {
-    darwin: 'darwin',
-    linux: 'linux',
-    win32: 'windows',
-  };
-  const archMap = {
-    x64: 'amd64',
-    arm64: 'arm64',
-  };
+  const platformMap = { darwin: 'darwin', linux: 'linux', win32: 'windows' };
+  const archMap = { x64: 'amd64', arm64: 'arm64' };
 
   const p = platformMap[platform];
   const a = archMap[arch];
-  if (!p || !a) {
-    throw new Error(`Unsupported platform: ${platform}/${arch}`);
-  }
+  if (!p || !a) throw new Error(`Unsupported platform: ${platform}/${arch}`);
   return { platform: p, arch: a };
 }
 
@@ -43,31 +33,6 @@ function getDownloadURL(platform) {
   const ext = platform.platform === 'windows' ? '.zip' : '.tar.gz';
   const asset = `getnote-cli_${VERSION}_${platform.platform}_${platform.arch}${ext}`;
   return `https://github.com/${REPO}/releases/download/v${VERSION}/${asset}`;
-}
-
-async function download(url, dest) {
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest);
-    const get = (u) => {
-      https.get(u, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          file.close();
-          get(res.headers.location);
-          return;
-        }
-        if (res.statusCode !== 200) {
-          reject(new Error(`Download failed: ${res.statusCode} ${u}`));
-          return;
-        }
-        res.pipe(file);
-        file.on('finish', () => file.close(resolve));
-      }).on('error', (err) => {
-        fs.unlink(dest, () => {});
-        reject(err);
-      });
-    };
-    get(url);
-  });
 }
 
 async function main() {
@@ -84,22 +49,26 @@ async function main() {
   fs.mkdirSync(binDir, { recursive: true });
 
   try {
-    await download(url, tmpFile);
-
+    // Use curl (available on macOS/Linux) or PowerShell (Windows) for reliable redirect handling
     if (platform.platform === 'windows') {
-      execSync(`unzip -o "${tmpFile}" "${binaryName}" -d "${binDir}"`);
+      execSync(
+        `powershell -Command "Invoke-WebRequest -Uri '${url}' -OutFile '${tmpFile}'"`,
+        { stdio: 'inherit' }
+      );
+      execSync(`powershell -Command "Expand-Archive -Path '${tmpFile}' -DestinationPath '${binDir}' -Force"`, { stdio: 'inherit' });
     } else {
-      execSync(`tar -xzf "${tmpFile}" -C "${binDir}" "${binaryName}"`);
+      execSync(`curl -fsSL "${url}" -o "${tmpFile}"`, { stdio: 'inherit' });
+      execSync(`tar -xzf "${tmpFile}" -C "${binDir}" "${binaryName}"`, { stdio: 'inherit' });
     }
 
     fs.chmodSync(binaryPath, 0o755);
     console.log(`getnote installed at ${binaryPath}`);
+  } catch (err) {
+    console.error('Failed to install getnote:', err.message);
+    process.exit(1);
   } finally {
     try { fs.unlinkSync(tmpFile); } catch (_) {}
   }
 }
 
-main().catch((err) => {
-  console.error('Failed to install getnote:', err.message);
-  process.exit(1);
-});
+main();
