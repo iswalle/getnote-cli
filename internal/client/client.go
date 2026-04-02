@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/iswalle/getnote-cli/internal/config"
@@ -161,11 +163,12 @@ func (c *Client) NoteGet(noteID string) (*NoteGetResponse, error) {
 
 // NoteSaveRequest is the request body for saving a note.
 type NoteSaveRequest struct {
-	NoteType string   `json:"note_type"`           // plain_text | link
-	Content  string   `json:"content,omitempty"`   // for plain_text
-	LinkURL  string   `json:"link_url,omitempty"`  // for link
-	Title    string   `json:"title,omitempty"`
-	Tags     []string `json:"tags,omitempty"`
+	NoteType  string   `json:"note_type"`            // plain_text | link | img_text
+	Content   string   `json:"content,omitempty"`    // for plain_text
+	LinkURL   string   `json:"link_url,omitempty"`   // for link
+	ImageURLs []string `json:"image_urls,omitempty"` // for img_text
+	Title     string   `json:"title,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
 }
 
 // NoteSaveResponse is the response from the note save endpoint.
@@ -376,8 +379,197 @@ func (c *Client) KBNotesRemove(topicID string, noteIDs []string) (*KBNotesRemove
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Search (Recall) API
 // ---------------------------------------------------------------------------
+
+// RecallResult is a single search result item.
+type RecallResult struct {
+	NoteID    string `json:"note_id"`
+	NoteType  string `json:"note_type"`
+	Title     string `json:"title"`
+	Content   string `json:"content"`
+	CreatedAt string `json:"created_at"`
+}
+
+// NoteSearchRequest is the request body for global recall.
+type NoteSearchRequest struct {
+	Query string `json:"query"`
+	TopK  int    `json:"top_k,omitempty"`
+}
+
+// NoteSearchResponse is the response from the global recall endpoint.
+type NoteSearchResponse struct {
+	Success bool           `json:"success"`
+	Results []RecallResult `json:"results"`
+}
+
+// NoteSearch performs global semantic search across all notes.
+// POST /open/api/v1/resource/recall
+func (c *Client) NoteSearch(query string, topK int) (*NoteSearchResponse, error) {
+	return doPost[NoteSearchResponse](c, "/open/api/v1/resource/recall", NoteSearchRequest{Query: query, TopK: topK})
+}
+
+// KBSearchRequest is the request body for knowledge base recall.
+type KBSearchRequest struct {
+	TopicID string `json:"topic_id"`
+	Query   string `json:"query"`
+	TopK    int    `json:"top_k,omitempty"`
+}
+
+// KBSearch performs semantic search within a specific knowledge base.
+// POST /open/api/v1/resource/recall/knowledge
+func (c *Client) KBSearch(topicID, query string, topK int) (*NoteSearchResponse, error) {
+	return doPost[NoteSearchResponse](c, "/open/api/v1/resource/recall/knowledge", KBSearchRequest{TopicID: topicID, Query: query, TopK: topK})
+}
+
+// ---------------------------------------------------------------------------
+// Image Upload API
+// ---------------------------------------------------------------------------
+
+// ImageUploadToken holds the credentials for a single OSS upload.
+type ImageUploadToken struct {
+	Host           string `json:"host"`
+	ObjectKey      string `json:"object_key"`
+	AccessID       string `json:"accessid"`
+	Policy         string `json:"policy"`
+	Signature      string `json:"signature"`
+	Callback       string `json:"callback"`
+	AccessURL      string `json:"access_url"`
+	OSSContentType string `json:"oss_content_type"`
+}
+
+// ImageUploadTokenData is the data field of the upload token response.
+type ImageUploadTokenData struct {
+	Tokens []ImageUploadToken `json:"tokens"`
+}
+
+// ImageUploadTokenResponse is the response from the upload token endpoint.
+type ImageUploadTokenResponse struct {
+	Success bool                 `json:"success"`
+	Data    ImageUploadTokenData `json:"data"`
+}
+
+// ImageGetUploadToken retrieves OSS upload credentials for the given mime type.
+// GET /open/api/v1/resource/image/upload_token
+func (c *Client) ImageGetUploadToken(mimeType string) (*ImageUploadTokenResponse, error) {
+	q := url.Values{"mime_type": {mimeType}, "count": {"1"}}
+	return doGet[ImageUploadTokenResponse](c, "/open/api/v1/resource/image/upload_token", q)
+}
+
+// ImageUploadToOSS uploads the file at imagePath to OSS using the given token.
+// Field order is strictly enforced per OSS signature requirements:
+// key → OSSAccessKeyId → policy → signature → callback → Content-Type → file
+func (c *Client) ImageUploadToOSS(token ImageUploadToken, imagePath string) error {
+	f, err := os.Open(imagePath)
+	if err != nil {
+		return fmt.Errorf("opening image: %w", err)
+	}
+	defer f.Close()
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	writeField := func(name, value string) error {
+		fw, err := w.CreateFormField(name)
+		if err != nil {
+			return err
+		}
+		_, err = fw.Write([]byte(value))
+		return err
+	}
+
+	if err := writeField("key", token.ObjectKey); err != nil {
+		return err
+	}
+	if err := writeField("OSSAccessKeyId", token.AccessID); err != nil {
+		return err
+	}
+	if err := writeField("policy", token.Policy); err != nil {
+		return err
+	}
+	if err := writeField("signature", token.Signature); err != nil {
+		return err
+	}
+	if err := writeField("callback", token.Callback); err != nil {
+		return err
+	}
+	if err := writeField("Content-Type", token.OSSContentType); err != nil {
+		return err
+	}
+
+	fw, err := w.CreateFormFile("file", filepath.Base(imagePath))
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(fw, f); err != nil {
+		return err
+	}
+	w.Close()
+
+	req, err := http.NewRequest(http.MethodPost, token.Host, &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("OSS upload failed: %w", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("OSS upload error %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Tag API
+// ---------------------------------------------------------------------------
+
+// NoteTagsAddRequest is the request body for adding tags to a note.
+type NoteTagsAddRequest struct {
+	NoteID int64    `json:"note_id"`
+	Tags   []string `json:"tags"`
+}
+
+// NoteTagsResponseData is the data field of the tags add/list response.
+type NoteTagsResponseData struct {
+	NoteID string    `json:"note_id"`
+	Tags   []NoteTag `json:"tags"`
+}
+
+// NoteTagsAddResponse is the response from the tags add endpoint.
+type NoteTagsAddResponse struct {
+	Success bool                 `json:"success"`
+	Data    NoteTagsResponseData `json:"data"`
+}
+
+// NoteTagsAdd adds tags to a note and returns the updated tag list.
+// POST /open/api/v1/resource/note/tags/add
+func (c *Client) NoteTagsAdd(noteID int64, tags []string) (*NoteTagsAddResponse, error) {
+	return doPost[NoteTagsAddResponse](c, "/open/api/v1/resource/note/tags/add", NoteTagsAddRequest{NoteID: noteID, Tags: tags})
+}
+
+// NoteTagsDeleteRequest is the request body for deleting a tag from a note.
+type NoteTagsDeleteRequest struct {
+	NoteID int64  `json:"note_id"`
+	TagID  string `json:"tag_id"`
+}
+
+// NoteTagsDeleteResponse is the response from the tags delete endpoint.
+type NoteTagsDeleteResponse struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+}
+
+// NoteTagsDelete removes a tag from a note by tag ID.
+// POST /open/api/v1/resource/note/tags/delete
+func (c *Client) NoteTagsDelete(noteID int64, tagID string) (*NoteTagsDeleteResponse, error) {
+	return doPost[NoteTagsDeleteResponse](c, "/open/api/v1/resource/note/tags/delete", NoteTagsDeleteRequest{NoteID: noteID, TagID: tagID})
+}
 
 func (c *Client) newRequest(method, path string, body io.Reader) (*http.Request, error) {
 	u := c.baseURL + path

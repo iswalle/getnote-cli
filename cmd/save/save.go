@@ -3,6 +3,8 @@ package save
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,14 +20,20 @@ func NewSaveCmd() *cobra.Command {
 	var tags []string
 
 	cmd := &cobra.Command{
-		Use:   "save <url|text>",
-		Short: "Save a URL or text note",
+		Use:   "save <url|text|image_path>",
+		Short: "Save a URL, text note, or image",
 		Args:  cobra.MinimumNArgs(1),
 		Example: `  getnote save https://example.com --title "Great article"
-  getnote save "Remember to review the docs" --tag work --tag important`,
+  getnote save "Remember to review the docs" --tag work --tag important
+  getnote save ./screenshot.png --title "Design mockup"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			content := strings.Join(args, " ")
 			c := client.New(envTarget(cmd))
+
+			// Detect local image file
+			if isImagePath(content) {
+				return saveImage(cmd, c, content, title, tags)
+			}
 
 			req := client.NoteSaveRequest{Tags: tags}
 			if strings.HasPrefix(content, "http://") || strings.HasPrefix(content, "https://") {
@@ -64,6 +72,108 @@ func NewSaveCmd() *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "Note title")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Tag (repeatable)")
 	return cmd
+}
+
+// isImagePath returns true if the arg looks like a local image file path.
+func isImagePath(arg string) bool {
+	if !strings.HasPrefix(arg, "/") && !strings.HasPrefix(arg, "./") && !strings.HasPrefix(arg, "../") {
+		return false
+	}
+	ext := strings.ToLower(filepath.Ext(arg))
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp":
+	default:
+		return false
+	}
+	_, err := os.Stat(arg)
+	return err == nil
+}
+
+// mimeTypeFromExt maps image extensions to the mime_type param expected by the API.
+func mimeTypeFromExt(ext string) string {
+	switch strings.ToLower(ext) {
+	case ".jpg", ".jpeg":
+		return "jpg"
+	case ".png":
+		return "png"
+	case ".gif":
+		return "gif"
+	case ".webp":
+		return "webp"
+	}
+	return "png"
+}
+
+// saveImage handles the full image save flow: get token → upload OSS → save note → poll.
+func saveImage(cmd *cobra.Command, c *client.Client, imagePath, title string, tags []string) error {
+	isJSON := outputFormat(cmd) == "json"
+	out := cmd.OutOrStdout()
+
+	mimeType := mimeTypeFromExt(filepath.Ext(imagePath))
+
+	// Step 1: get upload token
+	tokenResp, err := c.ImageGetUploadToken(mimeType)
+	if err != nil {
+		return fmt.Errorf("getting upload token: %w", err)
+	}
+	if len(tokenResp.Data.Tokens) == 0 {
+		return fmt.Errorf("no upload token returned")
+	}
+	token := tokenResp.Data.Tokens[0]
+
+	// Step 2: upload to OSS
+	if !isJSON {
+		fmt.Fprintf(out, "Uploading %s...\n", filepath.Base(imagePath))
+	}
+	if err := c.ImageUploadToOSS(token, imagePath); err != nil {
+		return fmt.Errorf("uploading image: %w", err)
+	}
+
+	// Step 3: save img_text note
+	req := client.NoteSaveRequest{
+		NoteType:  "img_text",
+		ImageURLs: []string{token.AccessURL},
+		Title:     title,
+		Tags:      tags,
+	}
+	resp, err := c.NoteSave(req)
+	if err != nil {
+		return fmt.Errorf("saving image note: %w", err)
+	}
+
+	// Extract task_id
+	taskID := extractTaskID(resp.Data)
+	if taskID == "" {
+		if isJSON {
+			enc := json.NewEncoder(out)
+			enc.SetIndent("", "  ")
+			return enc.Encode(resp)
+		}
+		fmt.Fprintln(out, "✓ Image note saved.")
+		return nil
+	}
+	return pollTask(cmd, c, taskID)
+}
+
+// extractTaskID tries to extract a task_id from a save response data value.
+// Handles both {task_id: "..."} and {tasks: [{task_id: "..."}]} shapes.
+func extractTaskID(data interface{}) string {
+	m, ok := data.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	if id, ok := m["task_id"].(string); ok && id != "" {
+		return id
+	}
+	// Link-type shape: data.tasks[0].task_id
+	if tasks, ok := m["tasks"].([]interface{}); ok && len(tasks) > 0 {
+		if t, ok := tasks[0].(map[string]interface{}); ok {
+			if id, ok := t["task_id"].(string); ok {
+				return id
+			}
+		}
+	}
+	return ""
 }
 
 // pollTask polls the task status until done, failed, or timeout.
