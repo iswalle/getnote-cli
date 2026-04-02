@@ -27,7 +27,7 @@ npm install -g @getnote/cli
 
 在 Claude Code、Cursor 等 AI 编程工具里用自然语言操作笔记，需要额外安装 Skill：
 ```bash
-npx skills add @getnote/cli -y -g
+npx skills add iswalle/getnote-cli -y -g
 ```
 
 **第二步：登录**
@@ -109,7 +109,7 @@ getnote save https://example.com -o json   # 自动轮询，返回最终笔记
 `skills/` 目录下有 Claude Code 专用的 Skill 文件，安装后 AI Agent 可以直接用自然语言操作笔记：
 
 ```bash
-npx skills add @getnote/cli -y -g
+npx skills add iswalle/getnote-cli -y -g
 ```
 
 安装后在 Claude Code / Cursor 里说「帮我搜一下关于 RAG 的笔记」即可直接调用。
