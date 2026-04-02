@@ -146,6 +146,10 @@ getnote note delete 1234567890 -y
 ## Agent Usage Notes
 
 - Use `-o json` when parsing responses programmatically.
+- All JSON responses follow `{"success":true,"data":{...}}` structure, **except**:
+  - `save` (text): returns `{"note_id":"..."}` directly
+  - `save` (link/image): returns `{"data":{"tasks":[{"task_id":"..."}],...}}`
+  - `task`: returns `{"success":true,"data":{"status":"...","note_id":"..."}}`
 - `notes` list returns **20 per page** (no `--limit`); paginate with `--since-id`.
 - Note IDs are int64 — always handle as strings to avoid precision loss in JavaScript.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.

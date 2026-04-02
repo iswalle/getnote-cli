@@ -67,6 +67,7 @@ getnote tag remove 1896830231705320746 123
 
 ## Agent Usage Notes
 
+- `tag list -o json` returns `{"note_id":"...","tags":[{"id":"...","name":"...","type":"..."}]}` (flat, no `success` wrapper).
 - `tag remove` takes a **numeric tag ID**, not a name — always call `tag list` first.
 - To replace all tags at once, use `getnote note update --tag "tag1,tag2"` instead.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.

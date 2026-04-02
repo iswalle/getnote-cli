@@ -45,7 +45,9 @@ getnote search "机器学习" --limit 5 -o json
 ## Agent Usage Notes
 
 - Use `-o json` when parsing results programmatically.
-- Get `topic_id` for `--kb` from `getnote kbs -o json`.
+- JSON response: `{"success":true,"results":[{"note_id":"...","title":"...","content":"...","created_at":"...","note_type":"..."}]}`
+- Note: `results` is at the top level, not nested under `data`.
+- Get `topic_id` for `--kb` from `getnote kbs -o json` → `data.topics[].topic_id`.
 - For `NOTE` type results, use `getnote note <note_id>` to get the full content.
 - Max `--limit` is 10; use `getnote notes` for browsing without a query.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.

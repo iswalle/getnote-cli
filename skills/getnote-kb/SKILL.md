@@ -97,6 +97,8 @@ getnote kb remove vnrOAaGY 1234567890
 ## Agent Usage Notes
 
 - Use `-o json` when parsing results programmatically.
-- Get `topic_id` from `getnote kbs -o json` (the `topic_id` field, not `id`).
+- `kbs -o json` returns `{"success":true,"data":{"topics":[...],"total":N}}`
+- `kb <topic_id> -o json` returns `{"success":true,"data":{"notes":[...],"has_more":...}}`
+- Get `topic_id` from `getnote kbs -o json` → `data.topics[].topic_id` field (not `id`).
 - `kb add` / `kb remove` accept multiple note IDs — prefer batching over multiple calls.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
