@@ -30,6 +30,8 @@ npm install -g @getnote/cli
 npx skills add iswalle/getnote-cli -y -g
 ```
 
+> ⚠️ 需先完成第一步安装 CLI，再安装 Skill。
+
 **第二步：登录**
 ```bash
 getnote auth login
