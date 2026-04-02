@@ -399,8 +399,11 @@ type NoteSearchRequest struct {
 
 // NoteSearchResponse is the response from the global recall endpoint.
 type NoteSearchResponse struct {
-	Success bool           `json:"success"`
-	Results []RecallResult `json:"results"`
+	Success bool `json:"success"`
+	Data    struct {
+		Results []RecallResult `json:"results"`
+	} `json:"data"`
+	Results []RecallResult `json:"results"` // fallback for flat response
 }
 
 // NoteSearch performs global semantic search across all notes.
