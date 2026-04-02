@@ -43,6 +43,17 @@ async function main() {
   const url = getDownloadURL(platform);
   const tmpFile = path.join(os.tmpdir(), `getnote-download-${Date.now()}`);
 
+  // Skip download if binary already matches current version
+  if (fs.existsSync(binaryPath)) {
+    try {
+      const out = execSync(`"${binaryPath}" version 2>/dev/null || "${binaryPath}" --version 2>/dev/null`, { encoding: 'utf8' }).trim();
+      if (out.includes(VERSION)) {
+        console.log(`getnote v${VERSION} already installed, skipping download.`);
+        return;
+      }
+    } catch (_) { /* binary exists but can't run (wrong arch etc.), re-download */ }
+  }
+
   console.log(`Downloading getnote v${VERSION} for ${platform.platform}/${platform.arch}...`);
   console.log(`URL: ${url}`);
 
