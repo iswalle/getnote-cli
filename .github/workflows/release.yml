@@ -43,13 +43,26 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           VERSION=${GITHUB_REF_NAME}
-          go build -ldflags "-X github.com/iswalle/getnote-cli/internal/version.Version=${VERSION} -s -w" -o ${{ matrix.name }} .
+          VERSION_NUM=${VERSION#v}
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            BINARY_NAME="getnote.exe"
+          else
+            BINARY_NAME="getnote"
+          fi
+          go build -ldflags "-X github.com/iswalle/getnote-cli/internal/version.Version=${VERSION} -s -w" -o "${BINARY_NAME}" .
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            zip "getnote-cli_${VERSION_NUM}_${{ matrix.goos }}_${{ matrix.goarch }}.zip" "${BINARY_NAME}"
+          else
+            tar -czf "getnote-cli_${VERSION_NUM}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz" "${BINARY_NAME}"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: ${{ matrix.name }}
+          path: |
+            getnote-cli_*_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+            getnote-cli_*_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
   release:
     name: Create GitHub Release
