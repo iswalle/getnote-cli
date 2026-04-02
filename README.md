@@ -240,8 +240,6 @@ make install
 ## 相关链接
 
 - [Get笔记官网](https://biji.com)
-- [Get笔记 OpenClaw Skill](https://github.com/iswalle/getnote-openclaw) — 在飞书/Telegram 等消息渠道用自然语言操作笔记
-- [Get笔记 MCP](https://github.com/iswalle/getnote-mcp) — MCP 协议接入，适配 Claude Desktop 等工具
 - [开放平台文档](https://openapi.biji.com/docs)
 - [问题反馈](https://github.com/iswalle/getnote-cli/issues)
 
