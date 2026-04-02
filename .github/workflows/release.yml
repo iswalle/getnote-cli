@@ -95,4 +95,4 @@ jobs:
           npm config set @getnote:registry https://registry.npmjs.org/
           npm publish --access public
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM }}
