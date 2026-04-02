@@ -1,6 +1,6 @@
 {
   "name": "@getnote/cli",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "CLI tool for Get笔记 — manage notes and knowledge bases from the terminal",
   "keywords": [
     "getnote",
