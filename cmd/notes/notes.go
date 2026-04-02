@@ -79,6 +79,36 @@ func NewNotesCmd() *cobra.Command {
 
 // streamAll fetches all notes page by page, printing each row immediately.
 func streamAll(cmd *cobra.Command, c *client.Client) error {
+	isJSON := outputFormat(cmd) == "json"
+
+	if isJSON {
+		var allNotes []client.Note
+		sinceID := "0"
+		for {
+			resp, err := c.NoteList(client.NoteListParams{Limit: 20, SinceID: sinceID})
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			allNotes = append(allNotes, resp.Data.Notes...)
+			if !resp.Data.HasMore {
+				break
+			}
+			sinceID = resp.Data.NextCursor.String()
+			time.Sleep(500 * time.Millisecond)
+		}
+		result := &client.NoteListResponse{
+			Success: true,
+			Data: client.NoteListData{
+				Notes:   allNotes,
+				HasMore: false,
+				Total:   len(allNotes),
+			},
+		}
+		enc := json.NewEncoder(cmd.OutOrStdout())
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
+	}
+
 	printHeader(cmd)
 	sinceID := "0"
 	total := 0

@@ -78,6 +78,36 @@ var noteCols = []ui.ColSpec{
 const colSep = "  "
 
 func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) error {
+	isJSON := outputFormat(cmd) == "json"
+
+	if isJSON {
+		var allNotes []client.Note
+		page := 1
+		for {
+			resp, err := c.KBNotes(client.KBNotesParams{TopicID: topicID, Limit: 20, Page: page})
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			allNotes = append(allNotes, resp.Data.Notes...)
+			if !resp.Data.HasMore {
+				break
+			}
+			page++
+			time.Sleep(500 * time.Millisecond)
+		}
+		result := &client.KBNotesResponse{
+			Success: true,
+			Data: client.NoteListData{
+				Notes:   allNotes,
+				HasMore: false,
+				Total:   len(allNotes),
+			},
+		}
+		enc := json.NewEncoder(cmd.OutOrStdout())
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
+	}
+
 	fmt.Fprint(cmd.OutOrStdout(), ui.PrintHeader(noteCols, colSep))
 	fmt.Fprint(cmd.OutOrStdout(), ui.DividerLine(noteCols, colSep))
 
@@ -152,9 +182,14 @@ func newAddCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New(envTarget(cmd))
-			_, err := c.KBNotesAdd(args[0], args[1:])
+			resp, err := c.KBNotesAdd(args[0], args[1:])
 			if err != nil {
 				return err
+			}
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Added %d note(s) to %s.\n", len(args[1:]), args[0])
 			return nil
@@ -169,9 +204,14 @@ func newRemoveCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New(envTarget(cmd))
-			_, err := c.KBNotesRemove(args[0], args[1:])
+			resp, err := c.KBNotesRemove(args[0], args[1:])
 			if err != nil {
 				return err
+			}
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed %d note(s) from %s.\n", len(args[1:]), args[0])
 			return nil

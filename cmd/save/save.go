@@ -43,17 +43,18 @@ func NewSaveCmd() *cobra.Command {
 				return err
 			}
 
-			if outputFormat(cmd) == "json" {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(resp)
-			}
-
-			// Async task: poll until done
+			// Async task: poll until done (pollTask handles JSON mode)
 			if taskID, ok := resp.Data.(map[string]interface{}); ok {
 				if id, ok := taskID["task_id"].(string); ok && id != "" {
 					return pollTask(cmd, c, id)
 				}
+			}
+
+			// Sync save
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "✓ Note saved.")
 			return nil
@@ -66,29 +67,47 @@ func NewSaveCmd() *cobra.Command {
 }
 
 // pollTask polls the task status until done, failed, or timeout.
+// In JSON mode it runs silently and outputs the final result as JSON.
 func pollTask(cmd *cobra.Command, c *client.Client, taskID string) error {
+	isJSON := outputFormat(cmd) == "json"
 	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "✓ Saving... (task_id: %s)\n", taskID)
+
+	if !isJSON {
+		fmt.Fprintf(out, "✓ Saving... (task_id: %s)\n", taskID)
+	}
 
 	const (
 		interval   = 1500 * time.Millisecond
 		maxRetries = 20
 	)
 
+	var lastResp *client.NoteTaskResponse
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(interval)
-		fmt.Fprint(out, ".")
+		if !isJSON {
+			fmt.Fprint(out, ".")
+		}
 
 		resp, err := c.NoteTask(taskID)
 		if err != nil {
-			fmt.Fprintln(out, "")
+			if !isJSON {
+				fmt.Fprintln(out, "")
+			}
 			return err
 		}
+		lastResp = resp
 
 		switch resp.Data.Status {
 		case "done":
-			fmt.Fprintln(out, " done")
+			if !isJSON {
+				fmt.Fprintln(out, " done")
+			}
 			if resp.Data.NoteID == "" {
+				if isJSON {
+					enc := json.NewEncoder(out)
+					enc.SetIndent("", "  ")
+					return enc.Encode(resp)
+				}
 				fmt.Fprintln(out, "✓ Note saved.")
 				return nil
 			}
@@ -96,9 +115,19 @@ func pollTask(cmd *cobra.Command, c *client.Client, taskID string) error {
 			if err != nil {
 				return err
 			}
+			if isJSON {
+				enc := json.NewEncoder(out)
+				enc.SetIndent("", "  ")
+				return enc.Encode(noteResp)
+			}
 			renderNote(cmd, noteResp.Data.Note)
 			return nil
 		case "failed":
+			if isJSON {
+				enc := json.NewEncoder(out)
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
+			}
 			fmt.Fprintln(out, "")
 			fmt.Fprintf(out, "✗ Failed: %s\n", resp.Data.Msg)
 			return nil
@@ -106,6 +135,12 @@ func pollTask(cmd *cobra.Command, c *client.Client, taskID string) error {
 		// pending / processing — keep polling
 	}
 
+	// Timeout
+	if isJSON && lastResp != nil {
+		enc := json.NewEncoder(out)
+		enc.SetIndent("", "  ")
+		return enc.Encode(lastResp)
+	}
 	fmt.Fprintln(out, "")
 	fmt.Fprintf(out, "⚠ Timeout. Check later: getnote task %s\n", taskID)
 	return nil

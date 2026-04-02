@@ -172,9 +172,14 @@ func newDeleteCmd() *cobra.Command {
 			}
 
 			c := client.New(envTarget(cmd))
-			_, err := c.NoteDelete(args[0])
+			resp, err := c.NoteDelete(args[0])
 			if err != nil {
 				return err
+			}
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "✓ Note moved to trash.")
 			return nil
