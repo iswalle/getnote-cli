@@ -80,7 +80,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Update package version
         run: |
@@ -92,7 +91,8 @@ jobs:
 
       - name: Publish
         run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+          npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          npm config set @getnote:registry https://registry.npmjs.org/
           npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
