@@ -1,7 +1,5 @@
 # Get笔记 CLI
 
-[English](./README.en.md) | 中文
-
 Get笔记的命令行工具，让你在终端和 AI Agent 里直接管理笔记和知识库。
 
 存链接、记文字、搜笔记、管知识库——一条命令搞定，支持脚本和 AI Agent 调用。
@@ -226,6 +224,14 @@ make install
 
 ---
 
+## 相关链接
+
+- [Get笔记官网](https://biji.com)
+- [Get笔记 OpenClaw Skill](https://github.com/iswalle/getnote-openclaw) — 在飞书/Telegram 等消息渠道用自然语言操作笔记
+- [Get笔记 MCP](https://github.com/iswalle/getnote-mcp) — MCP 协议接入，适配 Claude Desktop 等工具
+- [开放平台文档](https://openapi.biji.com/docs)
+- [问题反馈](https://github.com/iswalle/getnote-cli/issues)
+
 ## License
 
-MIT
+[MIT](https://opensource.org/licenses/MIT)
