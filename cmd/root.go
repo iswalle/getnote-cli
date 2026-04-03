@@ -7,6 +7,7 @@ import (
 	"github.com/iswalle/getnote-cli/cmd/auth"
 	"github.com/iswalle/getnote-cli/cmd/kb"
 	"github.com/iswalle/getnote-cli/cmd/kbs"
+	"github.com/iswalle/getnote-cli/cmd/kbssub"
 	"github.com/iswalle/getnote-cli/cmd/note"
 	"github.com/iswalle/getnote-cli/cmd/notes"
 	"github.com/iswalle/getnote-cli/cmd/save"
@@ -19,19 +20,24 @@ import (
 )
 
 var (
-	apiKey    string
-	output    string
-	envTarget string
+	apiKey string
+	output string
 )
 
 var rootCmd = &cobra.Command{
 	Use:     "getnote",
-	Short:   "CLI tool for Get笔记",
+	Short:   "Get笔记命令行工具 / CLI tool for Get笔记",
 	Version: version.Version,
-	Long: `getnote is a command-line tool for interacting with Get笔记.
+	Long: `getnote 是 Get笔记的命令行工具，支持保存、搜索、管理笔记和知识库。
+适合人工操作和 AI Agent 集成使用。
+
+getnote is a command-line tool for interacting with Get笔记.
 It allows both humans and AI agents to manage notes and knowledge bases
 from the terminal.`,
 	SilenceUsage: true,
+	CompletionOptions: cobra.CompletionOptions{
+		HiddenDefaultCmd: true,
+	},
 }
 
 // Execute runs the root command.
@@ -46,8 +52,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "", "API key (overrides config and GETNOTE_API_KEY env var)")
-	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "Output format: table or json")
-	rootCmd.PersistentFlags().StringVar(&envTarget, "env", "prod", "Environment: prod or dev")
+	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "输出格式 / Output format: table or json")
 
 	rootCmd.AddCommand(auth.NewAuthCmd())
 	rootCmd.AddCommand(save.NewSaveCmd())
@@ -55,6 +60,7 @@ func init() {
 	rootCmd.AddCommand(notes.NewNotesCmd())
 	rootCmd.AddCommand(note.NewNoteCmd())
 	rootCmd.AddCommand(kbs.NewKbsCmd())
+	rootCmd.AddCommand(kbssub.NewKbsSubCmd())
 	rootCmd.AddCommand(kb.NewKbCmd())
 	rootCmd.AddCommand(search.NewSearchCmd())
 	rootCmd.AddCommand(tag.NewTagCmd())

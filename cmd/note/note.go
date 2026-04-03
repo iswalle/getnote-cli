@@ -18,13 +18,13 @@ func NewNoteCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "note <id>",
-		Short: "Show note details",
+		Short: "查看笔记详情 / Show note details",
 		Args:  cobra.ExactArgs(1),
 		Example: `  getnote note 1234567890
   getnote note 1234567890 --field content
   getnote note 1234567890 --field url`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 			resp, err := c.NoteGet(args[0])
 			if err != nil {
 				return err
@@ -111,7 +111,7 @@ func newUpdateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
-		Short: "Update a note's title, content, or tags",
+		Short: "更新笔记标题/内容/标签 / Update a note's title, content, or tags",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req := client.NoteUpdateRequest{ID: args[0]}
@@ -131,7 +131,7 @@ func newUpdateCmd() *cobra.Command {
 				return fmt.Errorf("at least one of --title, --content, --tag is required")
 			}
 
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 			resp, err := c.NoteUpdate(req)
 			if err != nil {
 				return err
@@ -158,7 +158,7 @@ func newDeleteCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Delete a note (moves to trash)",
+		Short: "删除笔记（移入回收站）/ Delete a note (moves to trash)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !yes {
@@ -171,7 +171,7 @@ func newDeleteCmd() *cobra.Command {
 				}
 			}
 
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 			resp, err := c.NoteDelete(args[0])
 			if err != nil {
 				return err
@@ -196,7 +196,3 @@ func outputFormat(cmd *cobra.Command) string {
 	return f
 }
 
-func envTarget(cmd *cobra.Command) string {
-	e, _ := cmd.Root().PersistentFlags().GetString("env")
-	return e
-}

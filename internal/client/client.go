@@ -292,6 +292,12 @@ func (c *Client) KBList() (*KBListResponse, error) {
 	return doGet[KBListResponse](c, "/open/api/v1/resource/knowledge/list", url.Values{"page": {"1"}})
 }
 
+// KBSubscribedList fetches knowledge bases the user has subscribed to.
+// GET /open/api/v1/resource/knowledge/subscribe/list
+func (c *Client) KBSubscribedList(page int) (*KBListResponse, error) {
+	return doGet[KBListResponse](c, "/open/api/v1/resource/knowledge/subscribe/list", url.Values{"page": {fmt.Sprintf("%d", page)}})
+}
+
 // KBCreateRequest is the request body for creating a knowledge base.
 type KBCreateRequest struct {
 	Name        string `json:"name"`

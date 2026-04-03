@@ -27,13 +27,13 @@ func NewNotesCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "notes",
-		Short: "List recent notes",
+		Short: "列出最近笔记 / List recent notes",
 		Example: `  getnote notes
   getnote notes --limit 5
   getnote notes --all
   getnote notes --since-id 1234567890`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 
 			if all {
 				return streamAll(cmd, c)
@@ -151,7 +151,3 @@ func outputFormat(cmd *cobra.Command) string {
 	return f
 }
 
-func envTarget(cmd *cobra.Command) string {
-	e, _ := cmd.Root().PersistentFlags().GetString("env")
-	return e
-}

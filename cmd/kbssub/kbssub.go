@@ -1,4 +1,4 @@
-package kbs
+package kbssub
 
 import (
 	"encoding/json"
@@ -9,14 +9,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewKbsCmd returns the top-level kbs (list) command.
-func NewKbsCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "kbs",
-		Short: "列出所有知识库 / List all knowledge bases",
+// NewKbsSubCmd returns the kbs-sub command.
+func NewKbsSubCmd() *cobra.Command {
+	var page int
+
+	cmd := &cobra.Command{
+		Use:     "kbs-sub",
+		Aliases: []string{"subscribed-kbs"},
+		Short:   "列出订阅的知识库 / List subscribed knowledge bases",
+		Example: `  getnote kbs-sub
+  getnote kbs-sub --page 2`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
-			resp, err := c.KBList()
+			resp, err := c.KBSubscribedList(page)
 			if err != nil {
 				return err
 			}
@@ -43,10 +48,12 @@ func NewKbsCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().IntVar(&page, "page", 1, "页码 / Page number")
+	return cmd
 }
 
 func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
 }
-

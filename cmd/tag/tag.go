@@ -14,7 +14,7 @@ import (
 func NewTagCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
-		Short: "Manage note tags",
+		Short: "管理笔记标签 / Manage note tags",
 	}
 	cmd.AddCommand(newTagAddCmd())
 	cmd.AddCommand(newTagRemoveCmd())
@@ -25,7 +25,7 @@ func NewTagCmd() *cobra.Command {
 func newTagAddCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "add <note_id> <tag>",
-		Short:   "Add a tag to a note",
+		Short:   "为笔记添加标签 / Add a tag to a note",
 		Args:    cobra.ExactArgs(2),
 		Example: `  getnote tag add 1896830231705320746 工作`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -34,7 +34,7 @@ func newTagAddCmd() *cobra.Command {
 				return fmt.Errorf("invalid note_id: %s", args[0])
 			}
 			tagName := args[1]
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 
 			resp, err := c.NoteTagsAdd(noteID, []string{tagName})
 			if err != nil {
@@ -57,7 +57,7 @@ func newTagAddCmd() *cobra.Command {
 func newTagRemoveCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove <note_id> <tag_id>",
-		Short: "Remove a tag from a note by tag ID",
+		Short: "删除笔记标签 / Remove a tag from a note by tag ID",
 		Long: `Remove a tag from a note. Provide the tag ID (not name).
 Use "getnote tag list <note_id>" to find tag IDs.
 System tags cannot be deleted.`,
@@ -69,7 +69,7 @@ System tags cannot be deleted.`,
 				return fmt.Errorf("invalid note_id: %s", args[0])
 			}
 			tagID := args[1]
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 
 			resp, err := c.NoteTagsDelete(noteID, tagID)
 			if err != nil {
@@ -91,11 +91,11 @@ System tags cannot be deleted.`,
 func newTagListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "list <note_id>",
-		Short:   "List tags on a note",
+		Short:   "查看笔记标签 / List tags on a note",
 		Args:    cobra.ExactArgs(1),
 		Example: `  getnote tag list 1896830231705320746`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 
 			noteResp, err := c.NoteGet(args[0])
 			if err != nil {
@@ -160,7 +160,3 @@ func outputFormat(cmd *cobra.Command) string {
 	return f
 }
 
-func envTarget(cmd *cobra.Command) string {
-	e, _ := cmd.Root().PersistentFlags().GetString("env")
-	return e
-}

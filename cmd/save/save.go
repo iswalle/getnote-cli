@@ -21,14 +21,14 @@ func NewSaveCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "save <url|text|image_path>",
-		Short: "Save a URL, text note, or image",
+		Short: "保存链接、文本或图片笔记 / Save a URL, text note, or image",
 		Args:  cobra.MinimumNArgs(1),
 		Example: `  getnote save https://example.com --title "Great article"
   getnote save "Remember to review the docs" --tag work --tag important
   getnote save ./screenshot.png --title "Design mockup"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			content := strings.Join(args, " ")
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 
 			// Detect local image file
 			if isImagePath(content) {
@@ -52,10 +52,8 @@ func NewSaveCmd() *cobra.Command {
 			}
 
 			// Async task: poll until done (pollTask handles JSON mode)
-			if taskID, ok := resp.Data.(map[string]interface{}); ok {
-				if id, ok := taskID["task_id"].(string); ok && id != "" {
-					return pollTask(cmd, c, id)
-				}
+			if id := extractTaskID(resp.Data); id != "" {
+				return pollTask(cmd, c, id)
 			}
 
 			// Sync save
@@ -287,7 +285,3 @@ func outputFormat(cmd *cobra.Command) string {
 	return f
 }
 
-func envTarget(cmd *cobra.Command) string {
-	e, _ := cmd.Root().PersistentFlags().GetString("env")
-	return e
-}

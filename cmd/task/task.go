@@ -13,10 +13,10 @@ import (
 func NewTaskCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "task <task_id>",
-		Short: "Check the progress of a save task",
+		Short: "查询保存任务进度 / Check the progress of a save task",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 			resp, err := c.NoteTask(args[0])
 			if err != nil {
 				return err
@@ -55,7 +55,3 @@ func outputFormat(cmd *cobra.Command) string {
 	return f
 }
 
-func envTarget(cmd *cobra.Command) string {
-	e, _ := cmd.Root().PersistentFlags().GetString("env")
-	return e
-}

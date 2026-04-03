@@ -27,14 +27,14 @@ func NewSearchCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "Semantic search across notes",
+		Short: "语义搜索笔记 / Search notes by semantic query",
 		Args:  cobra.MinimumNArgs(1),
 		Example: `  getnote search "大模型 API"
   getnote search "RAG" --kb qnNX75j0
   getnote search "机器学习" --limit 5 -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query := strings.Join(args, " ")
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 
 			var resp *client.NoteSearchResponse
 			var err error
@@ -91,7 +91,3 @@ func outputFormat(cmd *cobra.Command) string {
 	return f
 }
 
-func envTarget(cmd *cobra.Command) string {
-	e, _ := cmd.Root().PersistentFlags().GetString("env")
-	return e
-}

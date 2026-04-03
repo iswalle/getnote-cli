@@ -18,13 +18,13 @@ func NewKbCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "kb <topic_id>",
-		Short: "List notes in a knowledge base",
+		Short: "列出知识库内的笔记 / List notes in a knowledge base",
 		Args:  cobra.ExactArgs(1),
 		Example: `  getnote kb vnrOAaGY
   getnote kb vnrOAaGY --limit 5
   getnote kb vnrOAaGY --all`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 
 			if all {
 				return streamAllKBNotes(cmd, c, args[0])
@@ -154,10 +154,10 @@ func newCreateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "create <name>",
-		Short: "Create a new knowledge base",
+		Short: "创建知识库 / Create a new knowledge base",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 			resp, err := c.KBCreate(client.KBCreateRequest{Name: args[0], Description: desc})
 			if err != nil {
 				return err
@@ -178,10 +178,10 @@ func newCreateCmd() *cobra.Command {
 func newAddCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "add <topic_id> <note_id> [note_id...]",
-		Short: "Add notes to a knowledge base",
+		Short: "添加笔记到知识库 / Add notes to a knowledge base",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 			resp, err := c.KBNotesAdd(args[0], args[1:])
 			if err != nil {
 				return err
@@ -200,10 +200,10 @@ func newAddCmd() *cobra.Command {
 func newRemoveCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove <topic_id> <note_id> [note_id...]",
-		Short: "Remove notes from a knowledge base",
+		Short: "从知识库移除笔记 / Remove notes from a knowledge base",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.New(envTarget(cmd))
+			c := client.New("")
 			resp, err := c.KBNotesRemove(args[0], args[1:])
 			if err != nil {
 				return err
@@ -224,7 +224,3 @@ func outputFormat(cmd *cobra.Command) string {
 	return f
 }
 
-func envTarget(cmd *cobra.Command) string {
-	e, _ := cmd.Root().PersistentFlags().GetString("env")
-	return e
-}
