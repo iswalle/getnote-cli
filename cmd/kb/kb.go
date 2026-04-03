@@ -65,6 +65,11 @@ func NewKbCmd() *cobra.Command {
 	cmd.AddCommand(newCreateCmd())
 	cmd.AddCommand(newAddCmd())
 	cmd.AddCommand(newRemoveCmd())
+	cmd.AddCommand(newBloggersCmd())
+	cmd.AddCommand(newBloggerContentsCmd())
+	cmd.AddCommand(newBloggerContentCmd())
+	cmd.AddCommand(newLivesCmd())
+	cmd.AddCommand(newLiveCmd())
 	return cmd
 }
 
@@ -214,6 +219,187 @@ func newRemoveCmd() *cobra.Command {
 				return enc.Encode(resp)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed %d note(s) from %s.\n", len(args[1:]), args[0])
+			return nil
+		},
+	}
+}
+
+func newBloggersCmd() *cobra.Command {
+	var page int
+	cmd := &cobra.Command{
+		Use:   "bloggers <topic_id>",
+		Short: "列出知识库订阅的博主 / List bloggers in a knowledge base",
+		Args:  cobra.ExactArgs(1),
+		Example: `  getnote kb bloggers vnrOAaGY
+  getnote kb bloggers vnrOAaGY --page 2`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := client.New("")
+			resp, err := c.KBBloggerList(args[0], page)
+			if err != nil {
+				return err
+			}
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
+			}
+			table := tablewriter.NewWriter(cmd.OutOrStdout())
+			table.SetHeader([]string{"Follow ID", "Name", "Platform", "Followed At"})
+			table.SetBorder(false)
+			table.SetAutoWrapText(false)
+			for _, b := range resp.Data.Bloggers {
+				table.Append([]string{b.FollowID, b.AccountName, b.Platform, b.FollowTime})
+			}
+			table.Render()
+			fmt.Fprintf(cmd.OutOrStdout(), "\n(%d bloggers)\n", len(resp.Data.Bloggers))
+			return nil
+		},
+	}
+	cmd.Flags().IntVar(&page, "page", 1, "页码 / Page number")
+	return cmd
+}
+
+func newBloggerContentsCmd() *cobra.Command {
+	var page int
+	cmd := &cobra.Command{
+		Use:   "blogger-contents <topic_id> <follow_id>",
+		Short: "列出博主内容 / List blogger contents",
+		Args:  cobra.ExactArgs(2),
+		Example: `  getnote kb blogger-contents vnrOAaGY follow123
+  getnote kb blogger-contents vnrOAaGY follow123 --page 2`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := client.New("")
+			resp, err := c.KBBloggerContentList(args[0], args[1], page)
+			if err != nil {
+				return err
+			}
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
+			}
+			table := tablewriter.NewWriter(cmd.OutOrStdout())
+			table.SetHeader([]string{"Post ID", "Title", "Type", "Published"})
+			table.SetBorder(false)
+			table.SetAutoWrapText(false)
+			for _, c := range resp.Data.Contents {
+				table.Append([]string{c.PostIDAlias, ui.Truncate(c.PostTitle, 50), c.PostType, c.PublishTime})
+			}
+			table.Render()
+			fmt.Fprintf(cmd.OutOrStdout(), "\n(%d contents)\n", len(resp.Data.Contents))
+			return nil
+		},
+	}
+	cmd.Flags().IntVar(&page, "page", 1, "页码 / Page number")
+	return cmd
+}
+
+func newBloggerContentCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "blogger-content <topic_id> <post_id>",
+		Short: "查看博主内容详情（含原文）/ Show blogger content detail",
+		Args:  cobra.ExactArgs(2),
+		Example: `  getnote kb blogger-content vnrOAaGY post_abc123`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := client.New("")
+			resp, err := c.KBBloggerContentGet(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
+			}
+			d := resp.Data.Content
+			table := tablewriter.NewWriter(cmd.OutOrStdout())
+			table.SetHeader([]string{"Field", "Value"})
+			table.SetBorder(false)
+			table.SetAutoWrapText(false)
+			table.Append([]string{"ID", d.PostIDAlias})
+			table.Append([]string{"Title", d.PostTitle})
+			table.Append([]string{"Author", d.AccountName})
+			table.Append([]string{"Type", d.PostType})
+			table.Append([]string{"Published", d.PublishTime})
+			if d.PostSummary != "" {
+				table.Append([]string{"Summary", ui.Truncate(d.PostSummary, 200)})
+			}
+			if d.PostMediaText != "" {
+				table.Append([]string{"Content", ui.Truncate(d.PostMediaText, 300)})
+			}
+			table.Render()
+			return nil
+		},
+	}
+}
+
+func newLivesCmd() *cobra.Command {
+	var page int
+	cmd := &cobra.Command{
+		Use:   "lives <topic_id>",
+		Short: "列出知识库已完成的直播 / List completed lives in a knowledge base",
+		Args:  cobra.ExactArgs(1),
+		Example: `  getnote kb lives vnrOAaGY
+  getnote kb lives vnrOAaGY --page 2`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := client.New("")
+			resp, err := c.KBLiveList(args[0], page)
+			if err != nil {
+				return err
+			}
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
+			}
+			table := tablewriter.NewWriter(cmd.OutOrStdout())
+			table.SetHeader([]string{"Live ID", "Name", "Status"})
+			table.SetBorder(false)
+			table.SetAutoWrapText(false)
+			for _, l := range resp.Data.Lives {
+				table.Append([]string{l.LiveID, ui.Truncate(l.Name, 50), l.Status})
+			}
+			table.Render()
+			fmt.Fprintf(cmd.OutOrStdout(), "\n(%d lives)\n", len(resp.Data.Lives))
+			return nil
+		},
+	}
+	cmd.Flags().IntVar(&page, "page", 1, "页码 / Page number")
+	return cmd
+}
+
+func newLiveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "live <topic_id> <live_id>",
+		Short: "查看直播详情（含 AI 摘要和原文）/ Show live detail",
+		Args:  cobra.ExactArgs(2),
+		Example: `  getnote kb live vnrOAaGY live_abc123`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := client.New("")
+			resp, err := c.KBLiveGet(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
+			}
+			d := resp.Data.Live
+			table := tablewriter.NewWriter(cmd.OutOrStdout())
+			table.SetHeader([]string{"Field", "Value"})
+			table.SetBorder(false)
+			table.SetAutoWrapText(false)
+			table.Append([]string{"ID", d.LiveID})
+			table.Append([]string{"Name", d.Name})
+			table.Append([]string{"Status", d.Status})
+			if d.PostSummary != "" {
+				table.Append([]string{"Summary", ui.Truncate(d.PostSummary, 200)})
+			}
+			if d.PostMediaText != "" {
+				table.Append([]string{"Transcript", ui.Truncate(d.PostMediaText, 300)})
+			}
+			table.Render()
 			return nil
 		},
 	}

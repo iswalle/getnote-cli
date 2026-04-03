@@ -432,6 +432,193 @@ func (c *Client) KBSearch(topicID, query string, topK int) (*NoteSearchResponse,
 }
 
 // ---------------------------------------------------------------------------
+// KB Blogger & Live API
+// ---------------------------------------------------------------------------
+
+// KBBlogger represents a subscribed blogger in a knowledge base.
+type KBBlogger struct {
+	FollowID    string `json:"follow_id"`
+	AccountName string `json:"account_name"`
+	AccountIcon string `json:"account_icon"`
+	Platform    string `json:"platform"`
+	AccountURL  string `json:"account_url"`
+	FollowTime  string `json:"follow_time"`
+}
+
+// KBBloggerListData is the data field of the blogger list response.
+type KBBloggerListData struct {
+	Bloggers []KBBlogger `json:"bloggers"`
+	HasMore  bool        `json:"has_more"`
+	Total    int         `json:"total"`
+}
+
+// KBBloggerListResponse is the response from the blogger list endpoint.
+type KBBloggerListResponse struct {
+	Success bool              `json:"success"`
+	Data    KBBloggerListData `json:"data"`
+}
+
+// KBBloggerList fetches bloggers subscribed in a knowledge base.
+// GET /open/api/v1/resource/knowledge/bloggers
+func (c *Client) KBBloggerList(topicID string, page int) (*KBBloggerListResponse, error) {
+	return doGet[KBBloggerListResponse](c, "/open/api/v1/resource/knowledge/bloggers", url.Values{
+		"topic_id": {topicID},
+		"page":     {fmt.Sprintf("%d", page)},
+	})
+}
+
+// KBBloggerContent represents a content item from a blogger.
+type KBBloggerContent struct {
+	PostIDAlias  string `json:"post_id_alias"`
+	PostTitle    string `json:"post_title"`
+	PostSummary  string `json:"post_summary"`
+	PostType     string `json:"post_type"`
+	PublishTime  string `json:"publish_time"`
+	AccountName  string `json:"account_name"`
+}
+
+// KBBloggerContentListData is the data field of the blogger content list response.
+type KBBloggerContentListData struct {
+	Contents []KBBloggerContent `json:"contents"`
+	HasMore  bool               `json:"has_more"`
+	Total    int                `json:"total"`
+}
+
+// KBBloggerContentListResponse is the response from the blogger content list endpoint.
+type KBBloggerContentListResponse struct {
+	Success bool                     `json:"success"`
+	Data    KBBloggerContentListData `json:"data"`
+}
+
+// KBBloggerContentList fetches content from a specific blogger in a knowledge base.
+// GET /open/api/v1/resource/knowledge/blogger/contents
+func (c *Client) KBBloggerContentList(topicID, followID string, page int) (*KBBloggerContentListResponse, error) {
+	return doGet[KBBloggerContentListResponse](c, "/open/api/v1/resource/knowledge/blogger/contents", url.Values{
+		"topic_id":  {topicID},
+		"follow_id": {followID},
+		"page":      {fmt.Sprintf("%d", page)},
+	})
+}
+
+// KBBloggerContentDetail represents the full detail of a blogger content item.
+type KBBloggerContentDetail struct {
+	PostTitle      string `json:"post_title"`
+	PostSummary    string `json:"post_summary"`
+	PostMediaText  string `json:"post_media_text"`
+	PostType       string `json:"post_type"`
+	PublishTime    string `json:"publish_time"`
+	AccountName    string `json:"account_name"`
+	PostIDAlias    string `json:"post_id_alias"`
+}
+
+// KBBloggerContentDetailData is the data field of the blogger content detail response.
+type KBBloggerContentDetailData struct {
+	Content KBBloggerContentDetail `json:"content"`
+}
+
+// KBBloggerContentDetailResponse is the response from the blogger content detail endpoint.
+type KBBloggerContentDetailResponse struct {
+	Success bool                       `json:"success"`
+	Data    KBBloggerContentDetailData `json:"data"`
+}
+
+// KBBloggerContentGet fetches full detail of a blogger content item.
+// GET /open/api/v1/resource/knowledge/blogger/content/detail
+func (c *Client) KBBloggerContentGet(topicID, postID string) (*KBBloggerContentDetailResponse, error) {
+	return doGet[KBBloggerContentDetailResponse](c, "/open/api/v1/resource/knowledge/blogger/content/detail", url.Values{
+		"topic_id": {topicID},
+		"post_id":  {postID},
+	})
+}
+
+// KBLive represents a live session in a knowledge base.
+type KBLive struct {
+	LiveID string `json:"live_id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+// KBLiveListData is the data field of the live list response.
+type KBLiveListData struct {
+	Lives   []KBLive `json:"lives"`
+	HasMore bool     `json:"has_more"`
+	Total   int      `json:"total"`
+}
+
+// KBLiveListResponse is the response from the live list endpoint.
+type KBLiveListResponse struct {
+	Success bool           `json:"success"`
+	Data    KBLiveListData `json:"data"`
+}
+
+// KBLiveList fetches completed live sessions in a knowledge base.
+// GET /open/api/v1/resource/knowledge/lives
+func (c *Client) KBLiveList(topicID string, page int) (*KBLiveListResponse, error) {
+	return doGet[KBLiveListResponse](c, "/open/api/v1/resource/knowledge/lives", url.Values{
+		"topic_id": {topicID},
+		"page":     {fmt.Sprintf("%d", page)},
+	})
+}
+
+// KBLiveDetail represents the full detail of a live session.
+type KBLiveDetail struct {
+	LiveID        string `json:"live_id"`
+	Name          string `json:"name"`
+	PostSummary   string `json:"post_summary"`
+	PostMediaText string `json:"post_media_text"`
+	Status        string `json:"status"`
+}
+
+// KBLiveDetailData is the data field of the live detail response.
+type KBLiveDetailData struct {
+	Live KBLiveDetail `json:"live"`
+}
+
+// KBLiveDetailResponse is the response from the live detail endpoint.
+type KBLiveDetailResponse struct {
+	Success bool             `json:"success"`
+	Data    KBLiveDetailData `json:"data"`
+}
+
+// KBLiveGet fetches full detail of a live session including summary and transcript.
+// GET /open/api/v1/resource/knowledge/live/detail
+func (c *Client) KBLiveGet(topicID, liveID string) (*KBLiveDetailResponse, error) {
+	return doGet[KBLiveDetailResponse](c, "/open/api/v1/resource/knowledge/live/detail", url.Values{
+		"topic_id": {topicID},
+		"live_id":  {liveID},
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Quota API
+// ---------------------------------------------------------------------------
+
+// QuotaItem represents a single quota item.
+type QuotaItem struct {
+	Name      string `json:"name"`
+	Used      int    `json:"used"`
+	Total     int    `json:"total"`
+	ResetTime string `json:"reset_time"`
+}
+
+// QuotaData is the data field of the quota response.
+type QuotaData struct {
+	Quotas []QuotaItem `json:"quotas"`
+}
+
+// QuotaResponse is the response from the quota endpoint.
+type QuotaResponse struct {
+	Success bool      `json:"success"`
+	Data    QuotaData `json:"data"`
+}
+
+// QuotaGet fetches the user's API quota usage.
+// GET /open/api/v1/resource/quota
+func (c *Client) QuotaGet() (*QuotaResponse, error) {
+	return doGet[QuotaResponse](c, "/open/api/v1/resource/quota", nil)
+}
+
+// ---------------------------------------------------------------------------
 // Image Upload API
 // ---------------------------------------------------------------------------
 
