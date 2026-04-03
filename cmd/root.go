@@ -14,6 +14,7 @@ import (
 	"github.com/iswalle/getnote-cli/cmd/search"
 	"github.com/iswalle/getnote-cli/cmd/tag"
 	"github.com/iswalle/getnote-cli/cmd/task"
+	"github.com/iswalle/getnote-cli/cmd/update"
 	"github.com/iswalle/getnote-cli/internal/config"
 	"github.com/iswalle/getnote-cli/internal/version"
 	"github.com/spf13/cobra"
@@ -65,6 +66,7 @@ func init() {
 	rootCmd.AddCommand(search.NewSearchCmd())
 	rootCmd.AddCommand(tag.NewTagCmd())
 	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(update.NewUpdateCmd())
 }
 
 func initConfig() {
