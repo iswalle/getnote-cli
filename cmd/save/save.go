@@ -185,8 +185,8 @@ func pollTask(cmd *cobra.Command, c *client.Client, taskID string) error {
 	}
 
 	const (
-		interval   = 1500 * time.Millisecond
-		maxRetries = 20
+		interval   = 2000 * time.Millisecond
+		maxRetries = 40 // up to ~80s
 	)
 
 	var lastResp *client.NoteTaskResponse
@@ -206,7 +206,7 @@ func pollTask(cmd *cobra.Command, c *client.Client, taskID string) error {
 		lastResp = resp
 
 		switch resp.Data.Status {
-		case "done":
+		case "done", "success":
 			if !isJSON {
 				fmt.Fprintln(out, " done")
 			}

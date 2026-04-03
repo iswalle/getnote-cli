@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewKbsSubCmd returns the kbs-sub command.
+// NewKbsSubCmd returns the kbs-sub command for listing subscribed knowledge bases.
 func NewKbsSubCmd() *cobra.Command {
 	var page int
 
@@ -17,8 +17,6 @@ func NewKbsSubCmd() *cobra.Command {
 		Use:     "kbs-sub",
 		Aliases: []string{"subscribed-kbs"},
 		Short:   "列出订阅的知识库 / List subscribed knowledge bases",
-		Example: `  getnote kbs-sub
-  getnote kbs-sub --page 2`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 			resp, err := c.KBSubscribedList(page)
@@ -49,7 +47,7 @@ func NewKbsSubCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&page, "page", 1, "页码 / Page number")
+	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	return cmd
 }
 

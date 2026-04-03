@@ -231,7 +231,7 @@ type NoteTaskRequest struct {
 // NoteTaskData is the data field of the task progress response.
 type NoteTaskData struct {
 	TaskID string `json:"task_id"`
-	Status string `json:"status"`   // pending | processing | done | failed
+	Status string `json:"status"`   // pending | processing | done | success | failed
 	NoteID string `json:"note_id"`
 	Msg    string `json:"msg"`
 }
