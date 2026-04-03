@@ -561,23 +561,18 @@ func (c *Client) KBLiveList(topicID string, page int) (*KBLiveListResponse, erro
 }
 
 // KBLiveDetail represents the full detail of a live session.
+// The API returns fields directly in data, not nested under a "live" key.
 type KBLiveDetail struct {
 	LiveID        string `json:"live_id"`
-	Name          string `json:"name"`
+	Name          string `json:"live_name"`
 	PostSummary   string `json:"post_summary"`
 	PostMediaText string `json:"post_media_text"`
-	Status        string `json:"status"`
-}
-
-// KBLiveDetailData is the data field of the live detail response.
-type KBLiveDetailData struct {
-	Live KBLiveDetail `json:"live"`
 }
 
 // KBLiveDetailResponse is the response from the live detail endpoint.
 type KBLiveDetailResponse struct {
-	Success bool             `json:"success"`
-	Data    KBLiveDetailData `json:"data"`
+	Success bool         `json:"success"`
+	Data    KBLiveDetail `json:"data"`
 }
 
 // KBLiveGet fetches full detail of a live session including summary and transcript.
