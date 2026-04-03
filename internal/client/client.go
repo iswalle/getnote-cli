@@ -179,9 +179,9 @@ type NoteSaveRequest struct {
 
 // NoteSaveResponse is the response from the note save endpoint.
 type NoteSaveResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+	Error   *APIError   `json:"error"`
 }
 
 // NoteSave saves a new note (URL or plain text).
@@ -200,9 +200,9 @@ type NoteUpdateRequest struct {
 
 // NoteUpdateResponse is the response from the note update endpoint.
 type NoteUpdateResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+	Error   *APIError   `json:"error"`
 }
 
 // NoteUpdate updates an existing note.
@@ -218,9 +218,9 @@ type NoteDeleteRequest struct {
 
 // NoteDeleteResponse is the response from the note delete endpoint.
 type NoteDeleteResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+	Error   *APIError   `json:"error"`
 }
 
 // NoteDelete deletes a note by ID.
@@ -312,9 +312,9 @@ type KBCreateRequest struct {
 
 // KBCreateResponse is the response from the knowledge base create endpoint.
 type KBCreateResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+	Error   *APIError   `json:"error"`
 }
 
 // KBCreate creates a new knowledge base.
@@ -751,6 +751,7 @@ type NoteTagsResponseData struct {
 type NoteTagsAddResponse struct {
 	Success bool                 `json:"success"`
 	Data    NoteTagsResponseData `json:"data"`
+	Error   *APIError            `json:"error"`
 }
 
 // NoteTagsAdd adds tags to a note and returns the updated tag list.
@@ -769,6 +770,7 @@ type NoteTagsDeleteRequest struct {
 type NoteTagsDeleteResponse struct {
 	Success bool        `json:"success"`
 	Data    interface{} `json:"data"`
+	Error   *APIError   `json:"error"`
 }
 
 // NoteTagsDelete removes a tag from a note by tag ID.

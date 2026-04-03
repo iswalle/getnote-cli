@@ -172,6 +172,13 @@ func newCreateCmd() *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
 			}
+			if !resp.Success {
+				msg := "unknown error"
+				if resp.Error != nil {
+					msg = resp.Error.Message
+				}
+				return fmt.Errorf("API error: %s", msg)
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), "✓ Knowledge base created.")
 			return nil
 		},

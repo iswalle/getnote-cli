@@ -46,7 +46,13 @@ func newTagAddCmd() *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
 			}
-
+			if !resp.Success {
+				msg := "unknown error"
+				if resp.Error != nil {
+					msg = resp.Error.Message
+				}
+				return fmt.Errorf("API error: %s", msg)
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Tag added. Note %s now has %d tag(s):\n", resp.Data.NoteID, len(resp.Data.Tags))
 			printTags(cmd, resp.Data.Tags)
 			return nil
@@ -81,7 +87,13 @@ System tags cannot be deleted.`,
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
 			}
-
+			if !resp.Success {
+				msg := "unknown error"
+				if resp.Error != nil {
+					msg = resp.Error.Message
+				}
+				return fmt.Errorf("API error: %s", msg)
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), "✓ Tag removed.")
 			return nil
 		},
