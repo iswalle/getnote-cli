@@ -501,25 +501,24 @@ func (c *Client) KBBloggerContentList(topicID, followID string, page int) (*KBBl
 }
 
 // KBBloggerContentDetail represents the full detail of a blogger content item.
+// API returns fields directly in data (flat, not nested under "content").
 type KBBloggerContentDetail struct {
-	PostTitle      string `json:"post_title"`
-	PostSummary    string `json:"post_summary"`
-	PostMediaText  string `json:"post_media_text"`
-	PostType       string `json:"post_type"`
-	PublishTime    string `json:"publish_time"`
-	AccountName    string `json:"account_name"`
-	PostIDAlias    string `json:"post_id_alias"`
-}
-
-// KBBloggerContentDetailData is the data field of the blogger content detail response.
-type KBBloggerContentDetailData struct {
-	Content KBBloggerContentDetail `json:"content"`
+	PostIDAlias   string `json:"post_id_alias"`
+	PostName      string `json:"post_name"`
+	PostTitle     string `json:"post_title"`
+	PostType      interface{} `json:"post_type"`
+	PostSummary   string `json:"post_summary"`
+	PostMediaText string `json:"post_media_text"`
+	PostSubtitle  string `json:"post_subtitle"`
+	PostURL       string `json:"post_url"`
+	PublishTime   string `json:"post_publish_time"`
+	CreateTime    string `json:"post_create_time"`
 }
 
 // KBBloggerContentDetailResponse is the response from the blogger content detail endpoint.
 type KBBloggerContentDetailResponse struct {
-	Success bool                       `json:"success"`
-	Data    KBBloggerContentDetailData `json:"data"`
+	Success bool                   `json:"success"`
+	Data    KBBloggerContentDetail `json:"data"`
 }
 
 // KBBloggerContentGet fetches full detail of a blogger content item.
@@ -561,12 +560,14 @@ func (c *Client) KBLiveList(topicID string, page int) (*KBLiveListResponse, erro
 }
 
 // KBLiveDetail represents the full detail of a live session.
-// The API returns fields directly in data, not nested under a "live" key.
+// The API returns fields directly in data (same shape as blogger content detail).
 type KBLiveDetail struct {
-	LiveID        string `json:"live_id"`
-	Name          string `json:"live_name"`
+	PostName      string `json:"post_name"`
+	PostTitle     string `json:"post_title"`
+	PostSubtitle  string `json:"post_subtitle"`
 	PostSummary   string `json:"post_summary"`
 	PostMediaText string `json:"post_media_text"`
+	PublishTime   string `json:"post_publish_time"`
 }
 
 // KBLiveDetailResponse is the response from the live detail endpoint.

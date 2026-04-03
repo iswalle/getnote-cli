@@ -311,21 +311,25 @@ func newBloggerContentCmd() *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
 			}
-			d := resp.Data.Content
+			d := resp.Data
 			table := tablewriter.NewWriter(cmd.OutOrStdout())
 			table.SetHeader([]string{"Field", "Value"})
 			table.SetBorder(false)
 			table.SetAutoWrapText(false)
-			table.Append([]string{"ID", d.PostIDAlias})
-			table.Append([]string{"Title", d.PostTitle})
-			table.Append([]string{"Author", d.AccountName})
-			table.Append([]string{"Type", d.PostType})
+			name := d.PostName
+			if d.PostTitle != "" {
+				name = d.PostTitle
+			}
+			table.Append([]string{"Name", name})
+			if d.PostSubtitle != "" {
+				table.Append([]string{"Subtitle", d.PostSubtitle})
+			}
 			table.Append([]string{"Published", d.PublishTime})
 			if d.PostSummary != "" {
 				table.Append([]string{"Summary", ui.Truncate(d.PostSummary, 200)})
 			}
 			if d.PostMediaText != "" {
-				table.Append([]string{"Content", ui.Truncate(d.PostMediaText, 300)})
+				table.Append([]string{"Content", ui.Truncate(d.PostMediaText, 500)})
 			}
 			table.Render()
 			return nil
@@ -390,7 +394,15 @@ func newLiveCmd() *cobra.Command {
 			table.SetHeader([]string{"Field", "Value"})
 			table.SetBorder(false)
 			table.SetAutoWrapText(false)
-			table.Append([]string{"Name", d.Name})
+			name := d.PostName
+			if d.PostTitle != "" {
+				name = d.PostTitle
+			}
+			table.Append([]string{"Name", name})
+			if d.PostSubtitle != "" {
+				table.Append([]string{"Subtitle", d.PostSubtitle})
+			}
+			table.Append([]string{"Published", d.PublishTime})
 			if d.PostSummary != "" {
 				table.Append([]string{"Summary", ui.Truncate(d.PostSummary, 200)})
 			}

@@ -1,6 +1,6 @@
 ---
 name: getnote-kb
-version: 0.5.0
+version: 0.5.1
 description: Manage knowledge bases in Get笔记 via the getnote CLI
 ---
 
@@ -214,5 +214,5 @@ getnote quota -o json
 - `kb add` / `kb remove` accept multiple note IDs — prefer batching over multiple calls.
 - `kb bloggers` → get `follow_id` → `kb blogger-contents` → get `post_id_alias` → `kb blogger-content` for full text.
 - `kb lives` → get `live_id` → `kb live` for AI summary + transcript.
-- `quota -o json` returns `{"success":true,"data":{"quotas":[{name,used,total,reset_time}]}}`
+- `quota -o json` returns `{"success":true,"data":{"read":{"daily":{limit,used,remaining,reset_at},"monthly":{...}},"write":{...},"write_note":{...}}}`
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
