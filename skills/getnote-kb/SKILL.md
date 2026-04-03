@@ -47,7 +47,7 @@ getnote kbs-sub --page 2
 getnote kbs-sub -o json
 ```
 
-> Note: `note_count` is not returned by this API (always 0). Use `getnote kb <topic_id>` to browse notes inside.
+> Use `getnote kb <topic_id>` to browse notes inside a subscribed knowledge base.
 
 ---
 
@@ -120,7 +120,7 @@ getnote kb remove vnrOAaGY 1234567890
 
 - Use `-o json` when parsing results programmatically.
 - `kbs -o json` returns `{"success":true,"data":{"topics":[...],"total":N}}`
-- `kbs-sub -o json` returns the same shape; `stats.note_count` will be 0 (API limitation).
+- `kbs-sub -o json` returns the same shape as `kbs -o json`.
 - `kb <topic_id> -o json` returns `{"success":true,"data":{"notes":[...],"has_more":...}}`
 - Get `topic_id` from `getnote kbs -o json` or `getnote kbs-sub -o json` → `data.topics[].topic_id` field (not `id`).
 - `kb add` / `kb remove` accept multiple note IDs — prefer batching over multiple calls.
