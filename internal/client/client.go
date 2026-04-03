@@ -437,12 +437,12 @@ func (c *Client) KBSearch(topicID, query string, topK int) (*NoteSearchResponse,
 
 // KBBlogger represents a subscribed blogger in a knowledge base.
 type KBBlogger struct {
-	FollowID    string `json:"follow_id"`
-	AccountName string `json:"account_name"`
-	AccountIcon string `json:"account_icon"`
-	Platform    string `json:"platform"`
-	AccountURL  string `json:"account_url"`
-	FollowTime  string `json:"follow_time"`
+	FollowID    json.Number `json:"follow_id"`
+	AccountName string      `json:"account_name"`
+	AccountIcon string      `json:"account_icon"`
+	Platform    string      `json:"platform"`
+	AccountURL  string      `json:"account_url"`
+	FollowTime  string      `json:"follow_time"`
 }
 
 // KBBloggerListData is the data field of the blogger list response.

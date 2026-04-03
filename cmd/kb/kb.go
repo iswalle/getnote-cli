@@ -248,7 +248,7 @@ func newBloggersCmd() *cobra.Command {
 			table.SetBorder(false)
 			table.SetAutoWrapText(false)
 			for _, b := range resp.Data.Bloggers {
-				table.Append([]string{b.FollowID, b.AccountName, b.Platform, b.FollowTime})
+				table.Append([]string{b.FollowID.String(), b.AccountName, b.Platform, b.FollowTime})
 			}
 			table.Render()
 			fmt.Fprintf(cmd.OutOrStdout(), "\n(%d bloggers)\n", len(resp.Data.Bloggers))
