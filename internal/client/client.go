@@ -585,35 +585,6 @@ func (c *Client) KBLiveGet(topicID, liveID string) (*KBLiveDetailResponse, error
 }
 
 // ---------------------------------------------------------------------------
-// Quota API
-// ---------------------------------------------------------------------------
-
-// QuotaItem represents a single quota item.
-type QuotaItem struct {
-	Name      string `json:"name"`
-	Used      int    `json:"used"`
-	Total     int    `json:"total"`
-	ResetTime string `json:"reset_time"`
-}
-
-// QuotaData is the data field of the quota response.
-type QuotaData struct {
-	Quotas []QuotaItem `json:"quotas"`
-}
-
-// QuotaResponse is the response from the quota endpoint.
-type QuotaResponse struct {
-	Success bool      `json:"success"`
-	Data    QuotaData `json:"data"`
-}
-
-// QuotaGet fetches the user's API quota usage.
-// GET /open/api/v1/resource/quota
-func (c *Client) QuotaGet() (*QuotaResponse, error) {
-	return doGet[QuotaResponse](c, "/open/api/v1/resource/quota", nil)
-}
-
-// ---------------------------------------------------------------------------
 // Image Upload API
 // ---------------------------------------------------------------------------
 
