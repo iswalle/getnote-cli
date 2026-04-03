@@ -1,6 +1,6 @@
 ---
 name: getnote-kb
-version: 0.5.1
+version: 0.5.2
 description: Manage knowledge bases in Get笔记 via the getnote CLI
 ---
 
@@ -114,6 +114,8 @@ getnote kb remove <topic_id> <note_id> [note_id...]
 getnote kb remove vnrOAaGY 1234567890
 ```
 
+> ⚠️ **订阅知识库限制**：如果目标知识库是他人创建（通过 `getnote kbs-sub` 获取），且用户不是该知识库的管理员，则无法添加或移除笔记，API 会返回错误。只有自己创建的知识库（`getnote kbs`）才支持完整的增删操作。
+
 ---
 
 ### List bloggers in a knowledge base
@@ -212,6 +214,7 @@ getnote quota -o json
 - `kb <topic_id> -o json` returns `{"success":true,"data":{"notes":[...],"has_more":...}}`
 - Get `topic_id` from `getnote kbs -o json` or `getnote kbs-sub -o json` → `data.topics[].topic_id` field (not `id`).
 - `kb add` / `kb remove` accept multiple note IDs — prefer batching over multiple calls.
+- **Subscribed KBs are read-only** unless the user is an admin of that KB. `kb add` / `kb remove` will return an API error on subscribed KBs owned by others. Use `getnote kbs` (owned) vs `getnote kbs-sub` (subscribed) to distinguish.
 - `kb bloggers` → get `follow_id` → `kb blogger-contents` → get `post_id_alias` → `kb blogger-content` for full text.
 - `kb lives` → get `live_id` → `kb live` for AI summary + transcript.
 - `quota -o json` returns `{"success":true,"data":{"read":{"daily":{limit,used,remaining,reset_at},"monthly":{...}},"write":{...},"write_note":{...}}}`
