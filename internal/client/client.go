@@ -585,6 +585,43 @@ func (c *Client) KBLiveGet(topicID, liveID string) (*KBLiveDetailResponse, error
 }
 
 // ---------------------------------------------------------------------------
+// Quota API
+// ---------------------------------------------------------------------------
+
+// QuotaBucket holds used/limit/remaining/reset for one time window.
+type QuotaBucket struct {
+	Limit     int   `json:"limit"`
+	Used      int   `json:"used"`
+	Remaining int   `json:"remaining"`
+	ResetAt   int64 `json:"reset_at"`
+}
+
+// QuotaWindow has daily and monthly buckets.
+type QuotaWindow struct {
+	Daily   QuotaBucket `json:"daily"`
+	Monthly QuotaBucket `json:"monthly"`
+}
+
+// QuotaData is the data field of the quota response.
+type QuotaData struct {
+	Read      QuotaWindow `json:"read"`
+	Write     QuotaWindow `json:"write"`
+	WriteNote QuotaWindow `json:"write_note"`
+}
+
+// QuotaResponse is the response from the quota endpoint.
+type QuotaResponse struct {
+	Success bool      `json:"success"`
+	Data    QuotaData `json:"data"`
+}
+
+// QuotaGet fetches the user's API quota usage.
+// GET /open/api/v1/resource/rate-limit/quota
+func (c *Client) QuotaGet() (*QuotaResponse, error) {
+	return doGet[QuotaResponse](c, "/open/api/v1/resource/rate-limit/quota", nil)
+}
+
+// ---------------------------------------------------------------------------
 // Image Upload API
 // ---------------------------------------------------------------------------
 

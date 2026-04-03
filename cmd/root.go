@@ -10,6 +10,7 @@ import (
 	"github.com/iswalle/getnote-cli/cmd/kbssub"
 	"github.com/iswalle/getnote-cli/cmd/note"
 	"github.com/iswalle/getnote-cli/cmd/notes"
+	"github.com/iswalle/getnote-cli/cmd/quota"
 	"github.com/iswalle/getnote-cli/cmd/save"
 	"github.com/iswalle/getnote-cli/cmd/search"
 	"github.com/iswalle/getnote-cli/cmd/tag"
@@ -65,6 +66,7 @@ func init() {
 	rootCmd.AddCommand(kb.NewKbCmd())
 	rootCmd.AddCommand(search.NewSearchCmd())
 	rootCmd.AddCommand(tag.NewTagCmd())
+	rootCmd.AddCommand(quota.NewQuotaCmd())
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(update.NewUpdateCmd())
 }
