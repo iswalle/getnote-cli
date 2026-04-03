@@ -196,6 +196,13 @@ func newAddCmd() *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
 			}
+			if !resp.Success {
+				msg := "unknown error"
+				if resp.Error != nil {
+					msg = resp.Error.Message
+				}
+				return fmt.Errorf("API error: %s", msg)
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Added %d note(s) to %s.\n", len(args[1:]), args[0])
 			return nil
 		},
@@ -217,6 +224,13 @@ func newRemoveCmd() *cobra.Command {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
+			}
+			if !resp.Success {
+				msg := "unknown error"
+				if resp.Error != nil {
+					msg = resp.Error.Message
+				}
+				return fmt.Errorf("API error: %s", msg)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed %d note(s) from %s.\n", len(args[1:]), args[0])
 			return nil

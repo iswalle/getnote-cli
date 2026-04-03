@@ -16,6 +16,12 @@ import (
 	"github.com/iswalle/getnote-cli/internal/config"
 )
 
+// APIError represents an error returned by the API.
+type APIError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
 // Client is an HTTP client for the getnote API.
 type Client struct {
 	baseURL    string
@@ -352,9 +358,9 @@ type KBNotesBatchAddRequest struct {
 
 // KBNotesBatchAddResponse is the response from the batch-add endpoint.
 type KBNotesBatchAddResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+	Error   *APIError   `json:"error"`
 }
 
 // KBNotesAdd adds notes to a knowledge base.
@@ -372,9 +378,9 @@ type KBNotesRemoveRequest struct {
 
 // KBNotesRemoveResponse is the response from the remove endpoint.
 type KBNotesRemoveResponse struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+	Error   *APIError   `json:"error"`
 }
 
 // KBNotesRemove removes notes from a knowledge base.
