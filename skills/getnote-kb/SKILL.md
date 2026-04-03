@@ -1,12 +1,12 @@
 ---
 name: getnote-kb
-version: 0.3.0
+version: 0.4.0
 description: Manage knowledge bases in Get笔记 via the getnote CLI
 ---
 
 # getnote-kb Skill
 
-Manage knowledge bases — list, create, browse notes, add/remove notes.
+Manage knowledge bases — list, create, browse notes, add/remove notes. Also supports listing subscribed knowledge bases.
 
 ## Prerequisites
 
@@ -26,6 +26,28 @@ Returns all knowledge bases. Each item includes: `topic_id`, `name`, `descriptio
 getnote kbs
 getnote kbs -o json
 ```
+
+---
+
+### List subscribed knowledge bases
+
+```
+getnote kbs-sub [--page <n>]
+```
+
+Returns knowledge bases the user has subscribed to. Supports pagination.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--page` | 1 | Page number |
+
+```bash
+getnote kbs-sub
+getnote kbs-sub --page 2
+getnote kbs-sub -o json
+```
+
+> Note: `note_count` is not returned by this API (always 0). Use `getnote kb <topic_id>` to browse notes inside.
 
 ---
 
@@ -98,7 +120,8 @@ getnote kb remove vnrOAaGY 1234567890
 
 - Use `-o json` when parsing results programmatically.
 - `kbs -o json` returns `{"success":true,"data":{"topics":[...],"total":N}}`
+- `kbs-sub -o json` returns the same shape; `stats.note_count` will be 0 (API limitation).
 - `kb <topic_id> -o json` returns `{"success":true,"data":{"notes":[...],"has_more":...}}`
-- Get `topic_id` from `getnote kbs -o json` → `data.topics[].topic_id` field (not `id`).
+- Get `topic_id` from `getnote kbs -o json` or `getnote kbs-sub -o json` → `data.topics[].topic_id` field (not `id`).
 - `kb add` / `kb remove` accept multiple note IDs — prefer batching over multiple calls.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
