@@ -213,7 +213,7 @@ func (c *Client) NoteUpdate(req NoteUpdateRequest) (*NoteUpdateResponse, error) 
 
 // NoteDeleteRequest is the request body for deleting a note.
 type NoteDeleteRequest struct {
-	ID string `json:"id"`
+	NoteID string `json:"note_id"`
 }
 
 // NoteDeleteResponse is the response from the note delete endpoint.
@@ -226,7 +226,7 @@ type NoteDeleteResponse struct {
 // NoteDelete deletes a note by ID.
 // POST /open/api/v1/resource/note/delete
 func (c *Client) NoteDelete(noteID string) (*NoteDeleteResponse, error) {
-	return doPost[NoteDeleteResponse](c, "/open/api/v1/resource/note/delete", NoteDeleteRequest{ID: noteID})
+	return doPost[NoteDeleteResponse](c, "/open/api/v1/resource/note/delete", NoteDeleteRequest{NoteID: noteID})
 }
 
 // NoteTaskRequest is the request body for querying task progress.
