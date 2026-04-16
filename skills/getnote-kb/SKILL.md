@@ -199,12 +199,13 @@ getnote kb live vnrOAaGY live_abc123 -o json
 getnote kb live-follow <topic_id> <link> [--platform <platform>]
 ```
 
-Subscribes a live channel to a knowledge base. Once the live session ends and is AI-processed, it will appear in `kb lives`.
+Subscribes a Dedao live channel to a knowledge base. Once the live session ends and is AI-processed, it will appear in `kb lives`.
+
+> ⚠️ Currently only Dedao App live links are supported.
 
 ```bash
-getnote kb live-follow vnrOAaGY https://live.bilibili.com/12345
-getnote kb live-follow vnrOAaGY https://live.bilibili.com/12345 --platform bilibili
-getnote kb live-follow vnrOAaGY https://live.bilibili.com/12345 -o json
+getnote kb live-follow vnrOAaGY https://m.dedao.cn/live/xxxxx
+getnote kb live-follow vnrOAaGY https://m.dedao.cn/live/xxxxx -o json
 ```
 
 Returns: `follow_id`, `url`, `platform`, `type`, `created_at`.
