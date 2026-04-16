@@ -143,6 +143,24 @@ getnote note delete 1234567890 -y
 
 ---
 
+### Share a note
+
+```
+getnote note share <id> [--exclude-audio]
+```
+
+Generates a public share link for a note. Idempotent — calling multiple times returns the same URL.
+
+```bash
+getnote note share 1234567890
+getnote note share 1234567890 --exclude-audio
+getnote note share 1234567890 -o json
+```
+
+Returns: `share_url` (e.g. `https://biji.com/note/share_note/rBzdMlXrzgYVM`)
+
+---
+
 ## Agent Usage Notes
 
 - Use `-o json` when parsing responses programmatically.
