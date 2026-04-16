@@ -193,6 +193,24 @@ getnote kb live vnrOAaGY live_abc123 -o json
 
 ---
 
+### Follow a live channel in a knowledge base
+
+```
+getnote kb live-follow <topic_id> <link> [--platform <platform>]
+```
+
+Subscribes a live channel to a knowledge base. Once the live session ends and is AI-processed, it will appear in `kb lives`.
+
+```bash
+getnote kb live-follow vnrOAaGY https://live.bilibili.com/12345
+getnote kb live-follow vnrOAaGY https://live.bilibili.com/12345 --platform bilibili
+getnote kb live-follow vnrOAaGY https://live.bilibili.com/12345 -o json
+```
+
+Returns: `follow_id`, `url`, `platform`, `type`, `created_at`.
+
+---
+
 ### Show API quota usage
 
 ```
@@ -217,5 +235,6 @@ getnote quota -o json
 - **Subscribed KBs are read-only** unless the user is an admin of that KB. `kb add` / `kb remove` will return an API error on subscribed KBs owned by others. Use `getnote kbs` (owned) vs `getnote kbs-sub` (subscribed) to distinguish.
 - `kb bloggers` → get `follow_id` → `kb blogger-contents` → get `post_id_alias` → `kb blogger-content` for full text.
 - `kb lives` → get `live_id` → `kb live` for AI summary + transcript.
+- `kb live-follow <topic_id> <link>` to subscribe a live channel; newly finished lives will appear in `kb lives`.
 - `quota -o json` returns `{"success":true,"data":{"read":{"daily":{limit,used,remaining,reset_at},"monthly":{...}},"write":{...},"write_note":{...}}}`
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
