@@ -25,7 +25,10 @@ getnote save <url|text|image_path> [--title <title>] [--tag <tag>]...
 | `--title` | Optional title |
 | `--tag` | Tag to apply; may be repeated |
 
-- URL (`http://` or `https://`) → link note (async, auto-polls until done)
+- URL (`http://` or `https://`) → link note:
+  - **Share link** (`biji.com/note/share_note/*` or `d.biji.com/*` short link) → **sync**, returns `note_id` directly, no polling needed
+  - **Internal note link** (`biji.com/note/{note_id}`) → use `getnote note <id>` to view instead of saving, unless user explicitly asks to save
+  - **Other URLs** → async, auto-polls until done
 - Local image path → image note (async, auto-polls until done)
 - Otherwise → text note (sync)
 
@@ -166,7 +169,8 @@ Returns: `share_url` (e.g. `https://biji.com/note/share_note/rBzdMlXrzgYVM`)
 - Use `-o json` when parsing responses programmatically.
 - All JSON responses follow `{"success":true,"data":{...}}` structure, **except**:
   - `save` (text): returns `{"note_id":"..."}` directly
-  - `save` (link/image): returns `{"data":{"tasks":[{"task_id":"..."}],...}}`
+  - `save` (share link): returns `{"note_id":"...","title":"...","created_at":"...","updated_at":"..."}` directly
+  - `save` (regular link/image): returns `{"data":{"tasks":[{"task_id":"..."}],...}}`
   - `task`: returns `{"success":true,"data":{"status":"...","note_id":"..."}}`
 - `notes` list returns **20 per page** (no `--limit`); paginate with `--since-id`.
 - Note IDs are int64 — always handle as strings to avoid precision loss in JavaScript.
