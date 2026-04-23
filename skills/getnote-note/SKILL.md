@@ -27,7 +27,7 @@ getnote save <url|text|image_path> [--title <title>] [--tag <tag>]...
 
 - URL (`http://` or `https://`) → link note:
   - **Share link** (`biji.com/note/share_note/*` or `d.biji.com/*` short link) → **sync**, returns `note_id` directly, no polling needed
-  - **Internal note link** (`biji.com/note/{note_id}`) → use `getnote note <id>` to view instead of saving, unless user explicitly asks to save
+  - **Internal note link** (`biji.com/note/{note_id}`) → this is the format for linking to another note inside note content; use it in `content` field when referencing other notes
   - **Other URLs** → async, auto-polls until done
 - Local image path → image note (async, auto-polls until done)
 - Otherwise → text note (sync)
