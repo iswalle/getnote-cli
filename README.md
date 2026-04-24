@@ -20,7 +20,7 @@ npm install -g @getnote/cli
 
 **第一步：安装**
 ```bash
-npm install -g @getnote/cli
+# 已完成，如上
 ```
 
 **（可选）安装 AI Agent Skill**
@@ -192,6 +192,9 @@ getnote kb create <名称>             新建知识库
 
 getnote kb add <topic_id> <note_id> [note_id...]     加入知识库
 getnote kb remove <topic_id> <note_id> [note_id...]  移出知识库
+getnote kb live-follow <url>                         订阅得到直播课，直播结束后 AI 摘要自动入库
+
+getnote kbs-sub                                      获取我订阅的知识库列表
 ```
 
 ---
@@ -274,7 +277,7 @@ $ getnote search "工作日志" --limit 7 -o json
 ## 相关链接
 
 - [Get笔记官网](https://biji.com)
-- [开放平台文档](https://openapi.biji.com/docs)
+- [开放平台文档](https://www.biji.com/openapi)
 - [问题反馈](https://github.com/iswalle/getnote-cli/issues)
 
 ## License
