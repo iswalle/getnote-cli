@@ -246,14 +246,14 @@ make install
 结合 Get笔记内链，可以用脚本自动串联：
 
 ```bash
-# 每天早上新建当天日志
-$ getnote save "今天工作日志 - 以下是进展：\nhttps://biji.com/note/1907962187788341186" --tag 日志
+# 每天早上新建当天日志，内链到关联项目笔记
+$ getnote save "今天工作日志 - 以下是进展：\n参考：biji.com/note/{note_id}" --tag 日志
 
 # 每周查看本周日志，复盘时间分配
 $ getnote search "工作日志" --limit 7 -o json
 ```
 
-**内链格式**：在笔记正文里用 `https://biji.com/note/{note_id}` 引用其他笔记。
+**内链格式**：在笔记正文里用 `https://biji.com/note/{note_id}` 引用其他笔记，`{note_id}` 替换为实际笔记 ID。
 
 ---
 
