@@ -253,7 +253,11 @@ $ getnote save "今天工作日志 - 以下是进展：\n参考：biji.com/note/
 $ getnote search "工作日志" --limit 7 -o json
 ```
 
-**内链格式**：在笔记正文里用 `https://biji.com/note/{note_id}` 引用其他笔记，`{note_id}` 替换为实际笔记 ID。
+**内链格式**：在笔记正文里用 `https://biji.com/note/{note_id}` 引用其他笔记。示例：
+
+```
+参考上次的讨论：https://biji.com/note/1234567890000000001
+```
 
 ---
 
