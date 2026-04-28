@@ -57,9 +57,6 @@ func NewSearchCmd() *cobra.Command {
 			out := cmd.OutOrStdout()
 			results := resp.Data.Results
 			if len(results) == 0 {
-				results = resp.Results // fallback
-			}
-			if len(results) == 0 {
 				fmt.Fprintln(out, "No results found.")
 				return nil
 			}

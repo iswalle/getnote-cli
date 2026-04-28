@@ -330,10 +330,18 @@ type KBNotesParams struct {
 	Page    int
 }
 
+// KBNoteListData is the data field of the KB notes response.
+// Unlike NoteListData, this endpoint does not return next_cursor.
+type KBNoteListData struct {
+	Notes   []Note `json:"notes"`
+	HasMore bool   `json:"has_more"`
+	Total   int    `json:"total"`
+}
+
 // KBNotesResponse is the response from the knowledge base notes endpoint.
 type KBNotesResponse struct {
-	Success bool         `json:"success"`
-	Data    NoteListData `json:"data"`
+	Success bool           `json:"success"`
+	Data    KBNoteListData `json:"data"`
 }
 
 // KBNotes fetches notes in a knowledge base.
@@ -415,7 +423,6 @@ type NoteSearchResponse struct {
 	Data    struct {
 		Results []RecallResult `json:"results"`
 	} `json:"data"`
-	Results []RecallResult `json:"results"` // fallback for flat response
 }
 
 // NoteSearch performs global semantic search across all notes.
@@ -737,7 +744,7 @@ func (c *Client) ImageUploadToOSS(token ImageUploadToken, imagePath string) erro
 
 // NoteTagsAddRequest is the request body for adding tags to a note.
 type NoteTagsAddRequest struct {
-	NoteID int64    `json:"note_id"`
+	NoteID string   `json:"note_id"`
 	Tags   []string `json:"tags"`
 }
 
@@ -756,13 +763,13 @@ type NoteTagsAddResponse struct {
 
 // NoteTagsAdd adds tags to a note and returns the updated tag list.
 // POST /open/api/v1/resource/note/tags/add
-func (c *Client) NoteTagsAdd(noteID int64, tags []string) (*NoteTagsAddResponse, error) {
+func (c *Client) NoteTagsAdd(noteID string, tags []string) (*NoteTagsAddResponse, error) {
 	return doPost[NoteTagsAddResponse](c, "/open/api/v1/resource/note/tags/add", NoteTagsAddRequest{NoteID: noteID, Tags: tags})
 }
 
 // NoteTagsDeleteRequest is the request body for deleting a tag from a note.
 type NoteTagsDeleteRequest struct {
-	NoteID int64  `json:"note_id"`
+	NoteID string `json:"note_id"`
 	TagID  string `json:"tag_id"`
 }
 
@@ -775,7 +782,7 @@ type NoteTagsDeleteResponse struct {
 
 // NoteTagsDelete removes a tag from a note by tag ID.
 // POST /open/api/v1/resource/note/tags/delete
-func (c *Client) NoteTagsDelete(noteID int64, tagID string) (*NoteTagsDeleteResponse, error) {
+func (c *Client) NoteTagsDelete(noteID string, tagID string) (*NoteTagsDeleteResponse, error) {
 	return doPost[NoteTagsDeleteResponse](c, "/open/api/v1/resource/note/tags/delete", NoteTagsDeleteRequest{NoteID: noteID, TagID: tagID})
 }
 

@@ -102,7 +102,7 @@ func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) erro
 		}
 		result := &client.KBNotesResponse{
 			Success: true,
-			Data: client.NoteListData{
+			Data: client.KBNoteListData{
 				Notes:   allNotes,
 				HasMore: false,
 				Total:   len(allNotes),
@@ -143,7 +143,7 @@ func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) erro
 	return nil
 }
 
-func renderNoteRows(table *tablewriter.Table, data client.NoteListData) {
+func renderNoteRows(table *tablewriter.Table, data client.KBNoteListData) {
 	for _, n := range data.Notes {
 		table.Append([]string{
 			ui.NoteID(n.NoteID, n.ID),

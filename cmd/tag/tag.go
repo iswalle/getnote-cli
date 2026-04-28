@@ -3,7 +3,6 @@ package tag
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/iswalle/getnote-cli/internal/client"
 	"github.com/iswalle/getnote-cli/internal/ui"
@@ -29,10 +28,7 @@ func newTagAddCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(2),
 		Example: `  getnote tag add 1896830231705320746 工作`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			noteID, err := strconv.ParseInt(args[0], 10, 64)
-			if err != nil {
-				return fmt.Errorf("invalid note_id: %s", args[0])
-			}
+			noteID := args[0]
 			tagName := args[1]
 			c := client.New("")
 
@@ -70,10 +66,7 @@ System tags cannot be deleted.`,
 		Args:    cobra.ExactArgs(2),
 		Example: `  getnote tag remove 1896830231705320746 123`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			noteID, err := strconv.ParseInt(args[0], 10, 64)
-			if err != nil {
-				return fmt.Errorf("invalid note_id: %s", args[0])
-			}
+			noteID := args[0]
 			tagID := args[1]
 			c := client.New("")
 
