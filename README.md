@@ -36,9 +36,9 @@ npx skills add iswalle/getnote-cli -y -g
 ```bash
 getnote auth login
 ```
-会自动打开浏览器完成授权。也可以直接用 API Key：
+会自动打开浏览器完成授权。也可以直接用 API Key（需同时传入 Client ID）：
 ```bash
-getnote auth login --api-key gk_live_xxx
+getnote auth login --api-key gk_live_xxx --client-id cli_xxx
 ```
 
 **第三步：开始用**
@@ -124,7 +124,7 @@ npx skills add iswalle/getnote-cli -y -g
 
 ```
 getnote auth login                   OAuth 登录（浏览器授权）
-getnote auth login --api-key <key>   直接用 API Key 登录
+getnote auth login --api-key <key> --client-id <id>  直接用 API Key 登录
 getnote auth status                  查看当前登录状态
 getnote auth logout                  退出登录
 ```
