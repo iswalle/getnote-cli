@@ -81,18 +81,28 @@ type NoteTag struct {
 // Tags can be []string (kb/notes API) or []NoteTag (note/list API);
 // use TagNames() to get plain tag names regardless of format.
 type Note struct {
-	ID        json.Number       `json:"id"`
-	NoteID    json.Number       `json:"note_id"`
-	Title     string            `json:"title"`
-	Content   string            `json:"content"`
-	NoteType  string            `json:"note_type"`
-	CreatedAt string            `json:"created_at"`
-	UpdatedAt string            `json:"updated_at"`
-	Tags      []json.RawMessage `json:"tags"`
-	WebPage   *struct {
+	ID            json.Number       `json:"id"`
+	NoteID        json.Number       `json:"note_id"`
+	Title         string            `json:"title"`
+	Content       string            `json:"content"`
+	NoteType      string            `json:"note_type"`
+	CreatedAt     string            `json:"created_at"`
+	UpdatedAt     string            `json:"updated_at"`
+	Tags          []json.RawMessage `json:"tags"`
+	WebPage       *struct {
 		URL     string `json:"url"`
 		Excerpt string `json:"excerpt"`
+		Content string `json:"content"` // 链接笔记原文全文
 	} `json:"web_page,omitempty"`
+	RefContent    string            `json:"ref_content"`
+	Source        string            `json:"source"`
+	EntryType     string            `json:"entry_type"`
+	ChildrenCount int               `json:"children_count"`
+	ChildrenIDs   []json.Number     `json:"children_ids"`
+	Topics        []json.RawMessage `json:"topics"`
+	IsChildNote   bool              `json:"is_child_note"`
+	Attachments   []json.RawMessage `json:"attachments"`
+	Version       int               `json:"version"`
 }
 
 // TagNames returns tag names regardless of whether tags are strings or objects.
@@ -120,6 +130,7 @@ type NoteListData struct {
 	HasMore    bool        `json:"has_more"`
 	NextCursor json.Number `json:"next_cursor"`
 	Total      int         `json:"total"`
+	Cursor     string      `json:"cursor"` // 推荐的翻页方式
 }
 
 // NoteListParams holds parameters for listing notes.
@@ -236,10 +247,13 @@ type NoteTaskRequest struct {
 
 // NoteTaskData is the data field of the task progress response.
 type NoteTaskData struct {
-	TaskID string `json:"task_id"`
-	Status string `json:"status"`   // pending | processing | done | success | failed
-	NoteID string `json:"note_id"`
-	Msg    string `json:"msg"`
+	TaskID     string `json:"task_id"`
+	Status     string `json:"status"`   // pending | processing | done | success | failed
+	NoteID     string `json:"note_id"`
+	Msg        string `json:"msg"`
+	ErrorMsg   string `json:"error_msg"`
+	CreateTime string `json:"create_time"`
+	UpdateTime string `json:"update_time"`
 }
 
 // NoteTaskResponse is the response from the task progress endpoint.
@@ -404,11 +418,12 @@ func (c *Client) KBNotesRemove(topicID string, noteIDs []string) (*KBNotesRemove
 
 // RecallResult is a single search result item.
 type RecallResult struct {
-	NoteID    string `json:"note_id"`
-	NoteType  string `json:"note_type"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	CreatedAt string `json:"created_at"`
+	NoteID    string  `json:"note_id"`
+	NoteType  string  `json:"note_type"`
+	Title     string  `json:"title"`
+	Content   string  `json:"content"`
+	CreatedAt string  `json:"created_at"`
+	Score     float64 `json:"score"`
 }
 
 // NoteSearchRequest is the request body for global recall.

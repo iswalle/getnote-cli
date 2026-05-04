@@ -271,6 +271,9 @@ func renderNote(cmd *cobra.Command, n client.Note) {
 	if n.WebPage != nil && n.WebPage.Excerpt != "" {
 		table.Append([]string{"Excerpt", ui.Truncate(n.WebPage.Excerpt, 120)})
 	}
+	if n.WebPage != nil && n.WebPage.Content != "" {
+		table.Append([]string{"Web Content", ui.Truncate(n.WebPage.Content, 200)})
+	}
 	if n.Content != "" {
 		table.Append([]string{"Content", ui.Truncate(n.Content, 200)})
 	}

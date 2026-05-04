@@ -60,6 +60,12 @@ func NewNoteCmd() *cobra.Command {
 			if n.Content != "" {
 				table.Append([]string{"Content", ui.Truncate(n.Content, 200)})
 			}
+			if n.Source != "" {
+				table.Append([]string{"Source", n.Source})
+			}
+			if n.ChildrenCount != 0 {
+				table.Append([]string{"Children", fmt.Sprintf("%d", n.ChildrenCount)})
+			}
 			if tags := n.TagNames(); len(tags) > 0 {
 				table.Append([]string{"Tags", strings.Join(tags, ", ")})
 			}
@@ -68,7 +74,7 @@ func NewNoteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, title, content, type, created_at, updated_at, url, excerpt)")
+	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, title, content, type, created_at, updated_at, url, excerpt, web_content, source, tags)")
 	cmd.AddCommand(newUpdateCmd())
 	cmd.AddCommand(newDeleteCmd())
 	return cmd
@@ -98,8 +104,16 @@ func printField(n client.Note, field string) error {
 		if n.WebPage != nil {
 			val = n.WebPage.Excerpt
 		}
+	case "web_content":
+		if n.WebPage != nil {
+			val = n.WebPage.Content
+		}
+	case "source":
+		val = n.Source
+	case "tags":
+		val = strings.Join(n.TagNames(), ", ")
 	default:
-		fmt.Fprintf(os.Stderr, "unknown field %q; valid: id, title, content, type, created_at, updated_at, url, excerpt\n", field)
+		fmt.Fprintf(os.Stderr, "unknown field %q; valid: id, title, content, type, created_at, updated_at, url, excerpt, web_content, source, tags\n", field)
 		os.Exit(1)
 	}
 	fmt.Println(val)

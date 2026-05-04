@@ -41,6 +41,9 @@ func NewTaskCmd() *cobra.Command {
 			if d.Msg != "" {
 				table.Append([]string{"Message", d.Msg})
 			}
+			if d.ErrorMsg != "" {
+				table.Append([]string{"Error", d.ErrorMsg})
+			}
 			table.Render()
 			if d.Status == "done" && d.NoteID != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "\n  View note: getnote note %s\n", d.NoteID)
