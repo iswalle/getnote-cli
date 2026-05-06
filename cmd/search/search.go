@@ -14,6 +14,7 @@ var cols = []ui.ColSpec{
 	{Value: "ID", Width: 20},
 	{Value: "Title", Width: 40},
 	{Value: "Type", Width: 10},
+	{Value: "Score", Width: 6},
 	{Value: "Created", Width: 19},
 	{Value: "Content", Width: 50},
 }
@@ -68,8 +69,9 @@ func NewSearchCmd() *cobra.Command {
 					{Value: r.NoteID, Width: cols[0].Width},
 					{Value: r.Title, Width: cols[1].Width},
 					{Value: r.NoteType, Width: cols[2].Width},
-					{Value: r.CreatedAt, Width: cols[3].Width},
-					{Value: ui.Truncate(r.Content, cols[4].Width), Width: cols[4].Width},
+					{Value: fmt.Sprintf("%.2f", r.Score), Width: cols[3].Width},
+					{Value: r.CreatedAt, Width: cols[4].Width},
+					{Value: ui.Truncate(r.Content, cols[5].Width), Width: cols[5].Width},
 				}
 				fmt.Fprint(out, ui.PrintRow(row, sep))
 			}
