@@ -1,6 +1,6 @@
 ---
 name: getnote-auth
-version: 0.3.0
+version: 0.4.0
 description: Manage authentication for Get笔记 CLI
 ---
 
@@ -13,7 +13,7 @@ Log in, log out, and check authentication status.
 ### Log in
 
 ```
-getnote auth login [--api-key <key>] [--client-id <id>]
+getnote auth login [--api-key <key>]
 ```
 
 | Mode | Command | Description |
@@ -27,9 +27,6 @@ getnote auth login
 
 # API key directly
 getnote auth login --api-key gk_live_xxx
-
-# API key + Client ID
-getnote auth login --api-key gk_live_xxx --client-id cli_xxx
 ```
 
 Get your API key at: https://www.biji.com/settings/developer (keys start with `gk_live_`)

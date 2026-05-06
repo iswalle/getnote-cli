@@ -1,6 +1,6 @@
 ---
 name: getnote-note
-version: 0.3.0
+version: 0.4.0
 description: Manage notes in Get笔记 via the getnote CLI
 ---
 
@@ -100,6 +100,9 @@ Returns full note including content, tags, attachments. Use `--field` to extract
 | `updated_at` | Last updated time |
 | `url` | Source URL (link notes) |
 | `excerpt` | Excerpt |
+| `web_content` | Full web page content (link notes only) |
+| `source` | Note source (e.g. `openapi`, `manual`) |
+| `tags` | Comma-separated tag names |
 
 ```bash
 getnote note 1234567890

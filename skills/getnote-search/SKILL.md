@@ -1,6 +1,6 @@
 ---
 name: getnote-search
-version: 0.3.0
+version: 0.4.0
 description: Semantic search across notes in Get笔记 via the getnote CLI
 ---
 
@@ -25,7 +25,7 @@ getnote search <query> [--kb <topic_id>] [--limit <n>]
 | `--kb` | — | Limit search to a knowledge base (`topic_id`) |
 | `--limit` | 10 | Max results (max 10) |
 
-Results are ranked by semantic relevance (high → low). Each result includes: `note_id`, `title`, `content` (excerpt), `created_at`, `note_type`.
+Results are ranked by semantic relevance (high → low). Each result includes: `note_id`, `title`, `content` (excerpt), `score`, `created_at`, `note_type`.
 
 > Note: `note_id` is only populated for `NOTE` type results. Other types (`FILE`, `BLOGGER`, `LIVE`, etc.) return an empty `note_id`.
 
@@ -45,7 +45,7 @@ getnote search "机器学习" --limit 5 -o json
 ## Agent Usage Notes
 
 - Use `-o json` when parsing results programmatically.
-- JSON response: `{"success":true,"results":[{"note_id":"...","title":"...","content":"...","created_at":"...","note_type":"..."}]}`
+- JSON response: `{"success":true,"results":[{"note_id":"...","title":"...","content":"...","score":0.95,"created_at":"...","note_type":"..."}]}`
 - Note: `results` is at the top level, not nested under `data`.
 - Get `topic_id` for `--kb` from `getnote kbs -o json` → `data.topics[].topic_id`.
 - For `NOTE` type results, use `getnote note <note_id>` to get the full content.
