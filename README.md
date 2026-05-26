@@ -1,6 +1,6 @@
-# Get笔记 CLI
+# 得到大脑（Get笔记） CLI
 
-Get笔记的命令行工具，让你在终端和 AI Agent 里直接管理笔记和知识库。
+得到大脑（Get笔记）的命令行工具，让你在终端和 AI Agent 里直接管理笔记和知识库。
 
 存链接、记文字、搜笔记、管知识库——一条命令搞定，支持脚本和 AI Agent 调用。
 
@@ -246,7 +246,7 @@ make install
 
 柳比歇夫时间日志法的核心是**每天记录自己把时间花在了哪里**，事后统计、复盘、改进。
 
-结合 Get笔记内链，可以用脚本自动串联：
+结合 得到大脑（Get笔记）内链，可以用脚本自动串联：
 
 ```bash
 # 每天早上新建当天日志，内链到关联项目笔记
@@ -276,7 +276,7 @@ $ getnote search "工作日志" --limit 7 -o json
 
 ## 相关链接
 
-- [Get笔记官网](https://biji.com)
+- [得到大脑（Get笔记）官网](https://biji.com)
 - [开放平台文档](https://www.biji.com/openapi)
 - [问题反馈](https://github.com/iswalle/getnote-cli/issues)
 
