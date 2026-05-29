@@ -114,10 +114,10 @@ func saveImage(cmd *cobra.Command, c *client.Client, imagePath, title string, ta
 	if err != nil {
 		return fmt.Errorf("getting upload token: %w", err)
 	}
-	if len(tokenResp.Data.Tokens) == 0 {
+	token := tokenResp.Data
+	if token.AccessID == "" || token.Policy == "" {
 		return fmt.Errorf("no upload token returned")
 	}
-	token := tokenResp.Data.Tokens[0]
 
 	// Step 2: upload to OSS
 	if !isJSON {

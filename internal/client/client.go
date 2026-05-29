@@ -8,9 +8,11 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/iswalle/getnote-cli/internal/config"
@@ -666,15 +668,12 @@ type ImageUploadToken struct {
 	OSSContentType string `json:"oss_content_type"`
 }
 
-// ImageUploadTokenData is the data field of the upload token response.
-type ImageUploadTokenData struct {
-	Tokens []ImageUploadToken `json:"tokens"`
-}
-
 // ImageUploadTokenResponse is the response from the upload token endpoint.
+// The API returns the token object directly under `data` (it is not wrapped
+// in a `tokens` array), so Data is a single ImageUploadToken.
 type ImageUploadTokenResponse struct {
-	Success bool                 `json:"success"`
-	Data    ImageUploadTokenData `json:"data"`
+	Success bool             `json:"success"`
+	Data    ImageUploadToken `json:"data"`
 }
 
 // ImageGetUploadToken retrieves OSS upload credentials for the given mime type.
@@ -725,7 +724,16 @@ func (c *Client) ImageUploadToOSS(token ImageUploadToken, imagePath string) erro
 		return err
 	}
 
-	fw, err := w.CreateFormFile("file", filepath.Base(imagePath))
+	// The OSS upload policy enforces a Content-Type condition (e.g. image/png),
+	// so the file part must carry that exact MIME type. multipart.CreateFormFile
+	// hardcodes "application/octet-stream", which fails the policy check, so set
+	// the part header explicitly.
+	quoteEscaper := strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
+	partHeader := make(textproto.MIMEHeader)
+	partHeader.Set("Content-Disposition",
+		fmt.Sprintf(`form-data; name="file"; filename="%s"`, quoteEscaper.Replace(filepath.Base(imagePath))))
+	partHeader.Set("Content-Type", token.OSSContentType)
+	fw, err := w.CreatePart(partHeader)
 	if err != nil {
 		return err
 	}
