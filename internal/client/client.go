@@ -96,6 +96,9 @@ type Note struct {
 		Excerpt string `json:"excerpt"`
 		Content string `json:"content"` // 链接笔记原文全文
 	} `json:"web_page,omitempty"`
+	Audio         *struct {
+		Original string `json:"original"` // 录音转写原文
+	} `json:"audio,omitempty"`
 	RefContent    string            `json:"ref_content"`
 	Source        string            `json:"source"`
 	EntryType     string            `json:"entry_type"`
