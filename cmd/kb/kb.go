@@ -15,6 +15,7 @@ import (
 func NewKbCmd() *cobra.Command {
 	var limit int
 	var all bool
+	var noContent bool
 
 	cmd := &cobra.Command{
 		Use:   "kb <topic_id>",
@@ -22,12 +23,13 @@ func NewKbCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Example: `  getnote kb vnrOAaGY
   getnote kb vnrOAaGY --limit 5
-  getnote kb vnrOAaGY --all`,
+  getnote kb vnrOAaGY --all
+  getnote kb vnrOAaGY -o json --no-content`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 
 			if all {
-				return streamAllKBNotes(cmd, c, args[0])
+				return streamAllKBNotes(cmd, c, args[0], noContent)
 			}
 
 			resp, err := c.KBNotes(client.KBNotesParams{TopicID: args[0], Limit: limit})
@@ -36,6 +38,11 @@ func NewKbCmd() *cobra.Command {
 			}
 
 			if outputFormat(cmd) == "json" {
+				if noContent {
+					for i := range resp.Data.Notes {
+						resp.Data.Notes[i].Content = ""
+					}
+				}
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
@@ -61,6 +68,7 @@ func NewKbCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes per page")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all notes (auto-paginate)")
+	cmd.Flags().BoolVar(&noContent, "no-content", false, "Omit the content field in JSON output (saves tokens for AI agents)")
 
 	cmd.AddCommand(newCreateCmd())
 	cmd.AddCommand(newAddCmd())
@@ -82,7 +90,7 @@ var noteCols = []ui.ColSpec{
 
 const colSep = "  "
 
-func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) error {
+func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string, noContent bool) error {
 	isJSON := outputFormat(cmd) == "json"
 
 	if isJSON {
@@ -92,6 +100,11 @@ func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string) erro
 			resp, err := c.KBNotes(client.KBNotesParams{TopicID: topicID, Limit: 20, Page: page})
 			if err != nil {
 				return ui.FriendlyError(err)
+			}
+			if noContent {
+				for i := range resp.Data.Notes {
+					resp.Data.Notes[i].Content = ""
+				}
 			}
 			allNotes = append(allNotes, resp.Data.Notes...)
 			if !resp.Data.HasMore {

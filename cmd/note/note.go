@@ -74,7 +74,7 @@ func NewNoteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, title, content, type, created_at, updated_at, url, excerpt, web_content, source, tags)")
+	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags)")
 	cmd.AddCommand(newUpdateCmd())
 	cmd.AddCommand(newDeleteCmd())
 	return cmd
@@ -108,12 +108,16 @@ func printField(n client.Note, field string) error {
 		if n.WebPage != nil {
 			val = n.WebPage.Content
 		}
+	case "audio_original":
+		if n.Audio != nil {
+			val = n.Audio.Original
+		}
 	case "source":
 		val = n.Source
 	case "tags":
 		val = strings.Join(n.TagNames(), ", ")
 	default:
-		fmt.Fprintf(os.Stderr, "unknown field %q; valid: id, title, content, type, created_at, updated_at, url, excerpt, web_content, source, tags\n", field)
+		fmt.Fprintf(os.Stderr, "unknown field %q; valid: id, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags\n", field)
 		os.Exit(1)
 	}
 	fmt.Println(val)

@@ -14,6 +14,14 @@ npm install -g @getnote/cli
 
 或者从 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载对应平台的二进制文件，放到 `$PATH` 里。
 
+**Windows 用户**：推荐直接从 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载 `.exe` 文件，放到 PATH 里。用 `npm install -g` 安装时，如果遇到 `Expand-Archive` 相关报错，可尝试：
+
+```bash
+npm install -g @getnote/cli --ignore-scripts
+```
+
+然后手动从 Releases 下载对应平台的二进制文件。
+
 ---
 
 ## 使用要求
@@ -161,7 +169,8 @@ getnote notes                        最近 20 条笔记
 getnote note <id>                    笔记详情
   --field <字段名>                   只输出某个字段的值
                                      （id/title/content/type/
-                                       created_at/url/excerpt）
+                                       created_at/url/excerpt/
+                                       web_content/audio_original）
 
 getnote note update <id>             更新笔记
   --title <标题>
@@ -171,6 +180,20 @@ getnote note update <id>             更新笔记
 getnote note delete <id>             删除笔记（移入回收站）
   -y                                 跳过确认
 ```
+
+### 字段语义说明（适合 AI Agent 参考）
+
+不同笔记类型的"原文"字段不同，`content` 通常是 AI 总结而非原文：
+
+| 笔记类型 | 原文字段 | AI 总结字段 |
+|---------|---------|------------|
+| 普通文字笔记 | `content` | `content` |
+| 链接/网页笔记 | `web_content` | `content` |
+| 录音笔记 | `audio_original` | `content` |
+| 知识库博主内容 | `post_media_text`（via `kb blogger-content`）| `content` |
+| 知识库直播 | `post_media_text`（via `kb live`）| `post_summary` |
+
+> **AI Agent 提示**：用户要求"读原文"时，先用 `getnote note <id> -o json` 查看 `note_type`，再按上表选择对应字段。
 
 ### 搜索
 
@@ -196,6 +219,7 @@ getnote kbs                          列出所有知识库
 getnote kb <topic_id>                知识库内的笔记
   --limit <n>
   --all                              获取全部
+  --no-content                       JSON 输出时省略 content 字段（节省 AI token）
 
 getnote kb create <名称>             新建知识库
   --desc <描述>

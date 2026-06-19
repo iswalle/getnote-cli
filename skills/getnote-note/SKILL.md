@@ -101,6 +101,7 @@ Returns full note including content, tags, attachments. Use `--field` to extract
 | `url` | Source URL (link notes) |
 | `excerpt` | Excerpt |
 | `web_content` | Full web page content (link notes only) |
+| `audio_original` | 录音笔记的转写原文（`audio` 类型笔记专用，非 AI 总结） |
 | `source` | Note source (e.g. `openapi`, `manual`) |
 | `tags` | Comma-separated tag names |
 
@@ -178,3 +179,15 @@ Returns: `share_url` (e.g. `https://biji.com/note/share_note/rBzdMlXrzgYVM`)
 - `notes` list returns **20 per page** (no `--limit`); paginate with `--since-id`.
 - Note IDs are int64 — always handle as strings to avoid precision loss in JavaScript.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
+
+### 字段语义提示（"原文" vs AI 总结）
+
+不同笔记类型的"原文"字段不同，`content` 通常是 AI 总结而非原文。用户要求"读原文"时，先用 `getnote note <id> -o json` 查看 `note_type`，再按下表选择对应字段：
+
+| 笔记类型 | 原文字段 | AI 总结字段 |
+|---------|---------|------------|
+| 普通文字笔记 | `content` | `content` |
+| 链接/网页笔记 | `web_content` | `content` |
+| 录音笔记 | `audio_original` | `content` |
+| 知识库博主内容 | `post_media_text`（via `kb blogger-content`）| `content` |
+| 知识库直播 | `post_media_text`（via `kb live`）| `post_summary` |
