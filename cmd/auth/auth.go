@@ -75,7 +75,7 @@ func newLoginCmd() *cobra.Command {
 // runDeviceFlow runs the OAuth 2.0 Device Authorization Flow.
 func runDeviceFlow(out io.Writer) error {
 	// Step 1: request device code
-	body := fmt.Sprintf(`{"client_id":"%s"}`, oauthClientID)
+	body := fmt.Sprintf(`{"client_id":"%s","scope":"note:write note:read image:write"}`, oauthClientID)
 	resp, err := http.Post(deviceCodeURL, "application/json", strings.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("requesting device code: %w", err)
