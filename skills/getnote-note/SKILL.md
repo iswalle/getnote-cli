@@ -61,20 +61,20 @@ Returns `status` (`pending` / `processing` / `success` / `failed`) and `note_id`
 ### List recent notes
 
 ```
-getnote notes [--since-id <id>] [--all]
+getnote notes [--cursor <cursor>] [--all]
 ```
 
 Returns 20 notes per page (fixed). No `--limit` flag.
 
 | Flag | Description |
 |------|-------------|
-| `--since-id` | Pagination cursor (last note ID seen) |
+| `--cursor` | Pagination cursor (the `cursor` value from the previous page) |
 | `--all` | Fetch all notes (auto-paginate, streams output) |
 
 ```bash
 getnote notes
 getnote notes --all
-getnote notes --since-id 1234567890
+getnote notes --cursor 1914025811879486080
 getnote notes -o json
 ```
 
@@ -176,7 +176,7 @@ Returns: `share_url` (e.g. `https://biji.com/note/share_note/rBzdMlXrzgYVM`)
   - `save` (share link): returns `{"note_id":"...","title":"...","created_at":"...","updated_at":"..."}` directly
   - `save` (regular link/image): returns `{"data":{"tasks":[{"task_id":"..."}],...}}`
   - `task`: returns `{"success":true,"data":{"status":"...","note_id":"..."}}`
-- `notes` list returns **20 per page** (no `--limit`); paginate with `--since-id`.
+- `notes` list returns **20 per page** (no `--limit`); paginate with `--cursor` (the `cursor` value from the previous page).
 - Note IDs are int64 — always handle as strings to avoid precision loss in JavaScript.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
 
