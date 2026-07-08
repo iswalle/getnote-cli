@@ -11,12 +11,15 @@ import (
 
 // NewKbsCmd returns the top-level kbs (list) command.
 func NewKbsCmd() *cobra.Command {
-	return &cobra.Command{
+	var page int
+	cmd := &cobra.Command{
 		Use:   "kbs",
 		Short: "列出所有知识库 / List all knowledge bases",
+		Example: `  getnote kbs
+  getnote kbs --page 2`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
-			resp, err := c.KBList()
+			resp, err := c.KBList(page)
 			if err != nil {
 				return err
 			}
@@ -43,6 +46,8 @@ func NewKbsCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().IntVar(&page, "page", 1, "页码 / Page number")
+	return cmd
 }
 
 func outputFormat(cmd *cobra.Command) string {

@@ -140,8 +140,8 @@ type NoteListData struct {
 
 // NoteListParams holds parameters for listing notes.
 type NoteListParams struct {
-	Limit   int
-	SinceID string
+	Limit  int
+	Cursor string
 }
 
 // NoteListResponse is the response from the note list endpoint.
@@ -154,11 +154,11 @@ type NoteListResponse struct {
 // GET /open/api/v1/resource/note/list
 func (c *Client) NoteList(params NoteListParams) (*NoteListResponse, error) {
 	q := url.Values{}
-	sinceID := "0"
-	if params.SinceID != "" {
-		sinceID = params.SinceID
+	// Paginate with the recommended cursor (string); an empty cursor fetches
+	// the first page. The deprecated since_id path is no longer used.
+	if params.Cursor != "" {
+		q.Set("cursor", params.Cursor)
 	}
-	q.Set("since_id", sinceID)
 	if params.Limit > 0 {
 		q.Set("limit", fmt.Sprintf("%d", params.Limit))
 	}
@@ -311,10 +311,13 @@ type KBListResponse struct {
 	Data    KBListData `json:"data"`
 }
 
-// KBList fetches all knowledge bases.
+// KBList fetches knowledge bases for the given page (1-based).
 // GET /open/api/v1/resource/knowledge/list
-func (c *Client) KBList() (*KBListResponse, error) {
-	return doGet[KBListResponse](c, "/open/api/v1/resource/knowledge/list", url.Values{"page": {"1"}})
+func (c *Client) KBList(page int) (*KBListResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	return doGet[KBListResponse](c, "/open/api/v1/resource/knowledge/list", url.Values{"page": {fmt.Sprintf("%d", page)}})
 }
 
 // KBSubscribedList fetches knowledge bases the user has subscribed to.
@@ -349,12 +352,27 @@ type KBNotesParams struct {
 	Page    int
 }
 
+// KBNote represents a note item in the knowledge/notes response.
+// This endpoint differs from the generic Note: it returns edit_time (not
+// updated_at), includes is_ai_generated, and returns note_id as a string
+// with no int64 id.
+type KBNote struct {
+	NoteID        string            `json:"note_id"`
+	Title         string            `json:"title"`
+	Content       string            `json:"content"`
+	NoteType      string            `json:"note_type"`
+	Tags          []json.RawMessage `json:"tags"`
+	IsAIGenerated bool              `json:"is_ai_generated"`
+	CreatedAt     string            `json:"created_at"`
+	EditTime      string            `json:"edit_time"`
+}
+
 // KBNoteListData is the data field of the KB notes response.
 // Unlike NoteListData, this endpoint does not return next_cursor.
 type KBNoteListData struct {
-	Notes   []Note `json:"notes"`
-	HasMore bool   `json:"has_more"`
-	Total   int    `json:"total"`
+	Notes   []KBNote `json:"notes"`
+	HasMore bool     `json:"has_more"`
+	Total   int      `json:"total"`
 }
 
 // KBNotesResponse is the response from the knowledge base notes endpoint.
@@ -469,13 +487,18 @@ func (c *Client) KBSearch(topicID, query string, topK int) (*NoteSearchResponse,
 // ---------------------------------------------------------------------------
 
 // KBBlogger represents a subscribed blogger in a knowledge base.
+// The API returns the avatar as account_avatar (not account_icon) and the
+// blogger link as follow_link (not account_url); it also includes
+// notes_count and hook_state.
 type KBBlogger struct {
-	FollowID    json.Number `json:"follow_id"`
-	AccountName string      `json:"account_name"`
-	AccountIcon string      `json:"account_icon"`
-	Platform    string      `json:"platform"`
-	AccountURL  string      `json:"account_url"`
-	FollowTime  string      `json:"follow_time"`
+	FollowID      json.Number `json:"follow_id"`
+	AccountName   string      `json:"account_name"`
+	AccountAvatar string      `json:"account_avatar"`
+	NotesCount    int         `json:"notes_count"`
+	Platform      string      `json:"platform"`
+	HookState     string      `json:"hook_state"`
+	FollowLink    string      `json:"follow_link"`
+	FollowTime    string      `json:"follow_time"`
 }
 
 // KBBloggerListData is the data field of the blogger list response.
@@ -501,13 +524,14 @@ func (c *Client) KBBloggerList(topicID string, page int) (*KBBloggerListResponse
 }
 
 // KBBloggerContent represents a content item from a blogger.
+// The API returns the publish time as post_publish_time (not publish_time);
+// content items do not carry an account_name field.
 type KBBloggerContent struct {
-	PostIDAlias  string `json:"post_id_alias"`
-	PostTitle    string `json:"post_title"`
-	PostSummary  string `json:"post_summary"`
-	PostType     string `json:"post_type"`
-	PublishTime  string `json:"publish_time"`
-	AccountName  string `json:"account_name"`
+	PostIDAlias string `json:"post_id_alias"`
+	PostTitle   string `json:"post_title"`
+	PostSummary string `json:"post_summary"`
+	PostType    string `json:"post_type"`
+	PublishTime string `json:"post_publish_time"`
 }
 
 // KBBloggerContentListData is the data field of the blogger content list response.

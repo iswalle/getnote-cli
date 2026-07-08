@@ -94,7 +94,7 @@ func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string, noCo
 	isJSON := outputFormat(cmd) == "json"
 
 	if isJSON {
-		var allNotes []client.Note
+		var allNotes []client.KBNote
 		page := 1
 		for {
 			resp, err := c.KBNotes(client.KBNotesParams{TopicID: topicID, Limit: 20, Page: page})
@@ -138,7 +138,7 @@ func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string, noCo
 		}
 		for _, n := range resp.Data.Notes {
 			row := []ui.ColSpec{
-				{Value: ui.NoteID(n.NoteID, n.ID), Width: noteCols[0].Width},
+				{Value: n.NoteID, Width: noteCols[0].Width},
 				{Value: n.Title, Width: noteCols[1].Width},
 				{Value: n.NoteType, Width: noteCols[2].Width},
 				{Value: n.CreatedAt, Width: noteCols[3].Width},
@@ -159,7 +159,7 @@ func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string, noCo
 func renderNoteRows(table *tablewriter.Table, data client.KBNoteListData) {
 	for _, n := range data.Notes {
 		table.Append([]string{
-			ui.NoteID(n.NoteID, n.ID),
+			n.NoteID,
 			ui.Truncate(n.Title, 40),
 			n.NoteType,
 			n.CreatedAt,

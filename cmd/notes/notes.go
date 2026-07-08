@@ -22,7 +22,7 @@ var cols = []ui.ColSpec{
 // NewNotesCmd returns the top-level notes (list) command.
 func NewNotesCmd() *cobra.Command {
 	var limit int
-	var sinceID string
+	var cursor string
 	var all bool
 
 	cmd := &cobra.Command{
@@ -31,7 +31,7 @@ func NewNotesCmd() *cobra.Command {
 		Example: `  getnote notes
   getnote notes --limit 5
   getnote notes --all
-  getnote notes --since-id 1234567890`,
+  getnote notes --cursor 1914025811879486080`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 
@@ -39,7 +39,7 @@ func NewNotesCmd() *cobra.Command {
 				return streamAll(cmd, c)
 			}
 
-			resp, err := c.NoteList(client.NoteListParams{Limit: limit, SinceID: sinceID})
+			resp, err := c.NoteList(client.NoteListParams{Limit: limit, Cursor: cursor})
 			if err != nil {
 				return ui.FriendlyError(err)
 			}
@@ -62,8 +62,8 @@ func NewNotesCmd() *cobra.Command {
 			hasMore := resp.Data.HasMore || len(resp.Data.Notes) > len(shown)
 			if hasMore {
 				fmt.Fprintf(cmd.OutOrStdout(),
-					"\n(showing %d of more notes — use --since-id %s for next page, or --all)\n",
-					len(shown), resp.Data.NextCursor.String())
+					"\n(showing %d of more notes — use --cursor %s for next page, or --all)\n",
+					len(shown), resp.Data.Cursor)
 			} else {
 				fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes)\n", len(shown))
 			}
@@ -72,7 +72,7 @@ func NewNotesCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes per page")
-	cmd.Flags().StringVar(&sinceID, "since-id", "", "Pagination cursor (note ID)")
+	cmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor (from a previous page's cursor)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all notes (auto-paginate, streams output)")
 	return cmd
 }
@@ -83,9 +83,9 @@ func streamAll(cmd *cobra.Command, c *client.Client) error {
 
 	if isJSON {
 		var allNotes []client.Note
-		sinceID := "0"
+		cursor := ""
 		for {
-			resp, err := c.NoteList(client.NoteListParams{Limit: 20, SinceID: sinceID})
+			resp, err := c.NoteList(client.NoteListParams{Limit: 20, Cursor: cursor})
 			if err != nil {
 				return ui.FriendlyError(err)
 			}
@@ -93,7 +93,7 @@ func streamAll(cmd *cobra.Command, c *client.Client) error {
 			if !resp.Data.HasMore {
 				break
 			}
-			sinceID = resp.Data.NextCursor.String()
+			cursor = resp.Data.Cursor
 			time.Sleep(500 * time.Millisecond)
 		}
 		result := &client.NoteListResponse{
@@ -110,10 +110,10 @@ func streamAll(cmd *cobra.Command, c *client.Client) error {
 	}
 
 	printHeader(cmd)
-	sinceID := "0"
+	cursor := ""
 	total := 0
 	for {
-		resp, err := c.NoteList(client.NoteListParams{Limit: 20, SinceID: sinceID})
+		resp, err := c.NoteList(client.NoteListParams{Limit: 20, Cursor: cursor})
 		if err != nil {
 			return ui.FriendlyError(err)
 		}
@@ -124,7 +124,7 @@ func streamAll(cmd *cobra.Command, c *client.Client) error {
 		if !resp.Data.HasMore {
 			break
 		}
-		sinceID = resp.Data.NextCursor.String()
+		cursor = resp.Data.Cursor
 		time.Sleep(500 * time.Millisecond)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes total)\n", total)

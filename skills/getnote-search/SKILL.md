@@ -27,7 +27,7 @@ getnote search <query> [--kb <topic_id>] [--limit <n>]
 
 Results are ranked by semantic relevance (high → low). Each result includes: `note_id`, `title`, `content` (excerpt), `score`, `created_at`, `note_type`.
 
-> Note: `note_id` is only populated for `NOTE` type results. Other types (`FILE`, `BLOGGER`, `LIVE`, etc.) return an empty `note_id`.
+> Note: `note_type` is one of `NOTE`, `FILE`, `BLOGGER`, `LIVE`, `URL`, `DEDAO`. `note_id` is only populated for `NOTE` type results; other types return an empty `note_id`.
 
 ```bash
 # Search across all notes
