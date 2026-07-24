@@ -1,6 +1,6 @@
 ---
 name: getnote-auth
-version: 0.4.0
+version: 0.5.0
 description: Manage authentication for Get笔记 CLI
 ---
 
@@ -67,3 +67,4 @@ getnote auth logout
 - If not authenticated, prompt the user to run `getnote auth login`.
 - `--api-key` on any command is a temporary per-invocation override and does not save credentials.
 - Credentials saved at `~/.getnote/config.json`; env vars `GETNOTE_API_KEY` / `GETNOTE_CLIENT_ID` take higher priority.
+- `GETNOTE_API_URL` may override the business API host for an explicitly selected test environment; otherwise production remains the default.

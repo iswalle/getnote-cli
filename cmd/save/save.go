@@ -18,6 +18,9 @@ import (
 func NewSaveCmd() *cobra.Command {
 	var title string
 	var tags []string
+	var topicID string
+	var parentID string
+	var idempotencyKey string
 
 	cmd := &cobra.Command{
 		Use:   "save <url|text|image_path>",
@@ -32,10 +35,15 @@ func NewSaveCmd() *cobra.Command {
 
 			// Detect local image file
 			if isImagePath(content) {
-				return saveImage(cmd, c, content, title, tags)
+				return saveImage(cmd, c, content, title, tags, topicID, parentID, idempotencyKey)
 			}
 
-			req := client.NoteSaveRequest{Tags: tags}
+			req := client.NoteSaveRequest{
+				Tags:            tags,
+				TopicID:         topicID,
+				ParentID:        parentID,
+				ClientRequestID: idempotencyKey,
+			}
 			if strings.HasPrefix(content, "http://") || strings.HasPrefix(content, "https://") {
 				req.NoteType = "link"
 				req.LinkURL = content
@@ -69,6 +77,9 @@ func NewSaveCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&title, "title", "", "Note title")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Tag (repeatable)")
+	cmd.Flags().StringVar(&topicID, "topic-id", "", "Save the note into this knowledge base")
+	cmd.Flags().StringVar(&parentID, "parent-id", "", "Create as a child of this note ID")
+	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "Retry-safe request key (1-128 ASCII characters)")
 	return cmd
 }
 
@@ -103,7 +114,13 @@ func mimeTypeFromExt(ext string) string {
 }
 
 // saveImage handles the full image save flow: get token → upload OSS → save note → poll.
-func saveImage(cmd *cobra.Command, c *client.Client, imagePath, title string, tags []string) error {
+func saveImage(
+	cmd *cobra.Command,
+	c *client.Client,
+	imagePath, title string,
+	tags []string,
+	topicID, parentID, idempotencyKey string,
+) error {
 	isJSON := outputFormat(cmd) == "json"
 	out := cmd.OutOrStdout()
 
@@ -129,10 +146,13 @@ func saveImage(cmd *cobra.Command, c *client.Client, imagePath, title string, ta
 
 	// Step 3: save img_text note
 	req := client.NoteSaveRequest{
-		NoteType:  "img_text",
-		ImageURLs: []string{token.AccessURL},
-		Title:     title,
-		Tags:      tags,
+		NoteType:        "img_text",
+		ImageURLs:       []string{token.AccessURL},
+		Title:           title,
+		Tags:            tags,
+		TopicID:         topicID,
+		ParentID:        parentID,
+		ClientRequestID: idempotencyKey,
 	}
 	resp, err := c.NoteSave(req)
 	if err != nil {
@@ -231,14 +251,21 @@ func pollTask(cmd *cobra.Command, c *client.Client, taskID string) error {
 			renderNote(cmd, noteResp.Data.Note)
 			return nil
 		case "failed":
+			message := resp.Data.ErrorMsg
+			if message == "" {
+				message = resp.Data.Msg
+			}
 			if isJSON {
 				enc := json.NewEncoder(out)
 				enc.SetIndent("", "  ")
-				return enc.Encode(resp)
+				if err := enc.Encode(resp); err != nil {
+					return err
+				}
+				return fmt.Errorf("note task failed: %s", message)
 			}
 			fmt.Fprintln(out, "")
-			fmt.Fprintf(out, "✗ Failed: %s\n", resp.Data.Msg)
-			return nil
+			fmt.Fprintf(out, "✗ Failed: %s\n", message)
+			return fmt.Errorf("note task failed: %s", message)
 		}
 		// pending / processing — keep polling
 	}
@@ -247,11 +274,14 @@ func pollTask(cmd *cobra.Command, c *client.Client, taskID string) error {
 	if isJSON && lastResp != nil {
 		enc := json.NewEncoder(out)
 		enc.SetIndent("", "  ")
-		return enc.Encode(lastResp)
+		if err := enc.Encode(lastResp); err != nil {
+			return err
+		}
+		return fmt.Errorf("note task timed out: %s", taskID)
 	}
 	fmt.Fprintln(out, "")
 	fmt.Fprintf(out, "⚠ Timeout. Check later: getnote task %s\n", taskID)
-	return nil
+	return fmt.Errorf("note task timed out: %s", taskID)
 }
 
 // renderNote prints a note as a table, mirroring cmd/note/note.go.
@@ -261,7 +291,7 @@ func renderNote(cmd *cobra.Command, n client.Note) {
 	table.SetHeader([]string{"Field", "Value"})
 	table.SetBorder(false)
 	table.SetAutoWrapText(false)
-	table.Append([]string{"ID", n.NoteID.String()})
+	table.Append([]string{"ID", ui.NoteID(n.NoteID, n.ID)})
 	table.Append([]string{"Title", n.Title})
 	table.Append([]string{"Type", n.NoteType})
 	table.Append([]string{"Created", n.CreatedAt})
@@ -287,4 +317,3 @@ func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
 }
-

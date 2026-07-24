@@ -1,6 +1,6 @@
 ---
 name: getnote-tag
-version: 0.3.0
+version: 0.4.0
 description: Manage note tags in Get笔记 via the getnote CLI
 ---
 

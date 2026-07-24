@@ -15,11 +15,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	deviceCodeURL = config.DefaultAPIBaseURL + "/open/api/v1/oauth/device/code"
-	tokenURL      = config.DefaultAPIBaseURL + "/open/api/v1/oauth/token"
-	oauthClientID = "cli_a1b2c3d4e5f6789012345678abcdef90"
-)
+const oauthClientID = "cli_a1b2c3d4e5f6789012345678abcdef90"
+
+func oauthURL(path string) string {
+	baseURL := strings.TrimRight(os.Getenv("GETNOTE_API_URL"), "/")
+	if baseURL == "" {
+		baseURL = config.DefaultAPIBaseURL
+	}
+	switch {
+	case strings.HasSuffix(baseURL, "/open/api/v1"):
+	case strings.HasSuffix(baseURL, "/open"):
+		baseURL += "/api/v1"
+	default:
+		baseURL += "/open/api/v1"
+	}
+	return baseURL + path
+}
 
 // NewAuthCmd returns the auth command tree.
 func NewAuthCmd() *cobra.Command {
@@ -76,7 +87,7 @@ func newLoginCmd() *cobra.Command {
 func runDeviceFlow(out io.Writer) error {
 	// Step 1: request device code
 	body := fmt.Sprintf(`{"client_id":"%s"}`, oauthClientID)
-	resp, err := http.Post(deviceCodeURL, "application/json", strings.NewReader(body))
+	resp, err := http.Post(oauthURL("/oauth/device/code"), "application/json", strings.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("requesting device code: %w", err)
 	}
@@ -118,7 +129,7 @@ func runDeviceFlow(out io.Writer) error {
 		time.Sleep(interval)
 		fmt.Fprint(out, ".")
 
-		r, err := http.Post(tokenURL, "application/json", strings.NewReader(pollBody))
+		r, err := http.Post(oauthURL("/oauth/token"), "application/json", strings.NewReader(pollBody))
 		if err != nil {
 			continue
 		}

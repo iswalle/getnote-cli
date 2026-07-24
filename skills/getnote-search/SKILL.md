@@ -1,6 +1,6 @@
 ---
 name: getnote-search
-version: 0.4.0
+version: 0.5.0
 description: Semantic search across notes in Get笔记 via the getnote CLI
 ---
 

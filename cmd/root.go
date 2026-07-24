@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/iswalle/getnote-cli/cmd/auth"
@@ -16,6 +19,7 @@ import (
 	"github.com/iswalle/getnote-cli/cmd/tag"
 	"github.com/iswalle/getnote-cli/cmd/task"
 	"github.com/iswalle/getnote-cli/cmd/update"
+	"github.com/iswalle/getnote-cli/internal/client"
 	"github.com/iswalle/getnote-cli/internal/config"
 	"github.com/iswalle/getnote-cli/internal/version"
 	"github.com/spf13/cobra"
@@ -45,9 +49,32 @@ from the terminal.`,
 // Execute runs the root command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		writeError(os.Stderr, err, output)
 		os.Exit(1)
 	}
+}
+
+func writeError(w io.Writer, err error, format string) {
+	var requestErr *client.RequestError
+	if format == "json" && errors.As(err, &requestErr) {
+		payload := struct {
+			Success   bool             `json:"success"`
+			Data      interface{}      `json:"data"`
+			Error     *client.APIError `json:"error"`
+			RequestID string           `json:"request_id,omitempty"`
+		}{
+			Success:   false,
+			Data:      nil,
+			Error:     &requestErr.APIError,
+			RequestID: requestErr.RequestID,
+		}
+		encoder := json.NewEncoder(w)
+		encoder.SetIndent("", "  ")
+		if encodeErr := encoder.Encode(payload); encodeErr == nil {
+			return
+		}
+	}
+	fmt.Fprintln(w, err)
 }
 
 func init() {

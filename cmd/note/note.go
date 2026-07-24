@@ -46,7 +46,7 @@ func NewNoteCmd() *cobra.Command {
 			table.SetHeader([]string{"Field", "Value"})
 			table.SetBorder(false)
 			table.SetAutoWrapText(false)
-			table.Append([]string{"ID", n.NoteID.String()})
+			table.Append([]string{"ID", ui.NoteID(n.NoteID, n.ID)})
 			table.Append([]string{"Title", n.Title})
 			table.Append([]string{"Type", n.NoteType})
 			table.Append([]string{"Created", n.CreatedAt})
@@ -77,6 +77,7 @@ func NewNoteCmd() *cobra.Command {
 	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags)")
 	cmd.AddCommand(newUpdateCmd())
 	cmd.AddCommand(newDeleteCmd())
+	cmd.AddCommand(newShareCmd())
 	return cmd
 }
 
@@ -85,7 +86,7 @@ func printField(n client.Note, field string) error {
 	var val string
 	switch field {
 	case "id":
-		val = n.NoteID.String()
+		val = ui.NoteID(n.NoteID, n.ID)
 	case "title":
 		val = n.Title
 	case "content":
@@ -222,9 +223,32 @@ func newDeleteCmd() *cobra.Command {
 	return cmd
 }
 
+func newShareCmd() *cobra.Command {
+	var excludeAudio bool
+
+	cmd := &cobra.Command{
+		Use:   "share <id>",
+		Short: "生成公开分享链接 / Create a public share link",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteShare(args[0], excludeAudio)
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), resp.Data.ShareURL)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&excludeAudio, "exclude-audio", false, "Exclude audio from the shared note")
+	return cmd
+}
 
 func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
 }
-

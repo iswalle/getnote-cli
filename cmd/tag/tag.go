@@ -121,7 +121,7 @@ func newTagListCmd() *cobra.Command {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(map[string]interface{}{
-					"note_id": note.NoteID.String(),
+					"note_id": ui.NoteID(note.NoteID, note.ID),
 					"tags":    tags,
 				})
 			}
@@ -130,7 +130,7 @@ func newTagListCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "No tags.")
 				return nil
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Tags for note %s:\n", note.NoteID.String())
+			fmt.Fprintf(cmd.OutOrStdout(), "Tags for note %s:\n", ui.NoteID(note.NoteID, note.ID))
 			printTags(cmd, tags)
 			return nil
 		},
@@ -164,4 +164,3 @@ func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
 }
-
