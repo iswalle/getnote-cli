@@ -1,6 +1,6 @@
 ---
 name: getnote-kb
-version: 0.5.2
+version: 0.6.0
 description: Manage knowledge bases in Get笔记 via the getnote CLI
 ---
 
@@ -20,12 +20,14 @@ Manage knowledge bases — list, create, browse notes, add/remove notes. Also su
 getnote kbs
 ```
 
-Returns all knowledge bases. Each item includes: `topic_id`, `name`, `description`, `note_count`, `created_at`.
+Returns all owned knowledge bases, including `DEFAULT` (normal), `BOOKSPACE` (book), and `CUSTOMER` (customer profile). Each item includes `topic_id`, `name`, `scope`, `description`, and stats.
 
 ```bash
 getnote kbs
 getnote kbs -o json
 ```
+
+> When saving into a named knowledge base, select it from the complete list by `name` and `scope`, then call `getnote save ... --topic-id <topic_id>`. Do not filter the list to `DEFAULT` only.
 
 ---
 
@@ -231,7 +233,7 @@ getnote quota -o json
 - `kbs -o json` returns `{"success":true,"data":{"topics":[...],"total":N}}`
 - `kbs-sub -o json` returns the same shape as `kbs -o json`.
 - `kb <topic_id> -o json` returns `{"success":true,"data":{"notes":[...],"has_more":...}}`
-- Get `topic_id` from `getnote kbs -o json` or `getnote kbs-sub -o json` → `data.topics[].topic_id` field (not `id`).
+- Get `topic_id` from `getnote kbs -o json` or `getnote kbs-sub -o json` → `data.topics[].topic_id` field (not `id`). Owned lists include DEFAULT / BOOKSPACE / CUSTOMER.
 - `kb add` / `kb remove` accept multiple note IDs — prefer batching over multiple calls.
 - **Subscribed KBs are read-only** unless the user is an admin of that KB. `kb add` / `kb remove` will return an API error on subscribed KBs owned by others. Use `getnote kbs` (owned) vs `getnote kbs-sub` (subscribed) to distinguish.
 - `kb bloggers` → get `follow_id` → `kb blogger-contents` → get `post_id_alias` → `kb blogger-content` for full text.

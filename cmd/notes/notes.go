@@ -43,6 +43,7 @@ func NewNotesCmd() *cobra.Command {
 			if err != nil {
 				return ui.FriendlyError(err)
 			}
+			applyLimit(resp, limit)
 
 			if outputFormat(cmd) == "json" {
 				enc := json.NewEncoder(cmd.OutOrStdout())
@@ -52,15 +53,11 @@ func NewNotesCmd() *cobra.Command {
 
 			printHeader(cmd)
 			shown := resp.Data.Notes
-			if limit > 0 && len(shown) > limit {
-				shown = shown[:limit]
-			}
 			for _, n := range shown {
 				printRow(cmd, n)
 			}
 
-			hasMore := resp.Data.HasMore || len(resp.Data.Notes) > len(shown)
-			if hasMore {
+			if resp.Data.HasMore {
 				fmt.Fprintf(cmd.OutOrStdout(),
 					"\n(showing %d of more notes — use --cursor %s for next page, or --all)\n",
 					len(shown), resp.Data.Cursor)
@@ -75,6 +72,18 @@ func NewNotesCmd() *cobra.Command {
 	cmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor (from a previous page's cursor)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all notes (auto-paginate, streams output)")
 	return cmd
+}
+
+func applyLimit(resp *client.NoteListResponse, limit int) {
+	if resp == nil || limit <= 0 || len(resp.Data.Notes) <= limit {
+		return
+	}
+	resp.Data.Notes = resp.Data.Notes[:limit]
+	last := resp.Data.Notes[len(resp.Data.Notes)-1]
+	cursor := ui.NoteID(last.NoteID, last.ID)
+	resp.Data.Cursor = cursor
+	resp.Data.NextCursor = json.Number(cursor)
+	resp.Data.HasMore = true
 }
 
 // streamAll fetches all notes page by page, printing each row immediately.
@@ -150,4 +159,3 @@ func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
 }
-

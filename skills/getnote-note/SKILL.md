@@ -1,6 +1,6 @@
 ---
 name: getnote-note
-version: 0.4.0
+version: 0.5.0
 description: Manage notes in Get笔记 via the getnote CLI
 ---
 
@@ -17,13 +17,16 @@ Save, list, view, update, and delete notes in Get笔记.
 ### Save a note
 
 ```
-getnote save <url|text|image_path> [--title <title>] [--tag <tag>]...
+getnote save <url|text|image_path> [--title <title>] [--tag <tag>]... [--topic-id <topic_id>] [--parent-id <note_id>] [--idempotency-key <key>]
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--title` | Optional title |
 | `--tag` | Tag to apply; may be repeated |
+| `--topic-id` | Save directly into an owned DEFAULT / BOOKSPACE / CUSTOMER knowledge base |
+| `--parent-id` | Create a child note; pass the snowflake ID as a decimal string |
+| `--idempotency-key` | Stable 1-128 character request key; reuse it for retries of the same create request |
 
 - URL (`http://` or `https://`) → link note:
   - **Share link** (`biji.com/note/share_note/*` or `d.biji.com/*` short link) → **sync**, returns `note_id` directly, no polling needed
@@ -61,14 +64,15 @@ Returns `status` (`pending` / `processing` / `success` / `failed`) and `note_id`
 ### List recent notes
 
 ```
-getnote notes [--cursor <cursor>] [--all]
+getnote notes [--cursor <cursor>] [--limit <n>] [--all]
 ```
 
-Returns 20 notes per page (fixed). No `--limit` flag.
+The API fetches 20 notes per page. `--limit` returns the first N and rewrites `cursor` to the last visible note, so the next page does not skip data.
 
 | Flag | Description |
 |------|-------------|
 | `--cursor` | Pagination cursor (the `cursor` value from the previous page) |
+| `--limit` | Number of notes to return from the fetched page |
 | `--all` | Fetch all notes (auto-paginate, streams output) |
 
 ```bash
@@ -171,13 +175,11 @@ Returns: `share_url` (e.g. `https://biji.com/note/share_note/rBzdMlXrzgYVM`)
 ## Agent Usage Notes
 
 - Use `-o json` when parsing responses programmatically.
-- All JSON responses follow `{"success":true,"data":{...}}` structure, **except**:
-  - `save` (text): returns `{"note_id":"..."}` directly
-  - `save` (share link): returns `{"note_id":"...","title":"...","created_at":"...","updated_at":"..."}` directly
-  - `save` (regular link/image): returns `{"data":{"tasks":[{"task_id":"..."}],...}}`
-  - `task`: returns `{"success":true,"data":{"status":"...","note_id":"..."}}`
-- `notes` list returns **20 per page** (no `--limit`); paginate with `--cursor` (the `cursor` value from the previous page).
+- JSON responses preserve the API envelope `{"success":true,"data":{...}}`.
+- Link/image saves read the async ID from `data.tasks[0].task_id`; task polling only treats `error_msg` as meaningful when `status=failed`.
+- `notes` fetches 20 from the API and may apply a smaller local `--limit`; paginate with the returned string `cursor`.
 - Note IDs are int64 — always handle as strings to avoid precision loss in JavaScript.
+- HTTP 200 with `success:false` is still an error. The CLI exits non-zero and preserves `code`, `reason`, `retryable`, `field`, `constraint`, `expected_type`, and `request_id`.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
 
 ### 字段语义提示（"原文" vs AI 总结）

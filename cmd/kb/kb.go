@@ -78,6 +78,35 @@ func NewKbCmd() *cobra.Command {
 	cmd.AddCommand(newBloggerContentCmd())
 	cmd.AddCommand(newLivesCmd())
 	cmd.AddCommand(newLiveCmd())
+	cmd.AddCommand(newLiveFollowCmd())
+	return cmd
+}
+
+func newLiveFollowCmd() *cobra.Command {
+	var platform string
+	cmd := &cobra.Command{
+		Use:   "live-follow <topic_id> <link>",
+		Short: "订阅直播到知识库 / Follow a live into a knowledge base",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").KBLiveFollow(args[0], args[1], platform)
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			if outputFormat(cmd) == "json" {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(resp)
+			}
+			followID := resp.Data.FollowIDStr
+			if followID == "" {
+				followID = resp.Data.FollowID.String()
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Live followed (follow_id: %s).\n", followID)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&platform, "platform", "", "Platform override (normally auto-detected)")
 	return cmd
 }
 
@@ -282,7 +311,11 @@ func newBloggersCmd() *cobra.Command {
 			table.SetBorder(false)
 			table.SetAutoWrapText(false)
 			for _, b := range resp.Data.Bloggers {
-				table.Append([]string{b.FollowID.String(), b.AccountName, b.Platform, b.FollowTime})
+				followID := b.FollowIDStr
+				if followID == "" {
+					followID = b.FollowID.String()
+				}
+				table.Append([]string{followID, b.AccountName, b.Platform, b.FollowTime})
 			}
 			table.Render()
 			fmt.Fprintf(cmd.OutOrStdout(), "\n(%d bloggers)\n", len(resp.Data.Bloggers))
@@ -330,9 +363,9 @@ func newBloggerContentsCmd() *cobra.Command {
 
 func newBloggerContentCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "blogger-content <topic_id> <post_id>",
-		Short: "查看博主内容详情（含原文）/ Show blogger content detail",
-		Args:  cobra.ExactArgs(2),
+		Use:     "blogger-content <topic_id> <post_id>",
+		Short:   "查看博主内容详情（含原文）/ Show blogger content detail",
+		Args:    cobra.ExactArgs(2),
 		Example: `  getnote kb blogger-content vnrOAaGY post_abc123`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
@@ -408,9 +441,9 @@ func newLivesCmd() *cobra.Command {
 
 func newLiveCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "live <topic_id> <live_id>",
-		Short: "查看直播详情（含 AI 摘要和原文）/ Show live detail",
-		Args:  cobra.ExactArgs(2),
+		Use:     "live <topic_id> <live_id>",
+		Short:   "查看直播详情（含 AI 摘要和原文）/ Show live detail",
+		Args:    cobra.ExactArgs(2),
 		Example: `  getnote kb live vnrOAaGY live_abc123`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
@@ -453,4 +486,3 @@ func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
 }
-

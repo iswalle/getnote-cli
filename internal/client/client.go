@@ -18,10 +18,44 @@ import (
 	"github.com/iswalle/getnote-cli/internal/config"
 )
 
+// MembershipPurchaseURL is the CLI-specific OpenAPI membership purchase channel.
+const MembershipPurchaseURL = "https://www.biji.com/checkout?product_alias=9Ab36BB3ZD&spm=openapi_cli"
+
 // APIError represents an error returned by the API.
 type APIError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code          int    `json:"code"`
+	Message       string `json:"message"`
+	Reason        string `json:"reason"`
+	Retryable     bool   `json:"retryable"`
+	Field         string `json:"field,omitempty"`
+	Constraint    string `json:"constraint,omitempty"`
+	ExpectedType  string `json:"expected_type,omitempty"`
+	MembershipURL string `json:"membership_url,omitempty"`
+}
+
+// RequestError is returned whenever the API envelope reports success=false,
+// including legacy endpoints that still use HTTP 200 for business failures.
+type RequestError struct {
+	APIError
+	RequestID  string
+	StatusCode int
+}
+
+func (e *RequestError) Error() string {
+	parts := []string{fmt.Sprintf("API error %d", e.Code)}
+	if e.Reason != "" {
+		parts = append(parts, e.Reason)
+	}
+	if e.Message != "" {
+		parts = append(parts, e.Message)
+	}
+	if e.Field != "" {
+		parts = append(parts, "field="+e.Field)
+	}
+	if e.RequestID != "" {
+		parts = append(parts, "request_id="+e.RequestID)
+	}
+	return strings.Join(parts, ": ")
 }
 
 // Client is an HTTP client for the getnote API.
@@ -39,7 +73,7 @@ type Client struct {
 func New(envTarget string) *Client {
 	baseURL := config.DefaultAPIBaseURL
 	if v := os.Getenv("GETNOTE_API_URL"); v != "" {
-		baseURL = v
+		baseURL = normalizeAPIHost(v)
 	} else if envTarget == "dev" {
 		baseURL = "https://openapi-dev.biji.com"
 	}
@@ -68,6 +102,13 @@ func New(envTarget string) *Client {
 	}
 }
 
+func normalizeAPIHost(value string) string {
+	baseURL := strings.TrimRight(value, "/")
+	baseURL = strings.TrimSuffix(baseURL, "/open/api/v1")
+	baseURL = strings.TrimSuffix(baseURL, "/open")
+	return baseURL
+}
+
 // ---------------------------------------------------------------------------
 // Note API
 // ---------------------------------------------------------------------------
@@ -83,29 +124,31 @@ type NoteTag struct {
 // Tags can be []string (kb/notes API) or []NoteTag (note/list API);
 // use TagNames() to get plain tag names regardless of format.
 type Note struct {
-	ID            json.Number       `json:"id"`
-	NoteID        json.Number       `json:"note_id"`
-	Title         string            `json:"title"`
-	Content       string            `json:"content"`
-	NoteType      string            `json:"note_type"`
-	CreatedAt     string            `json:"created_at"`
-	UpdatedAt     string            `json:"updated_at"`
-	Tags          []json.RawMessage `json:"tags"`
-	WebPage       *struct {
+	ID        json.Number       `json:"id"`
+	NoteID    string            `json:"note_id"`
+	Title     string            `json:"title"`
+	Content   string            `json:"content"`
+	NoteType  string            `json:"note_type"`
+	CreatedAt string            `json:"created_at"`
+	UpdatedAt string            `json:"updated_at"`
+	Tags      []json.RawMessage `json:"tags"`
+	WebPage   *struct {
 		URL     string `json:"url"`
 		Excerpt string `json:"excerpt"`
 		Content string `json:"content"` // 链接笔记原文全文
 	} `json:"web_page,omitempty"`
-	Audio         *struct {
+	Audio *struct {
 		Original string `json:"original"` // 录音转写原文
 	} `json:"audio,omitempty"`
 	RefContent    string            `json:"ref_content"`
 	Source        string            `json:"source"`
 	EntryType     string            `json:"entry_type"`
 	ChildrenCount int               `json:"children_count"`
-	ChildrenIDs   []json.Number     `json:"children_ids"`
+	ChildrenIDs   []string          `json:"children_ids"`
 	Topics        []json.RawMessage `json:"topics"`
 	IsChildNote   bool              `json:"is_child_note"`
+	ParentID      json.Number       `json:"parent_id,omitempty"`
+	ParentNoteID  string            `json:"parent_note_id,omitempty"`
 	Attachments   []json.RawMessage `json:"attachments"`
 	Version       int               `json:"version"`
 }
@@ -185,12 +228,15 @@ func (c *Client) NoteGet(noteID string) (*NoteGetResponse, error) {
 
 // NoteSaveRequest is the request body for saving a note.
 type NoteSaveRequest struct {
-	NoteType  string   `json:"note_type"`            // plain_text | link | img_text
-	Content   string   `json:"content,omitempty"`    // for plain_text
-	LinkURL   string   `json:"link_url,omitempty"`   // for link
-	ImageURLs []string `json:"image_urls,omitempty"` // for img_text
-	Title     string   `json:"title,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
+	NoteType        string   `json:"note_type"`            // plain_text | link | img_text
+	Content         string   `json:"content,omitempty"`    // for plain_text
+	LinkURL         string   `json:"link_url,omitempty"`   // for link
+	ImageURLs       []string `json:"image_urls,omitempty"` // for img_text
+	Title           string   `json:"title,omitempty"`
+	Tags            []string `json:"tags,omitempty"`
+	TopicID         string   `json:"topic_id,omitempty"`
+	ParentID        string   `json:"parent_id,omitempty"`
+	ClientRequestID string   `json:"client_request_id,omitempty"`
 }
 
 // NoteSaveResponse is the response from the note save endpoint.
@@ -253,7 +299,7 @@ type NoteTaskRequest struct {
 // NoteTaskData is the data field of the task progress response.
 type NoteTaskData struct {
 	TaskID     string `json:"task_id"`
-	Status     string `json:"status"`   // pending | processing | done | success | failed
+	Status     string `json:"status"` // pending | processing | done | success | failed
 	NoteID     string `json:"note_id"`
 	Msg        string `json:"msg"`
 	ErrorMsg   string `json:"error_msg"`
@@ -273,20 +319,46 @@ func (c *Client) NoteTask(taskID string) (*NoteTaskResponse, error) {
 	return doPost[NoteTaskResponse](c, "/open/api/v1/resource/note/task/progress", NoteTaskRequest{TaskID: taskID})
 }
 
+// NoteShareRequest is the request body for creating a public share link.
+type NoteShareRequest struct {
+	NoteID            string `json:"note_id"`
+	ShareExcludeAudio bool   `json:"share_exclude_audio"`
+}
+
+// NoteShareData is returned by the note sharing endpoint.
+type NoteShareData struct {
+	NoteID   string `json:"note_id"`
+	ShareID  string `json:"share_id"`
+	ShareURL string `json:"share_url"`
+}
+
+type NoteShareResponse struct {
+	Success bool          `json:"success"`
+	Data    NoteShareData `json:"data"`
+}
+
+// NoteShare makes a note public and returns its stable share URL.
+func (c *Client) NoteShare(noteID string, excludeAudio bool) (*NoteShareResponse, error) {
+	return doPost[NoteShareResponse](c, "/open/api/v1/resource/note/sharing", NoteShareRequest{
+		NoteID:            noteID,
+		ShareExcludeAudio: excludeAudio,
+	})
+}
+
 // ---------------------------------------------------------------------------
 // Knowledge Base API
 // ---------------------------------------------------------------------------
 
 // KBTopic represents a single knowledge base.
 type KBTopic struct {
-	ID          string      `json:"id"`
-	TopicID     string      `json:"topic_id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	Cover       string      `json:"cover"`
-	Scope       string      `json:"scope"`
-	CreatedAt   string      `json:"created_at"`
-	UpdatedAt   string      `json:"updated_at"`
+	ID          string       `json:"id"`
+	TopicID     string       `json:"topic_id"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Cover       string       `json:"cover"`
+	Scope       string       `json:"scope"`
+	CreatedAt   string       `json:"created_at"`
+	UpdatedAt   string       `json:"updated_at"`
 	Stats       KBTopicStats `json:"stats"`
 }
 
@@ -359,7 +431,7 @@ type KBNotesParams struct {
 type KBNote struct {
 	NoteID        string            `json:"note_id"`
 	Title         string            `json:"title"`
-	Content       string            `json:"content"`
+	Content       string            `json:"content,omitempty"`
 	NoteType      string            `json:"note_type"`
 	Tags          []json.RawMessage `json:"tags"`
 	IsAIGenerated bool              `json:"is_ai_generated"`
@@ -492,6 +564,7 @@ func (c *Client) KBSearch(topicID, query string, topK int) (*NoteSearchResponse,
 // notes_count and hook_state.
 type KBBlogger struct {
 	FollowID      json.Number `json:"follow_id"`
+	FollowIDStr   string      `json:"follow_id_str"`
 	AccountName   string      `json:"account_name"`
 	AccountAvatar string      `json:"account_avatar"`
 	NotesCount    int         `json:"notes_count"`
@@ -560,16 +633,16 @@ func (c *Client) KBBloggerContentList(topicID, followID string, page int) (*KBBl
 // KBBloggerContentDetail represents the full detail of a blogger content item.
 // API returns fields directly in data (flat, not nested under "content").
 type KBBloggerContentDetail struct {
-	PostIDAlias   string `json:"post_id_alias"`
-	PostName      string `json:"post_name"`
-	PostTitle     string `json:"post_title"`
+	PostIDAlias   string      `json:"post_id_alias"`
+	PostName      string      `json:"post_name"`
+	PostTitle     string      `json:"post_title"`
 	PostType      interface{} `json:"post_type"`
-	PostSummary   string `json:"post_summary"`
-	PostMediaText string `json:"post_media_text"`
-	PostSubtitle  string `json:"post_subtitle"`
-	PostURL       string `json:"post_url"`
-	PublishTime   string `json:"post_publish_time"`
-	CreateTime    string `json:"post_create_time"`
+	PostSummary   string      `json:"post_summary"`
+	PostMediaText string      `json:"post_media_text"`
+	PostSubtitle  string      `json:"post_subtitle"`
+	PostURL       string      `json:"post_url"`
+	PublishTime   string      `json:"post_publish_time"`
+	CreateTime    string      `json:"post_create_time"`
 }
 
 // KBBloggerContentDetailResponse is the response from the blogger content detail endpoint.
@@ -639,6 +712,35 @@ func (c *Client) KBLiveGet(topicID, liveID string) (*KBLiveDetailResponse, error
 	return doGet[KBLiveDetailResponse](c, "/open/api/v1/resource/knowledge/live/detail", url.Values{
 		"topic_id": {topicID},
 		"live_id":  {liveID},
+	})
+}
+
+type KBLiveFollowRequest struct {
+	TopicID  string `json:"topic_id"`
+	Link     string `json:"link"`
+	Platform string `json:"platform,omitempty"`
+}
+
+type KBLiveFollowData struct {
+	FollowID    json.Number `json:"follow_id"`
+	FollowIDStr string      `json:"follow_id_str"`
+	URL         string      `json:"url"`
+	Platform    string      `json:"platform"`
+	Type        string      `json:"type"`
+	CreatedAt   string      `json:"created_at"`
+}
+
+type KBLiveFollowResponse struct {
+	Success bool             `json:"success"`
+	Data    KBLiveFollowData `json:"data"`
+}
+
+// KBLiveFollow subscribes a live link into a knowledge base.
+func (c *Client) KBLiveFollow(topicID, link, platform string) (*KBLiveFollowResponse, error) {
+	return doPost[KBLiveFollowResponse](c, "/open/api/v1/resource/knowledge/live/follow", KBLiveFollowRequest{
+		TopicID:  topicID,
+		Link:     link,
+		Platform: platform,
 	})
 }
 
@@ -898,6 +1000,9 @@ func doRequest[T any](c *Client, req *http.Request) (*T, error) {
 		// 429: rate limited — back off and retry
 		if resp.StatusCode == http.StatusTooManyRequests {
 			if attempt == maxRetries {
+				if requestErr := requestErrorFromBody(body, resp.StatusCode); requestErr != nil {
+					return nil, requestErr
+				}
 				return nil, fmt.Errorf("rate limited after %d retries: %s", maxRetries, string(body))
 			}
 			time.Sleep(backoff)
@@ -909,15 +1014,45 @@ func doRequest[T any](c *Client, req *http.Request) (*T, error) {
 			continue
 		}
 
+		if requestErr := requestErrorFromBody(body, resp.StatusCode); requestErr != nil {
+			return nil, requestErr
+		}
+
 		if resp.StatusCode >= 400 {
 			return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 		}
 
 		var result T
-		if err := json.Unmarshal(body, &result); err != nil {
+		if err := decodeJSON(body, &result); err != nil {
 			return nil, fmt.Errorf("parsing response: %w", err)
 		}
 		return &result, nil
 	}
 	return nil, fmt.Errorf("request failed after retries")
+}
+
+func requestErrorFromBody(body []byte, statusCode int) *RequestError {
+	var envelope struct {
+		Success   bool      `json:"success"`
+		Error     *APIError `json:"error"`
+		RequestID string    `json:"request_id"`
+	}
+	if err := decodeJSON(body, &envelope); err != nil || (envelope.Success && envelope.Error == nil) {
+		return nil
+	}
+	apiErr := APIError{Code: -1, Message: "API request failed"}
+	if envelope.Error != nil {
+		apiErr = *envelope.Error
+	}
+	return &RequestError{
+		APIError:   apiErr,
+		RequestID:  envelope.RequestID,
+		StatusCode: statusCode,
+	}
+}
+
+func decodeJSON(data []byte, target interface{}) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	return decoder.Decode(target)
 }

@@ -41,11 +41,11 @@ func NewTaskCmd() *cobra.Command {
 			if d.Msg != "" {
 				table.Append([]string{"Message", d.Msg})
 			}
-			if d.ErrorMsg != "" {
+			if d.Status == "failed" && d.ErrorMsg != "" {
 				table.Append([]string{"Error", d.ErrorMsg})
 			}
 			table.Render()
-			if d.Status == "done" && d.NoteID != "" {
+			if (d.Status == "done" || d.Status == "success") && d.NoteID != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "\n  View note: getnote note %s\n", d.NoteID)
 			}
 			return nil
@@ -57,4 +57,3 @@ func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
 }
-

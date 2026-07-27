@@ -30,7 +30,7 @@ npm install -g @getnote/cli --ignore-scripts
 >
 > OpenAPI（包括本 CLI 和 Skill）仅对**得到大脑会员**开放。未开通会员时执行命令会提示 `OpenAPI 仅对会员开放`。
 >
-> 开通会员：在 [得到大脑 App](https://biji.com) 内订阅，或访问官网了解详情。
+> 开通会员：[前往得到大脑会员购买页](https://www.biji.com/checkout?product_alias=9Ab36BB3ZD&spm=openapi_cli)。
 
 ---
 
@@ -153,6 +153,9 @@ getnote auth logout                  退出登录
 getnote save <url|文字|图片路径>      保存链接/文字/图片笔记
   --title <标题>                      可选标题
   --tag <标签>                        标签（可重复）
+  --topic-id <topic_id>               直接存入普通/书籍/客户档案知识库
+  --parent-id <note_id>               创建子笔记（ID 推荐传字符串）
+  --idempotency-key <key>             同一创建请求重试时复用的幂等键
 
 getnote task <task_id>               查看异步任务进度
 ```
@@ -179,6 +182,9 @@ getnote note update <id>             更新笔记
 
 getnote note delete <id>             删除笔记（移入回收站）
   -y                                 跳过确认
+
+getnote note share <id>              生成公开分享链接
+  --exclude-audio                    分享时排除音频
 ```
 
 ### 字段语义说明（适合 AI Agent 参考）
@@ -214,7 +220,7 @@ getnote tag list <note_id>           查看笔记的所有标签
 ### 知识库
 
 ```
-getnote kbs                          列出所有知识库
+getnote kbs                          列出所有自有知识库（DEFAULT / BOOKSPACE / CUSTOMER）
 
 getnote kb <topic_id>                知识库内的笔记
   --limit <n>
@@ -226,7 +232,7 @@ getnote kb create <名称>             新建知识库
 
 getnote kb add <topic_id> <note_id> [note_id...]     加入知识库
 getnote kb remove <topic_id> <note_id> [note_id...]  移出知识库
-getnote kb live-follow <url>                         订阅得到直播课，直播结束后 AI 摘要自动入库
+getnote kb live-follow <topic_id> <url>              订阅得到直播课，直播结束后 AI 摘要自动入库
 
 getnote kbs-sub                                      获取我订阅的知识库列表
 ```
@@ -261,6 +267,14 @@ getnote kbs-sub                                      获取我订阅的知识库
 | `GETNOTE_API_KEY` | API Key |
 | `GETNOTE_CLIENT_ID` | Client ID |
 | `GETNOTE_API_URL` | 覆盖 API 地址 |
+
+`GETNOTE_API_URL` 可传站点根地址、`/open` 或完整 `/open/api/v1`，业务请求和 OAuth 会同时使用该地址；未设置时仍使用生产环境。
+
+### 新版 API 兼容约定
+
+- `note_id`、`parent_note_id`、`children_ids`、`cursor` 等雪花 ID 按字符串无损输出；历史 `id` / `next_cursor` 数字字段继续保留。
+- HTTP 200 且 `success:false` 仍按失败处理并返回非零退出码；错误保留 `code/reason/retryable/field/constraint/expected_type/request_id`。
+- `getnote save --idempotency-key` 用于防止网络重试产生重复笔记；同一请求必须复用同一个键。
 
 ---
 

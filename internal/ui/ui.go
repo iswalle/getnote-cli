@@ -41,8 +41,7 @@ func DisplayWidth(s string) int {
 
 // isWide reports whether r is a wide (double-column) rune.
 func isWide(r rune) bool {
-	return r >= 0x1100 && (
-		r <= 0x115F || // Hangul Jamo
+	return r >= 0x1100 && (r <= 0x115F || // Hangul Jamo
 		r == 0x2329 || r == 0x232A ||
 		(r >= 0x2E80 && r <= 0x303E) || // CJK Radicals
 		(r >= 0x3040 && r <= 0x33FF) || // Japanese
@@ -92,9 +91,9 @@ func PadRight(s string, width int) string {
 }
 
 // NoteID returns the canonical note ID string from note_id or id fields.
-func NoteID(noteID, id fmt.Stringer) string {
-	if s := noteID.String(); s != "" && s != "0" {
-		return s
+func NoteID(noteID string, id fmt.Stringer) string {
+	if noteID != "" && noteID != "0" {
+		return noteID
 	}
 	return id.String()
 }
