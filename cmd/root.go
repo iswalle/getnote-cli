@@ -57,6 +57,10 @@ func Execute() {
 func writeError(w io.Writer, err error, format string) {
 	var requestErr *client.RequestError
 	if format == "json" && errors.As(err, &requestErr) {
+		apiErr := requestErr.APIError
+		if apiErr.Code == 10201 {
+			apiErr.MembershipURL = client.MembershipPurchaseURL
+		}
 		payload := struct {
 			Success   bool             `json:"success"`
 			Data      interface{}      `json:"data"`
@@ -65,7 +69,7 @@ func writeError(w io.Writer, err error, format string) {
 		}{
 			Success:   false,
 			Data:      nil,
-			Error:     &requestErr.APIError,
+			Error:     &apiErr,
 			RequestID: requestErr.RequestID,
 		}
 		encoder := json.NewEncoder(w)
@@ -73,6 +77,10 @@ func writeError(w io.Writer, err error, format string) {
 		if encodeErr := encoder.Encode(payload); encodeErr == nil {
 			return
 		}
+	}
+	if errors.As(err, &requestErr) && requestErr.Code == 10201 {
+		fmt.Fprintf(w, "%s\n开通会员：%s\n", err, client.MembershipPurchaseURL)
+		return
 	}
 	fmt.Fprintln(w, err)
 }

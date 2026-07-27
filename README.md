@@ -30,7 +30,7 @@ npm install -g @getnote/cli --ignore-scripts
 >
 > OpenAPI（包括本 CLI 和 Skill）仅对**得到大脑会员**开放。未开通会员时执行命令会提示 `OpenAPI 仅对会员开放`。
 >
-> 开通会员：在 [得到大脑 App](https://biji.com) 内订阅，或访问官网了解详情。
+> 开通会员：[前往得到大脑会员购买页](https://www.biji.com/checkout?product_alias=9Ab36BB3ZD&spm=openapi_cli)。
 
 ---
 

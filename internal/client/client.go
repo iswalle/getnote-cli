@@ -18,15 +18,19 @@ import (
 	"github.com/iswalle/getnote-cli/internal/config"
 )
 
+// MembershipPurchaseURL is the CLI-specific OpenAPI membership purchase channel.
+const MembershipPurchaseURL = "https://www.biji.com/checkout?product_alias=9Ab36BB3ZD&spm=openapi_cli"
+
 // APIError represents an error returned by the API.
 type APIError struct {
-	Code         int    `json:"code"`
-	Message      string `json:"message"`
-	Reason       string `json:"reason"`
-	Retryable    bool   `json:"retryable"`
-	Field        string `json:"field,omitempty"`
-	Constraint   string `json:"constraint,omitempty"`
-	ExpectedType string `json:"expected_type,omitempty"`
+	Code          int    `json:"code"`
+	Message       string `json:"message"`
+	Reason        string `json:"reason"`
+	Retryable     bool   `json:"retryable"`
+	Field         string `json:"field,omitempty"`
+	Constraint    string `json:"constraint,omitempty"`
+	ExpectedType  string `json:"expected_type,omitempty"`
+	MembershipURL string `json:"membership_url,omitempty"`
 }
 
 // RequestError is returned whenever the API envelope reports success=false,
