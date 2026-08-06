@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"github.com/iswalle/getnote-cli/cmd/auth"
+	"github.com/iswalle/getnote-cli/cmd/capabilities"
+	"github.com/iswalle/getnote-cli/cmd/doctor"
 	"github.com/iswalle/getnote-cli/cmd/kb"
 	"github.com/iswalle/getnote-cli/cmd/kbs"
 	"github.com/iswalle/getnote-cli/cmd/kbssub"
@@ -16,6 +18,7 @@ import (
 	"github.com/iswalle/getnote-cli/cmd/quota"
 	"github.com/iswalle/getnote-cli/cmd/save"
 	"github.com/iswalle/getnote-cli/cmd/search"
+	"github.com/iswalle/getnote-cli/cmd/setup"
 	"github.com/iswalle/getnote-cli/cmd/tag"
 	"github.com/iswalle/getnote-cli/cmd/task"
 	"github.com/iswalle/getnote-cli/cmd/update"
@@ -92,6 +95,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "输出格式 / Output format: table or json")
 
 	rootCmd.AddCommand(auth.NewAuthCmd())
+	rootCmd.AddCommand(capabilities.NewCapabilitiesCmd())
+	rootCmd.AddCommand(doctor.NewDoctorCmd())
+	rootCmd.AddCommand(setup.NewSetupCmd())
 	rootCmd.AddCommand(save.NewSaveCmd())
 	rootCmd.AddCommand(task.NewTaskCmd())
 	rootCmd.AddCommand(notes.NewNotesCmd())

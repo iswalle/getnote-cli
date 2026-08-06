@@ -47,6 +47,9 @@ func NewNoteCmd() *cobra.Command {
 			table.SetBorder(false)
 			table.SetAutoWrapText(false)
 			table.Append([]string{"ID", ui.NoteID(n.NoteID, n.ID)})
+			if n.NoteURL != "" {
+				table.Append([]string{"Note URL", n.NoteURL})
+			}
 			table.Append([]string{"Title", n.Title})
 			table.Append([]string{"Type", n.NoteType})
 			table.Append([]string{"Created", n.CreatedAt})
@@ -74,7 +77,7 @@ func NewNoteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags)")
+	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, note_url, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags)")
 	cmd.AddCommand(newUpdateCmd())
 	cmd.AddCommand(newDeleteCmd())
 	cmd.AddCommand(newShareCmd())
@@ -87,6 +90,8 @@ func printField(n client.Note, field string) error {
 	switch field {
 	case "id":
 		val = ui.NoteID(n.NoteID, n.ID)
+	case "note_url":
+		val = n.NoteURL
 	case "title":
 		val = n.Title
 	case "content":
@@ -118,7 +123,7 @@ func printField(n client.Note, field string) error {
 	case "tags":
 		val = strings.Join(n.TagNames(), ", ")
 	default:
-		fmt.Fprintf(os.Stderr, "unknown field %q; valid: id, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags\n", field)
+		fmt.Fprintf(os.Stderr, "unknown field %q; valid: id, note_url, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags\n", field)
 		os.Exit(1)
 	}
 	fmt.Println(val)

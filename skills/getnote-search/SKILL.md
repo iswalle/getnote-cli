@@ -25,7 +25,7 @@ getnote search <query> [--kb <topic_id>] [--limit <n>]
 | `--kb` | — | Limit search to a knowledge base (`topic_id`) |
 | `--limit` | 10 | Max results (max 10) |
 
-Results are ranked by semantic relevance (high → low). Each result includes: `note_id`, `title`, `content` (excerpt), `score`, `created_at`, `note_type`.
+Results are ranked by semantic relevance (high → low). Each result includes: `note_id`, `note_url`, `title`, `content` (excerpt), `score`, `created_at`, `note_type`. Preserve the returned `note_url` when presenting results; do not construct one yourself.
 
 > Note: `note_type` is one of `NOTE`, `FILE`, `BLOGGER`, `LIVE`, `URL`, `DEDAO`. `note_id` is only populated for `NOTE` type results; other types return an empty `note_id`.
 

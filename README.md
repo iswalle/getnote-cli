@@ -8,8 +8,25 @@
 
 ## 安装
 
+### 让本地 AI 自动完成安装（推荐）
+
+适用于 Codex、Claude Code 和 Cursor：
+
+```bash
+npx -y @getnote/cli@latest setup
+```
+
+这条命令会安装 CLI、识别本机支持的平台、安装五个原子 Skill，并引导完成一次得到大脑授权。安装后运行：
+
+```bash
+getnote doctor -o json
+```
+
+### 只安装命令行
+
 ```bash
 npm install -g @getnote/cli
+getnote auth login
 ```
 
 或者从 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载对应平台的二进制文件，放到 `$PATH` 里。
@@ -34,23 +51,16 @@ npm install -g @getnote/cli --ignore-scripts
 
 ---
 
-## 三步开始用
+## 开始使用
 
-**第一步：安装**
-```bash
-# 已完成，如上
-```
-
-**（可选）安装 AI Agent Skill**
-
-在 Claude Code、Cursor 等 AI 编程工具里用自然语言操作笔记，需要额外安装 Skill：
+如果已经单独安装 CLI，还可以为 Codex、Claude Code、Cursor 补装内置的五个原子 Skill：
 ```bash
 npx skills add iswalle/getnote-cli -y -g
 ```
 
-> ⚠️ 需先完成第一步安装 CLI，再安装 Skill。
+使用 `getnote setup` 时不需要再执行这条命令。
 
-**第二步：登录**
+登录：
 ```bash
 getnote auth login
 ```
@@ -59,7 +69,7 @@ getnote auth login
 getnote auth login --api-key gk_live_xxx --client-id cli_xxx
 ```
 
-**第三步：开始用**
+开始用：
 ```bash
 # 存一篇文章
 getnote save https://example.com/article --tag 阅读
@@ -126,13 +136,17 @@ getnote search "关键词" -o json
 getnote save https://example.com -o json   # 自动轮询，返回最终笔记
 ```
 
-`skills/` 目录下有 Claude Code 专用的 Skill 文件，安装后 AI Agent 可以直接用自然语言操作笔记：
+保存、列表、详情和搜索的 JSON 结果都会返回当前环境可打开的 `note_url`。测试环境会返回测试站地址，生产环境返回 `https://www.biji.com/note/{id}`。
+
+`skills/` 目录是 CLI 内置的五个原子 Skill，也是本地 Agent 的唯一维护源。安装后 AI Agent 可以直接用自然语言操作笔记：
 
 ```bash
 npx skills add iswalle/getnote-cli -y -g
 ```
 
 安装后在 Claude Code / Cursor 里说「帮我搜一下关于 RAG 的笔记」即可直接调用。
+
+独立的聚合 Skill 面向 WorkBuddy、QClaw 和 OpenClaw 生态，只负责意图理解，底层仍调用同一个 CLI，不再维护第二套 OpenAPI 请求实现。
 
 ---
 
@@ -145,6 +159,9 @@ getnote auth login                   OAuth 登录（浏览器授权）
 getnote auth login --api-key <key> --client-id <id>  直接用 API Key 登录
 getnote auth status                  查看当前登录状态
 getnote auth logout                  退出登录
+getnote doctor                       检查安装、登录和 API 连通性
+getnote capabilities                 查看当前版本的稳定能力
+getnote setup                        为本机 AI 安装原子 Skill 并引导授权
 ```
 
 ### 保存笔记
@@ -171,7 +188,7 @@ getnote notes                        最近 20 条笔记
 
 getnote note <id>                    笔记详情
   --field <字段名>                   只输出某个字段的值
-                                     （id/title/content/type/
+                                     （id/note_url/title/content/type/
                                        created_at/url/excerpt/
                                        web_content/audio_original）
 
@@ -267,6 +284,7 @@ getnote kbs-sub                                      获取我订阅的知识库
 | `GETNOTE_API_KEY` | API Key |
 | `GETNOTE_CLIENT_ID` | Client ID |
 | `GETNOTE_API_URL` | 覆盖 API 地址 |
+| `GETNOTE_WEB_URL` | 覆盖笔记网页地址；通常无需设置，CLI 会随 API 环境自动选择 |
 
 `GETNOTE_API_URL` 可传站点根地址、`/open` 或完整 `/open/api/v1`，业务请求和 OAuth 会同时使用该地址；未设置时仍使用生产环境。
 

@@ -70,6 +70,13 @@ func NewSaveCmd() *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
 			}
+			if noteID := extractNoteID(resp.Data); noteID != "" {
+				noteResp, detailErr := c.NoteGet(noteID)
+				if detailErr == nil {
+					renderNote(cmd, noteResp.Data.Note)
+					return nil
+				}
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), "✓ Note saved.")
 			return nil
 		},
@@ -194,6 +201,15 @@ func extractTaskID(data interface{}) string {
 	return ""
 }
 
+func extractNoteID(data interface{}) string {
+	m, ok := data.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	id, _ := m["note_id"].(string)
+	return id
+}
+
 // pollTask polls the task status until done, failed, or timeout.
 // In JSON mode it runs silently and outputs the final result as JSON.
 func pollTask(cmd *cobra.Command, c *client.Client, taskID string) error {
@@ -292,6 +308,9 @@ func renderNote(cmd *cobra.Command, n client.Note) {
 	table.SetBorder(false)
 	table.SetAutoWrapText(false)
 	table.Append([]string{"ID", ui.NoteID(n.NoteID, n.ID)})
+	if n.NoteURL != "" {
+		table.Append([]string{"Note URL", n.NoteURL})
+	}
 	table.Append([]string{"Title", n.Title})
 	table.Append([]string{"Type", n.NoteType})
 	table.Append([]string{"Created", n.CreatedAt})

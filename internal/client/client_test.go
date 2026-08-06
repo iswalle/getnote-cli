@@ -137,6 +137,29 @@ func TestNormalizeAPIHost(t *testing.T) {
 	}
 }
 
+func TestNoteURLUsesMatchingWebEnvironment(t *testing.T) {
+	tests := []struct {
+		name   string
+		apiURL string
+		webURL string
+		want   string
+	}{
+		{name: "production", apiURL: "https://openapi.biji.com", want: "https://www.biji.com/note/1912345678901234567"},
+		{name: "test gateway", apiURL: "http://entree.dev.didatrip.com/open", want: "http://biji.dev.didatrip.com/note/1912345678901234567"},
+		{name: "explicit web host", apiURL: "https://openapi.biji.com", webURL: "https://preview.example.com/", want: "https://preview.example.com/note/1912345678901234567"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GETNOTE_API_URL", tt.apiURL)
+			t.Setenv("GETNOTE_WEB_URL", tt.webURL)
+			got := New("").NoteURL("1912345678901234567")
+			if got != tt.want {
+				t.Fatalf("NoteURL() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRequestErrorFromRateLimitBodyPreservesFields(t *testing.T) {
 	err := requestErrorFromBody([]byte(`{
 		"success": false,

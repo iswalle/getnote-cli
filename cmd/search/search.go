@@ -17,6 +17,7 @@ var cols = []ui.ColSpec{
 	{Value: "Score", Width: 6},
 	{Value: "Created", Width: 19},
 	{Value: "Content", Width: 50},
+	{Value: "Note URL", Width: 44},
 }
 
 const sep = "  "
@@ -72,6 +73,7 @@ func NewSearchCmd() *cobra.Command {
 					{Value: fmt.Sprintf("%.2f", r.Score), Width: cols[3].Width},
 					{Value: r.CreatedAt, Width: cols[4].Width},
 					{Value: ui.Truncate(r.Content, cols[5].Width), Width: cols[5].Width},
+					{Value: r.NoteURL, Width: cols[6].Width},
 				}
 				fmt.Fprint(out, ui.PrintRow(row, sep))
 			}
@@ -89,4 +91,3 @@ func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
 }
-

@@ -61,6 +61,7 @@ func (e *RequestError) Error() string {
 // Client is an HTTP client for the getnote API.
 type Client struct {
 	baseURL    string
+	webBaseURL string
 	apiKey     string
 	clientID   string
 	httpClient *http.Client
@@ -92,14 +93,36 @@ func New(envTarget string) *Client {
 		clientID = v
 	}
 
+	webBaseURL := strings.TrimRight(os.Getenv("GETNOTE_WEB_URL"), "/")
+	if webBaseURL == "" {
+		webBaseURL = webURLForAPI(baseURL)
+	}
+
 	return &Client{
-		baseURL:  baseURL,
-		apiKey:   apiKey,
-		clientID: clientID,
+		baseURL:    baseURL,
+		webBaseURL: webBaseURL,
+		apiKey:     apiKey,
+		clientID:   clientID,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}
+}
+
+func webURLForAPI(apiURL string) string {
+	value := strings.ToLower(apiURL)
+	if strings.Contains(value, "dev.didatrip.com") || strings.Contains(value, "openapi-dev.biji.com") {
+		return "http://biji.dev.didatrip.com"
+	}
+	return "https://www.biji.com"
+}
+
+// NoteURL returns the environment-correct browser URL for a note.
+func (c *Client) NoteURL(noteID string) string {
+	if noteID == "" {
+		return ""
+	}
+	return c.webBaseURL + "/note/" + noteID
 }
 
 func normalizeAPIHost(value string) string {
@@ -126,6 +149,7 @@ type NoteTag struct {
 type Note struct {
 	ID        json.Number       `json:"id"`
 	NoteID    string            `json:"note_id"`
+	NoteURL   string            `json:"note_url,omitempty"`
 	Title     string            `json:"title"`
 	Content   string            `json:"content"`
 	NoteType  string            `json:"note_type"`
@@ -205,7 +229,13 @@ func (c *Client) NoteList(params NoteListParams) (*NoteListResponse, error) {
 	if params.Limit > 0 {
 		q.Set("limit", fmt.Sprintf("%d", params.Limit))
 	}
-	return doGet[NoteListResponse](c, "/open/api/v1/resource/note/list", q)
+	resp, err := doGet[NoteListResponse](c, "/open/api/v1/resource/note/list", q)
+	if err == nil {
+		for i := range resp.Data.Notes {
+			resp.Data.Notes[i].NoteURL = c.NoteURL(noteIdentity(resp.Data.Notes[i]))
+		}
+	}
+	return resp, err
 }
 
 // NoteGetData is the data field of the note detail response.
@@ -223,7 +253,18 @@ type NoteGetResponse struct {
 // GET /open/api/v1/resource/note/detail?id=<note_id>
 func (c *Client) NoteGet(noteID string) (*NoteGetResponse, error) {
 	q := url.Values{"id": {noteID}}
-	return doGet[NoteGetResponse](c, "/open/api/v1/resource/note/detail", q)
+	resp, err := doGet[NoteGetResponse](c, "/open/api/v1/resource/note/detail", q)
+	if err == nil {
+		resp.Data.Note.NoteURL = c.NoteURL(noteIdentity(resp.Data.Note))
+	}
+	return resp, err
+}
+
+func noteIdentity(note Note) string {
+	if note.NoteID != "" {
+		return note.NoteID
+	}
+	return note.ID.String()
 }
 
 // NoteSaveRequest is the request body for saving a note.
@@ -249,7 +290,15 @@ type NoteSaveResponse struct {
 // NoteSave saves a new note (URL or plain text).
 // POST /open/api/v1/resource/note/save
 func (c *Client) NoteSave(req NoteSaveRequest) (*NoteSaveResponse, error) {
-	return doPost[NoteSaveResponse](c, "/open/api/v1/resource/note/save", req)
+	resp, err := doPost[NoteSaveResponse](c, "/open/api/v1/resource/note/save", req)
+	if err == nil && resp != nil {
+		if data, ok := resp.Data.(map[string]interface{}); ok {
+			if noteID, ok := data["note_id"].(string); ok && noteID != "" {
+				data["note_url"] = c.NoteURL(noteID)
+			}
+		}
+	}
+	return resp, err
 }
 
 // NoteUpdateRequest is the request body for updating a note.
@@ -514,6 +563,7 @@ func (c *Client) KBNotesRemove(topicID string, noteIDs []string) (*KBNotesRemove
 // RecallResult is a single search result item.
 type RecallResult struct {
 	NoteID    string  `json:"note_id"`
+	NoteURL   string  `json:"note_url,omitempty"`
 	NoteType  string  `json:"note_type"`
 	Title     string  `json:"title"`
 	Content   string  `json:"content"`
@@ -538,7 +588,9 @@ type NoteSearchResponse struct {
 // NoteSearch performs global semantic search across all notes.
 // POST /open/api/v1/resource/recall
 func (c *Client) NoteSearch(query string, topK int) (*NoteSearchResponse, error) {
-	return doPost[NoteSearchResponse](c, "/open/api/v1/resource/recall", NoteSearchRequest{Query: query, TopK: topK})
+	resp, err := doPost[NoteSearchResponse](c, "/open/api/v1/resource/recall", NoteSearchRequest{Query: query, TopK: topK})
+	c.decorateSearch(resp)
+	return resp, err
 }
 
 // KBSearchRequest is the request body for knowledge base recall.
@@ -551,7 +603,18 @@ type KBSearchRequest struct {
 // KBSearch performs semantic search within a specific knowledge base.
 // POST /open/api/v1/resource/recall/knowledge
 func (c *Client) KBSearch(topicID, query string, topK int) (*NoteSearchResponse, error) {
-	return doPost[NoteSearchResponse](c, "/open/api/v1/resource/recall/knowledge", KBSearchRequest{TopicID: topicID, Query: query, TopK: topK})
+	resp, err := doPost[NoteSearchResponse](c, "/open/api/v1/resource/recall/knowledge", KBSearchRequest{TopicID: topicID, Query: query, TopK: topK})
+	c.decorateSearch(resp)
+	return resp, err
+}
+
+func (c *Client) decorateSearch(resp *NoteSearchResponse) {
+	if resp == nil {
+		return
+	}
+	for i := range resp.Data.Results {
+		resp.Data.Results[i].NoteURL = c.NoteURL(resp.Data.Results[i].NoteID)
+	}
 }
 
 // ---------------------------------------------------------------------------

@@ -41,7 +41,7 @@ getnote save "Remember to review the docs" --tag work --tag important
 getnote save ./screenshot.png --title "Design mockup"
 ```
 
-In `-o json` mode, silently polls and returns the final note JSON (including `title`, `content`/summary, `note_type`, `tags`, `created_at`).
+In `-o json` mode, silently polls and returns the final note JSON (including `title`, `content`/summary, `note_type`, `tags`, `created_at`, and the environment-correct `note_url`). Return that `note_url` to the user after a successful save; do not construct one yourself.
 
 ---
 
