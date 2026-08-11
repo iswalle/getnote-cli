@@ -213,6 +213,12 @@ getnote note <id>                    笔记详情
                                        created_at/url/excerpt/
                                        web_content/audio_original）
 
+getnote note original <id>           按笔记类型直接输出真实原文
+getnote note transcript <id>         直接输出录音、会议或课堂转写原文
+getnote note attachments <id>        列出图片、音频和文件附件
+getnote note timeline <id>           读取录音或会议时间线
+getnote note quick-note <id>         读取录音快捷笔记
+
 getnote note update <id>             更新笔记
   --title <标题>
   --content <内容>                   仅文字笔记可用
@@ -237,7 +243,7 @@ getnote note share <id>              生成公开分享链接
 | 知识库博主内容 | `post_media_text`（via `kb blogger-content`）| `content` |
 | 知识库直播 | `post_media_text`（via `kb live`）| `post_summary` |
 
-> **AI Agent 提示**：用户要求"读原文"时，先用 `getnote note <id> -o json` 查看 `note_type`，再按上表选择对应字段。
+> **AI Agent 提示**：用户要求“读原文”时优先使用 `getnote note original`；明确要求录音、会议或课堂转写时使用 `getnote note transcript`，避免把 AI 摘要误当成原文。
 
 ### 搜索
 
@@ -258,7 +264,7 @@ getnote tag list <note_id>           查看笔记的所有标签
 ### 知识库
 
 ```
-getnote kbs                          列出所有自有知识库（DEFAULT / BOOKSPACE / CUSTOMER）
+getnote kbs                          列出所有可访问知识库（DEFAULT / BOOKSPACE / CUSTOMER / TEAMSPACE）
 
 getnote kb <topic_id>                知识库内的笔记
   --limit <n>
@@ -269,7 +275,13 @@ getnote kb create <名称>             新建知识库
   --desc <描述>
 
 getnote kb add <topic_id> <note_id> [note_id...]     加入知识库
+getnote kb add <topic_id> <note_id> --directory-id <id>  加入指定文件夹
 getnote kb remove <topic_id> <note_id> [note_id...]  移出知识库
+getnote kb directories <topic_id>                    浏览文件夹和资源
+getnote kb directory-create <topic_id> <名称>        创建文件夹
+getnote kb directory-update <topic_id> <id> --name <名称>  重命名或移动文件夹
+getnote kb directory-delete <topic_id> <id> --yes    删除空文件夹
+getnote kb blogger-follow <topic_id> <抖音链接>      订阅抖音博主
 getnote kb live-follow <topic_id> <url>              订阅得到直播课，直播结束后 AI 摘要自动入库
 
 getnote kbs-sub                                      获取我订阅的知识库列表

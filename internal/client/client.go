@@ -200,6 +200,8 @@ type Note struct {
 	Audio *struct {
 		Original string `json:"original"` // 录音转写原文
 	} `json:"audio,omitempty"`
+	QuickNote     string            `json:"quick_note,omitempty"`
+	Timeline      *NoteTimeline     `json:"timeline,omitempty"`
 	RefContent    string            `json:"ref_content"`
 	Source        string            `json:"source"`
 	EntryType     string            `json:"entry_type"`
@@ -211,6 +213,24 @@ type Note struct {
 	ParentNoteID  string            `json:"parent_note_id,omitempty"`
 	Attachments   []json.RawMessage `json:"attachments"`
 	Version       int               `json:"version"`
+}
+
+type NoteTimeline struct {
+	Version   int64                  `json:"version"`
+	Moments   []NoteTimelineMoment   `json:"moments"`
+	Resources []NoteOriginalResource `json:"resources"`
+}
+
+type NoteTimelineMoment struct {
+	StartMs int64  `json:"start_ms"`
+	EndMs   int64  `json:"end_ms"`
+	Text    string `json:"text"`
+}
+
+type NoteOriginalResource struct {
+	Type       string `json:"type"`
+	URL        string `json:"url"`
+	ActionTime int64  `json:"action_time"`
 }
 
 // TagNames returns tag names regardless of whether tags are strings or objects.
@@ -568,8 +588,9 @@ func (c *Client) KBNotes(params KBNotesParams) (*KBNotesResponse, error) {
 
 // KBNotesBatchAddRequest is the request body for batch-adding notes to a KB.
 type KBNotesBatchAddRequest struct {
-	TopicID string   `json:"topic_id"`
-	NoteIDs []string `json:"note_ids"`
+	TopicID     string   `json:"topic_id"`
+	DirectoryID string   `json:"directory_id,omitempty"`
+	NoteIDs     []string `json:"note_ids"`
 }
 
 // KBNotesBatchAddResponse is the response from the batch-add endpoint.
@@ -581,9 +602,72 @@ type KBNotesBatchAddResponse struct {
 
 // KBNotesAdd adds notes to a knowledge base.
 // POST /open/api/v1/resource/knowledge/note/batch-add
-func (c *Client) KBNotesAdd(topicID string, noteIDs []string) (*KBNotesBatchAddResponse, error) {
-	req := KBNotesBatchAddRequest{TopicID: topicID, NoteIDs: noteIDs}
+func (c *Client) KBNotesAdd(topicID, directoryID string, noteIDs []string) (*KBNotesBatchAddResponse, error) {
+	req := KBNotesBatchAddRequest{TopicID: topicID, DirectoryID: directoryID, NoteIDs: noteIDs}
 	return doPost[KBNotesBatchAddResponse](c, "/open/api/v1/resource/knowledge/note/batch-add", req)
+}
+
+type KBDirectory struct {
+	ID           string `json:"id"`
+	TopicID      string `json:"topic_id"`
+	ParentID     string `json:"parent_id"`
+	Name         string `json:"name"`
+	Type         string `json:"type"`
+	ResourceDesc string `json:"resource_desc,omitempty"`
+}
+
+type KBResource struct {
+	ID          string `json:"id"`
+	DirectoryID string `json:"directory_id"`
+	NoteID      string `json:"note_id,omitempty"`
+	Name        string `json:"name"`
+	URL         string `json:"url,omitempty"`
+	Type        string `json:"type"`
+	Status      string `json:"status"`
+}
+
+type KBDirectoryListData struct {
+	CurrentDirectory *KBDirectory  `json:"current_directory,omitempty"`
+	Directories      []KBDirectory `json:"directories"`
+	Resources        []KBResource  `json:"resources"`
+	Total            int64         `json:"total"`
+}
+
+type KBDirectoryListResponse struct {
+	Success bool                `json:"success"`
+	Data    KBDirectoryListData `json:"data"`
+}
+
+func (c *Client) KBDirectoryList(topicID, directoryID string) (*KBDirectoryListResponse, error) {
+	q := url.Values{"topic_id": {topicID}}
+	if directoryID != "" {
+		q.Set("directory_id", directoryID)
+	}
+	return doGet[KBDirectoryListResponse](c, "/open/api/v1/resource/knowledge/directories", q)
+}
+
+type KBDirectoryRequest struct {
+	TopicID     string `json:"topic_id"`
+	DirectoryID string `json:"directory_id,omitempty"`
+	ParentID    string `json:"parent_id,omitempty"`
+	Name        string `json:"name,omitempty"`
+}
+
+type KBDirectoryMutationResponse struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+}
+
+func (c *Client) KBDirectoryCreate(topicID, parentID, name string) (*KBDirectoryMutationResponse, error) {
+	return doPost[KBDirectoryMutationResponse](c, "/open/api/v1/resource/knowledge/directory/create", KBDirectoryRequest{TopicID: topicID, ParentID: parentID, Name: name})
+}
+
+func (c *Client) KBDirectoryUpdate(topicID, directoryID, parentID, name string) (*KBDirectoryMutationResponse, error) {
+	return doPost[KBDirectoryMutationResponse](c, "/open/api/v1/resource/knowledge/directory/update", KBDirectoryRequest{TopicID: topicID, DirectoryID: directoryID, ParentID: parentID, Name: name})
+}
+
+func (c *Client) KBDirectoryDelete(topicID, directoryID string) (*KBDirectoryMutationResponse, error) {
+	return doPost[KBDirectoryMutationResponse](c, "/open/api/v1/resource/knowledge/directory/delete", KBDirectoryRequest{TopicID: topicID, DirectoryID: directoryID})
 }
 
 // KBNotesRemoveRequest is the request body for removing notes from a KB.
@@ -706,6 +790,12 @@ func (c *Client) KBBloggerList(topicID string, page int) (*KBBloggerListResponse
 	return doGet[KBBloggerListResponse](c, "/open/api/v1/resource/knowledge/bloggers", url.Values{
 		"topic_id": {topicID},
 		"page":     {fmt.Sprintf("%d", page)},
+	})
+}
+
+func (c *Client) KBBloggerFollow(topicID, link, platform string) (*KBLiveFollowResponse, error) {
+	return doPost[KBLiveFollowResponse](c, "/open/api/v1/resource/knowledge/blogger/follow", KBLiveFollowRequest{
+		TopicID: topicID, Link: link, Platform: platform,
 	})
 }
 

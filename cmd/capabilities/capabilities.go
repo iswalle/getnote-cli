@@ -32,6 +32,8 @@ type guarantees struct {
 	ImageFormatValidation    bool              `json:"image_format_validation"`
 	SafeLongInput            []string          `json:"safe_long_input"`
 	KnowledgeScopes          []string          `json:"knowledge_scopes"`
+	KnowledgeFeatures        []string          `json:"knowledge_features"`
+	NoteDetailViews          []string          `json:"note_detail_views"`
 	Limits                   map[string]int    `json:"limits"`
 	ConfirmationFlags        map[string]string `json:"confirmation_flags"`
 }
@@ -44,9 +46,9 @@ func currentResponse() response {
 		Architecture:    "Skill navigates intent; CLI performs deterministic operations",
 		Commands: map[string][]string{
 			"connection":     {"doctor", "capabilities", "auth", "auth login", "auth status", "auth logout", "setup"},
-			"notes":          {"save", "task", "notes", "note", "note update", "note delete", "note share"},
+			"notes":          {"save", "task", "notes", "note", "note original", "note transcript", "note attachments", "note timeline", "note quick-note", "note update", "note delete", "note share"},
 			"search":         {"search"},
-			"knowledge_base": {"kbs", "kbs-sub", "kb", "kb create", "kb add", "kb remove", "kb bloggers", "kb blogger-contents", "kb blogger-content", "kb lives", "kb live", "kb live-follow"},
+			"knowledge_base": {"kbs", "kbs-sub", "kb", "kb create", "kb add", "kb remove", "kb directories", "kb directory-create", "kb directory-update", "kb directory-delete", "kb bloggers", "kb blogger-follow", "kb blogger-contents", "kb blogger-content", "kb lives", "kb live", "kb live-follow"},
 			"tags":           {"tag", "tag list", "tag add", "tag remove"},
 			"account":        {"quota", "version", "update"},
 		},
@@ -69,7 +71,9 @@ func currentResponse() response {
 			EnvironmentNoteURL:       true,
 			ImageFormatValidation:    true,
 			SafeLongInput:            []string{"--content-file", "--stdin"},
-			KnowledgeScopes:          []string{"DEFAULT", "BOOKSPACE", "CUSTOMER"},
+			KnowledgeScopes:          []string{"DEFAULT", "BOOKSPACE", "CUSTOMER", "TEAMSPACE"},
+			KnowledgeFeatures:        []string{"directories", "add_to_directory", "douyin_blogger_subscription"},
+			NoteDetailViews:          []string{"summary", "original", "transcript", "attachments", "timeline", "quick_note"},
 			Limits: map[string]int{
 				"search_results": 10,
 				"kb_note_batch":  20,
@@ -79,6 +83,7 @@ func currentResponse() response {
 				"note delete":                 "--yes",
 				"note share":                  "--yes",
 				"kb remove":                   "--yes",
+				"kb directory-delete":         "--yes",
 			},
 		},
 	}

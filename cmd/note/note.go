@@ -80,7 +80,122 @@ func NewNoteCmd() *cobra.Command {
 	cmd.AddCommand(newUpdateCmd())
 	cmd.AddCommand(newDeleteCmd())
 	cmd.AddCommand(newShareCmd())
+	cmd.AddCommand(newOriginalCmd())
+	cmd.AddCommand(newTranscriptCmd())
+	cmd.AddCommand(newAttachmentsCmd())
+	cmd.AddCommand(newTimelineCmd())
+	cmd.AddCommand(newQuickNoteCmd())
 	return cmd
+}
+
+func newOriginalCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "original <id>",
+		Short:   "读取笔记原文 / Read the original note content",
+		Long:    "按笔记类型返回真实原文：链接笔记返回网页原文，录音笔记返回转写原文，文字笔记返回正文。",
+		Example: "  getnote note original 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			n := resp.Data.Note
+			var value string
+			switch {
+			case n.WebPage != nil && n.WebPage.Content != "":
+				value = n.WebPage.Content
+			case n.Audio != nil && n.Audio.Original != "":
+				value = n.Audio.Original
+			default:
+				value = n.Content
+			}
+			if value == "" {
+				return fmt.Errorf("original content is not available for this note")
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), value)
+			return nil
+		},
+	}
+}
+
+func newTranscriptCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "transcript <id>",
+		Short:   "读取录音转写原文 / Read an audio-note transcript",
+		Example: "  getnote note transcript 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			if resp.Data.Note.Audio == nil || resp.Data.Note.Audio.Original == "" {
+				return fmt.Errorf("audio transcript is not available for this note")
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), resp.Data.Note.Audio.Original)
+			return nil
+		},
+	}
+}
+
+func newAttachmentsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "attachments <id>",
+		Short:   "列出笔记附件 / List note attachments",
+		Example: "  getnote note attachments 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc.SetIndent("", "  ")
+			return enc.Encode(resp.Data.Note.Attachments)
+		},
+	}
+}
+
+func newTimelineCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "timeline <id>",
+		Short:   "读取录音或会议时间线 / Read an audio or meeting timeline",
+		Example: "  getnote note timeline 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			if resp.Data.Note.Timeline == nil {
+				return fmt.Errorf("timeline is not available for this note")
+			}
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc.SetIndent("", "  ")
+			return enc.Encode(resp.Data.Note.Timeline)
+		},
+	}
+}
+
+func newQuickNoteCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "quick-note <id>",
+		Short:   "读取录音快捷笔记 / Read a recording quick note",
+		Example: "  getnote note quick-note 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			if resp.Data.Note.QuickNote == "" {
+				return fmt.Errorf("quick note is not available for this note")
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), resp.Data.Note.QuickNote)
+			return nil
+		},
+	}
 }
 
 // printField outputs a single field from a note as plain text.

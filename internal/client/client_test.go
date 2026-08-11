@@ -232,3 +232,81 @@ func TestNoteSaveNormalizesNumericIDAndAddsEnvironmentURL(t *testing.T) {
 		t.Fatalf("normalized save data = %#v", data)
 	}
 }
+
+func TestSkill2KnowledgeRoutesMatchOpenAPIContract(t *testing.T) {
+	requests := make([]string, 0, 3)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.Method+" "+r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/open/api/v1/resource/knowledge/directories":
+			if r.URL.Query().Get("topic_id") != "topic-alias" || r.URL.Query().Get("directory_id") != "1916020531058082912" {
+				t.Fatalf("directory query = %s", r.URL.RawQuery)
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"directories":[],"resources":[],"total":0}}`))
+		case "/open/api/v1/resource/knowledge/directory/create":
+			var body KBDirectoryRequest
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			if body.TopicID != "topic-alias" || body.ParentID != "1916020531058082912" || body.Name != "项目资料" {
+				t.Fatalf("directory body = %+v", body)
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"id":"1916020531058082913"}}`))
+		case "/open/api/v1/resource/knowledge/blogger/follow":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"follow_id_str":"1916020531058082914"}}`))
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("GETNOTE_API_URL", server.URL)
+	c := New("")
+	if _, err := c.KBDirectoryList("topic-alias", "1916020531058082912"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.KBDirectoryCreate("topic-alias", "1916020531058082912", "项目资料"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.KBBloggerFollow("topic-alias", "https://www.douyin.com/user/example", "douyin"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"GET /open/api/v1/resource/knowledge/directories",
+		"POST /open/api/v1/resource/knowledge/directory/create",
+		"POST /open/api/v1/resource/knowledge/blogger/follow",
+	}
+	if strings.Join(requests, "|") != strings.Join(want, "|") {
+		t.Fatalf("requests = %v, want %v", requests, want)
+	}
+}
+
+func TestSkill2FirstClassNoteFieldsDecode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"success": true,
+			"data": {"note": {
+				"note_id": "1916020531058082912",
+				"quick_note": "关键结论",
+				"attachments": [{"type":"image","name":"图一","url":"https://example.com/a.png"}],
+				"timeline": {
+					"version": 2,
+					"moments": [{"start_ms":0,"end_ms":1200,"text":"开场"}],
+					"resources": [{"type":"audio","url":"https://example.com/a.mp3","action_time":0}]
+				}
+			}}
+		}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("GETNOTE_API_URL", server.URL)
+	resp, err := New("").NoteGet("1916020531058082912")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Data.Note.QuickNote != "关键结论" || resp.Data.Note.Timeline == nil || len(resp.Data.Note.Timeline.Moments) != 1 || len(resp.Data.Note.Attachments) != 1 {
+		t.Fatalf("first-class fields = %+v", resp.Data.Note)
+	}
+}
