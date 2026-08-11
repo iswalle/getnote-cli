@@ -3,85 +3,28 @@ name: getnote-auth
 description: 使用 getnote CLI 登录、退出、诊断连接、查看版本和升级得到大脑执行组件。
 ---
 
-# getnote-auth Skill
+# 得到大脑连接与升级
 
-管理得到大脑 CLI 的连接、授权、诊断和升级。所有真实状态以 CLI 结构化输出为准。
+所有真实状态以 CLI 为准，不向用户索要或展示 API Key。
 
-## Preflight
+## 路由
 
-```bash
-getnote doctor -o json
-getnote capabilities -o json
-```
+| 意图 | 命令 |
+|---|---|
+| 登录 | `getnote auth login` |
+| 查看登录状态 | `getnote auth status` |
+| 退出登录 | `getnote auth logout` |
+| 诊断连接 | `getnote doctor -o json` |
+| 查看能力兼容性 | `getnote capabilities -o json` |
+| 查看版本 | `getnote version` |
+| 检查或执行升级 | `getnote update --check` / `getnote update` |
 
-只有 `auth` 和 `api` 均通过，才能说连接成功。`contract_version` 应为 `2.0`。
+不确定参数时运行对应命令的 `--help`。
 
-## Commands
+## 规则
 
-### Log in
-
-```
-getnote auth login [--api-key <key> --client-id <client_id>]
-```
-
-| Mode | Command | Description |
-|------|---------|-------------|
-| OAuth (recommended) | `getnote auth login` | Opens browser to authorize; saves credentials automatically |
-| API Key | `getnote auth login --api-key <key> --client-id <id>` | 保存已有 Key 及所属 Client ID |
-
-```bash
-# OAuth flow (opens browser)
-getnote auth login
-
-# API key directly
-getnote auth login --api-key gk_live_xxx --client-id cli_xxx
-```
-
-不要向用户索要或展示 API Key。只有用户明确选择手工 Key 登录且已安全提供时才使用该方式。
-
----
-
-### Check status
-
-```
-getnote auth status
-```
-
-Shows whether authenticated and which API key is active.
-
-```bash
-getnote auth status
-```
-
----
-
-### Log out
-
-```
-getnote auth logout
-```
-
-Removes saved credentials from `~/.getnote/config.json`.
-
-```bash
-getnote auth logout
-```
-
----
-
-## Agent Usage Notes
-
-- 首次使用或出错时优先运行 `getnote doctor -o json`，而不是只看本地状态。
+- 正常笔记任务不需要重复运行 `capabilities`；只在首次使用、升级后或故障排查时检查。
+- 只有 `doctor` 的 `auth` 与 `api` 都通过，才能说连接成功。
 - 未授权时运行 `getnote auth login`，把浏览器授权步骤交给用户。
-- `--api-key` on any command is a temporary per-invocation override and does not save credentials.
-- Credentials saved at `~/.getnote/config.json`; env vars `GETNOTE_API_KEY` / `GETNOTE_CLIENT_ID` take higher priority.
-- `GETNOTE_API_URL` may override the business API host for an explicitly selected test environment; otherwise production remains the default.
-
-## Upgrade
-
-```bash
-getnote update --check
-getnote update
-```
-
-也可使用 `npm install -g @getnote/cli@latest` 完整升级 npm 包。升级后重新运行 `doctor` 与 `capabilities`。CLI 升级不会自动更新 Skill 文档。
+- 用户未明确要求时不要执行 `auth logout`。
+- CLI 升级后重新运行 `doctor`；CLI 升级不会自动更新 Skill。

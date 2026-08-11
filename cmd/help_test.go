@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -43,4 +46,60 @@ func TestAllCommandsProvideCompleteHelp(t *testing.T) {
 	}
 
 	visit(rootCmd)
+}
+
+// TestBundledSkillsOnlyReferenceRealCommands keeps the five bundled Skills
+// aligned with the Cobra command tree instead of maintaining a second command
+// specification in Markdown.
+func TestBundledSkillsOnlyReferenceRealCommands(t *testing.T) {
+	available := make(map[string]struct{})
+	var collect func(*cobra.Command)
+	collect = func(command *cobra.Command) {
+		if command != rootCmd && !command.Hidden {
+			path := strings.TrimPrefix(command.CommandPath(), rootCmd.Name()+" ")
+			available[path] = struct{}{}
+		}
+		for _, child := range command.Commands() {
+			collect(child)
+		}
+	}
+	collect(rootCmd)
+
+	files, err := filepath.Glob(filepath.Join("..", "skills", "*", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) == 0 {
+		t.Fatal("no bundled Skills found")
+	}
+
+	commandPattern := regexp.MustCompile("`getnote\\s+([^`]+)`")
+	for _, file := range files {
+		content, readErr := os.ReadFile(file)
+		if readErr != nil {
+			t.Errorf("%s: %v", file, readErr)
+			continue
+		}
+
+		matches := commandPattern.FindAllStringSubmatch(string(content), -1)
+		if len(matches) == 0 {
+			t.Errorf("%s: no getnote command navigation found", file)
+			continue
+		}
+
+		for _, match := range matches {
+			fields := strings.Fields(match[1])
+			found := false
+			for length := min(3, len(fields)); length > 0; length-- {
+				candidate := strings.Join(fields[:length], " ")
+				if _, ok := available[candidate]; ok {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("%s: documented command does not exist: getnote %s", file, match[1])
+			}
+		}
+	}
 }
