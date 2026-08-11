@@ -1,7 +1,6 @@
 ---
 name: getnote-tag
-version: 0.4.0
-description: Manage note tags in Get笔记 via the getnote CLI
+description: 使用 getnote CLI 查看、添加和按标签 ID 删除得到大脑笔记标签。
 ---
 
 # getnote-tag Skill

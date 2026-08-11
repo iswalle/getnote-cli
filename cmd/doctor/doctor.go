@@ -34,6 +34,9 @@ func NewDoctorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "检查安装、登录和服务连通性 / Diagnose the local setup",
+		Example: `  getnote doctor
+  getnote doctor --offline
+  getnote doctor -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.Get()
 			checks := []check{

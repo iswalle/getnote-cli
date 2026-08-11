@@ -136,7 +136,10 @@ func newUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "更新笔记标题/内容/标签 / Update a note's title, content, or tags",
-		Args:  cobra.ExactArgs(1),
+		Example: `  getnote note update 1896830231705320746 --title "新标题"
+  getnote note update 1896830231705320746 --content "更新后的正文"
+  getnote note update 1896830231705320746 --tag "工作,重点"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req := client.NoteUpdateRequest{ID: args[0]}
 			if title != "" {
@@ -190,7 +193,9 @@ func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "删除笔记（移入回收站）/ Delete a note (moves to trash)",
-		Args:  cobra.ExactArgs(1),
+		Example: `  getnote note delete 1896830231705320746
+  getnote note delete 1896830231705320746 --yes`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !yes {
 				fmt.Fprintf(cmd.OutOrStdout(), "Delete note %s? [y/N] ", args[0])
@@ -234,7 +239,9 @@ func newShareCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "share <id>",
 		Short: "生成公开分享链接 / Create a public share link",
-		Args:  cobra.ExactArgs(1),
+		Example: `  getnote note share 1896830231705320746
+  getnote note share 1896830231705320746 --exclude-audio`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := client.New("").NoteShare(args[0], excludeAudio)
 			if err != nil {

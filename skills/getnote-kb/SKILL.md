@@ -1,7 +1,6 @@
 ---
 name: getnote-kb
-version: 0.6.0
-description: Manage knowledge bases in Get笔记 via the getnote CLI
+description: 使用 getnote CLI 查看和管理自有或订阅知识库、书籍、客户档案、博主内容与直播。
 ---
 
 # getnote-kb Skill

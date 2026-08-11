@@ -3,6 +3,7 @@ package save
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,16 +22,38 @@ func NewSaveCmd() *cobra.Command {
 	var topicID string
 	var parentID string
 	var idempotencyKey string
+	var contentFile string
+	var readStdin bool
 
 	cmd := &cobra.Command{
-		Use:   "save <url|text|image_path>",
+		Use:   "save [url|text|image_path]",
 		Short: "保存链接、文本或图片笔记 / Save a URL, text note, or image",
-		Args:  cobra.MinimumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			sources := 0
+			if len(args) > 0 {
+				sources++
+			}
+			if contentFile != "" {
+				sources++
+			}
+			if readStdin {
+				sources++
+			}
+			if sources != 1 {
+				return fmt.Errorf("请且只提供一种内容来源：命令参数、--content-file 或 --stdin")
+			}
+			return nil
+		},
 		Example: `  getnote save https://example.com --title "Great article"
   getnote save "Remember to review the docs" --tag work --tag important
-  getnote save ./screenshot.png --title "Design mockup"`,
+  getnote save ./screenshot.png --title "Design mockup"
+  getnote save --content-file ./long-note.md --title "Long note"
+  pbpaste | getnote save --stdin --title "Clipboard note"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			content := strings.Join(args, " ")
+			content, err := resolveContent(cmd, args, contentFile, readStdin)
+			if err != nil {
+				return err
+			}
 			c := client.New("")
 
 			// Detect local image file
@@ -82,12 +105,38 @@ func NewSaveCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&title, "title", "", "Note title")
-	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Tag (repeatable)")
-	cmd.Flags().StringVar(&topicID, "topic-id", "", "Save the note into this knowledge base")
-	cmd.Flags().StringVar(&parentID, "parent-id", "", "Create as a child of this note ID")
-	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "Retry-safe request key (1-128 ASCII characters)")
+	cmd.Flags().StringVar(&title, "title", "", "笔记标题 / Note title")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "标签，可重复 / Tag (repeatable)")
+	cmd.Flags().StringVar(&topicID, "topic-id", "", "存入指定知识库 / Save into this knowledge base")
+	cmd.Flags().StringVar(&parentID, "parent-id", "", "创建为指定笔记的子笔记 / Create as a child note")
+	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "重试时复用的幂等键，1-128 位 ASCII / Retry-safe request key")
+	cmd.Flags().StringVar(&contentFile, "content-file", "", "从 UTF-8 文件安全读取长文本 / Read long text from a UTF-8 file")
+	cmd.Flags().BoolVar(&readStdin, "stdin", false, "从标准输入安全读取长文本 / Read long text from stdin")
 	return cmd
+}
+
+func resolveContent(cmd *cobra.Command, args []string, contentFile string, readStdin bool) (string, error) {
+	var raw []byte
+	var err error
+	switch {
+	case contentFile != "":
+		raw, err = os.ReadFile(contentFile)
+		if err != nil {
+			return "", fmt.Errorf("读取内容文件失败: %w", err)
+		}
+	case readStdin:
+		raw, err = io.ReadAll(cmd.InOrStdin())
+		if err != nil {
+			return "", fmt.Errorf("读取标准输入失败: %w", err)
+		}
+	default:
+		return strings.Join(args, " "), nil
+	}
+	content := string(raw)
+	if strings.TrimSpace(content) == "" {
+		return "", fmt.Errorf("保存内容不能为空")
+	}
+	return content, nil
 }
 
 // isImagePath returns true if the arg looks like a local image file path.

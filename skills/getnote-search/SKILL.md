@@ -1,7 +1,6 @@
 ---
 name: getnote-search
-version: 0.5.0
-description: Semantic search across notes in Get笔记 via the getnote CLI
+description: 使用 getnote CLI 在全部笔记或指定知识库中进行语义搜索，并返回真实标题、字符串 ID 和笔记链接。
 ---
 
 # getnote-search Skill
@@ -45,8 +44,8 @@ getnote search "机器学习" --limit 5 -o json
 ## Agent Usage Notes
 
 - Use `-o json` when parsing results programmatically.
-- JSON response: `{"success":true,"results":[{"note_id":"...","title":"...","content":"...","score":0.95,"created_at":"...","note_type":"..."}]}`
-- Note: `results` is at the top level, not nested under `data`.
+- JSON response: `{"success":true,"data":{"results":[{"note_id":"...","note_url":"...","title":"...","content":"...","score":0.95,"created_at":"...","note_type":"..."}]}}`
+- Search results are read from `data.results`.
 - Get `topic_id` for `--kb` from `getnote kbs -o json` → `data.topics[].topic_id`.
 - For `NOTE` type results, use `getnote note <note_id>` to get the full content.
 - Max `--limit` is 10; use `getnote notes` for browsing without a query.

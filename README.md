@@ -81,6 +81,25 @@ getnote save "周五前要回复王总的邮件" --tag 待办
 getnote notes
 ```
 
+## 检查和升级
+
+```bash
+# 查看当前版本并检查是否有新版
+getnote version --check-update
+
+# 只检查，不安装
+getnote update --check
+
+# 升级到最新 GitHub Release
+getnote update
+```
+
+如果通过 npm 安装，也可以完整更新 npm 包和可执行程序：
+
+```bash
+npm install -g @getnote/cli@latest
+```
+
 ---
 
 ## 典型使用场景
@@ -173,6 +192,8 @@ getnote save <url|文字|图片路径>      保存链接/文字/图片笔记
   --topic-id <topic_id>               直接存入普通/书籍/客户档案知识库
   --parent-id <note_id>               创建子笔记（ID 推荐传字符串）
   --idempotency-key <key>             同一创建请求重试时复用的幂等键
+  --content-file <文件>               从 UTF-8 文件读取长文本，避免命令行转义和长度限制
+  --stdin                              从标准输入读取长文本
 
 getnote task <task_id>               查看异步任务进度
 ```
@@ -230,7 +251,7 @@ getnote search <关键词>              全局语义搜索
 
 ```
 getnote tag add <note_id> <标签>     给笔记加标签
-getnote tag remove <note_id> <标签>  删除笔记标签
+getnote tag remove <note_id> <tag_id>  按标签 ID 删除笔记标签
 getnote tag list <note_id>           查看笔记的所有标签
 ```
 
@@ -262,7 +283,6 @@ getnote kbs-sub                                      获取我订阅的知识库
 |------|------|
 | `--api-key <key>` | 临时覆盖 API Key |
 | `-o, --output json\|table` | 输出格式（默认 table） |
-| `--env prod\|dev` | 切换 API 环境 |
 
 ---
 
@@ -298,7 +318,7 @@ getnote kbs-sub                                      获取我订阅的知识库
 
 ## 从源码构建
 
-需要 Go 1.21+。
+需要 Go 1.24.2+。
 
 ```bash
 git clone https://github.com/iswalle/getnote-cli.git
@@ -334,6 +354,7 @@ $ getnote search "工作日志" --limit 7 -o json
 
 | 日期 | 版本 | 新能力 | 适合怎么用 |
 |------|------|--------|------------|
+| 2026-08-11 | **v1.4.0** | 1. Skill 2.0 稳定执行契约<br>2. 所有子命令完整 `-h` / `--help`<br>3. `getnote update --check` 与升级引导<br>4. `--content-file` / `--stdin` 安全保存长文本 | 让独立 Skill 和 CLI 内置原子 Skills 共用同一套真实命令，降低 AI 猜参数和长内容转义失败的概率 |
 | 2026-04-23 | **v1.1.1** | 1. 笔记内链<br>2. 保存分享链接自动变笔记 | 1. 用内链串联每天的工作日志和项目笔记，实践时间日志法<br>2. 收到别人发来的分享链接直接存入笔记 |
 | 2026-04-16 | **v1.1.0** | 1. `getnote note share`：生成分享链接<br>2. `getnote kb live-follow`：订阅得到直播 | 1. 把笔记一键分享给朋友<br>2. 在知识库里订阅得到直播课，直播结束后 AI 摘要自动入库 |
 | 2026-04-03 | **v1.0.x** | 1. `getnote kb bloggers/lives`：查看博主和直播列表<br>2. `getnote update`：自动升级 | 1. 查看订阅博主的内容更新和直播摘要<br>2. 直接运行 `getnote update` 升级到最新版 |

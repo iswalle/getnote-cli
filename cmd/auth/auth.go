@@ -37,7 +37,10 @@ func NewAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
 		Short: "管理认证 / Manage authentication",
-		Long:  "Log in, log out, or check the status of your getnote API key.",
+		Long:  "登录、退出或检查得到大脑授权状态。凭证只保存在本机，不会在帮助和状态输出中完整展示。",
+		Example: `  getnote auth login
+  getnote auth status
+  getnote auth logout`,
 	}
 
 	cmd.AddCommand(newLoginCmd())
@@ -52,10 +55,10 @@ func newLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "登录 Get笔记 / Authenticate with Get笔记",
-		Long: `Authenticate via OAuth Device Flow (recommended) or directly with an API key.
-
-  getnote auth login              # OAuth: open browser to authorize
-  getnote auth login --api-key <key>  # Direct: save API key`,
+		Long: `推荐使用 OAuth Device Flow 在浏览器完成授权；也支持直接保存已有的 API Key。
+API Key 登录时建议同时提供所属 Client ID。`,
+		Example: `  getnote auth login
+  getnote auth login --api-key gk_live_xxx --client-id cli_xxx`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Direct mode: --api-key provided
 			if apiKey != "" {
@@ -186,8 +189,9 @@ func runDeviceFlow(out io.Writer) error {
 
 func newLogoutCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "logout",
-		Short: "退出登录 / Remove the saved API key",
+		Use:     "logout",
+		Short:   "退出登录 / Remove the saved API key",
+		Example: `  getnote auth logout`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.Get()
 			if err := cfg.Clear(); err != nil {
@@ -201,8 +205,9 @@ func newLogoutCmd() *cobra.Command {
 
 func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "status",
-		Short: "查看认证状态 / Show the current authentication status",
+		Use:     "status",
+		Short:   "查看认证状态 / Show the current authentication status",
+		Example: `  getnote auth status`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cfg := config.Get()
 

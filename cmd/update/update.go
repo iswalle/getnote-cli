@@ -21,12 +21,16 @@ const repo = "iswalle/getnote-cli"
 
 // NewUpdateCmd returns the update command.
 func NewUpdateCmd() *cobra.Command {
-	var force bool
+	var force, check bool
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "更新到最新版本 / Update to the latest version",
+		Long: `检查并升级 getnote 可执行程序。升级过程会从官方 GitHub Release 下载与当前系统匹配的文件并原子替换。
+
+如果通过 npm 安装，也可以运行：npm install -g @getnote/cli@latest`,
 		Example: `  getnote update
+  getnote update --check
   getnote update --force`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
@@ -41,6 +45,12 @@ func NewUpdateCmd() *cobra.Command {
 			current := version.Version
 			if !force && current != "dev" && current == latest {
 				fmt.Fprintf(out, "Already up to date (%s).\n", current)
+				return nil
+			}
+			if check {
+				fmt.Fprintf(out, "Update available: %s → %s\n", current, latest)
+				fmt.Fprintln(out, "Run: getnote update")
+				fmt.Fprintln(out, "Or:  npm install -g @getnote/cli@latest")
 				return nil
 			}
 
@@ -113,6 +123,7 @@ func NewUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "强制重新下载，即使已是最新版 / Force re-download even if already up to date")
+	cmd.Flags().BoolVar(&check, "check", false, "只检查是否有新版本，不执行升级 / Check only without installing")
 	return cmd
 }
 

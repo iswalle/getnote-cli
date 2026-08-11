@@ -17,6 +17,8 @@ func NewKbsSubCmd() *cobra.Command {
 		Use:     "kbs-sub",
 		Aliases: []string{"subscribed-kbs"},
 		Short:   "列出订阅的知识库 / List subscribed knowledge bases",
+		Example: `  getnote kbs-sub
+  getnote kbs-sub --page 2 -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 			resp, err := c.KBSubscribedList(page)

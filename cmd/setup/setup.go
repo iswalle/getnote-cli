@@ -36,6 +36,9 @@ func NewSetupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "一次连接本机 AI 与得到大脑 / Set up supported local AI hosts",
+		Example: `  getnote setup
+  getnote setup --target codex --target claude-code
+  getnote setup --dry-run -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scope != "global" && scope != "project" {
 				return fmt.Errorf("不支持的安装范围: %s", scope)

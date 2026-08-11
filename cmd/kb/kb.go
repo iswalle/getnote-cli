@@ -85,9 +85,10 @@ func NewKbCmd() *cobra.Command {
 func newLiveFollowCmd() *cobra.Command {
 	var platform string
 	cmd := &cobra.Command{
-		Use:   "live-follow <topic_id> <link>",
-		Short: "订阅直播到知识库 / Follow a live into a knowledge base",
-		Args:  cobra.ExactArgs(2),
+		Use:     "live-follow <topic_id> <link>",
+		Short:   "订阅直播到知识库 / Follow a live into a knowledge base",
+		Example: `  getnote kb live-follow vnrOAaGY https://www.dedao.cn/live/example`,
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := client.New("").KBLiveFollow(args[0], args[1], platform)
 			if err != nil {
@@ -202,7 +203,9 @@ func newCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <name>",
 		Short: "创建知识库 / Create a new knowledge base",
-		Args:  cobra.ExactArgs(1),
+		Example: `  getnote kb create "产品研究"
+  getnote kb create "产品研究" --desc "产品资料与用户反馈"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 			resp, err := c.KBCreate(client.KBCreateRequest{Name: args[0], Description: desc})
@@ -233,7 +236,9 @@ func newAddCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "add <topic_id> <note_id> [note_id...]",
 		Short: "添加笔记到知识库 / Add notes to a knowledge base",
-		Args:  cobra.MinimumNArgs(2),
+		Example: `  getnote kb add vnrOAaGY 1896830231705320746
+  getnote kb add vnrOAaGY 1896830231705320746 1896830231705320747`,
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 			resp, err := c.KBNotesAdd(args[0], args[1:])
@@ -260,9 +265,10 @@ func newAddCmd() *cobra.Command {
 
 func newRemoveCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "remove <topic_id> <note_id> [note_id...]",
-		Short: "从知识库移除笔记 / Remove notes from a knowledge base",
-		Args:  cobra.MinimumNArgs(2),
+		Use:     "remove <topic_id> <note_id> [note_id...]",
+		Short:   "从知识库移除笔记 / Remove notes from a knowledge base",
+		Example: `  getnote kb remove vnrOAaGY 1896830231705320746`,
+		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 			resp, err := c.KBNotesRemove(args[0], args[1:])

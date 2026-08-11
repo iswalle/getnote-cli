@@ -14,6 +14,8 @@ func newVersionCmd() *cobra.Command {
 		Use:     "version",
 		Aliases: []string{"v"},
 		Short:   "显示版本信息 / Show version information",
+		Example: `  getnote version
+  getnote version --check-update`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(cmd.OutOrStdout(), "getnote version %s\n", version.Version)
 

@@ -1,7 +1,6 @@
 ---
 name: getnote-note
-version: 0.5.0
-description: Manage notes in Get笔记 via the getnote CLI
+description: 使用 getnote CLI 保存文字、链接、图片和长笔记，查看、更新、删除或分享得到大脑笔记。
 ---
 
 # getnote-note Skill
@@ -17,7 +16,7 @@ Save, list, view, update, and delete notes in Get笔记.
 ### Save a note
 
 ```
-getnote save <url|text|image_path> [--title <title>] [--tag <tag>]... [--topic-id <topic_id>] [--parent-id <note_id>] [--idempotency-key <key>]
+getnote save [url|text|image_path] [--title <title>] [--tag <tag>]... [--topic-id <topic_id>] [--parent-id <note_id>] [--idempotency-key <key>]
 ```
 
 | Flag | Description |
@@ -27,6 +26,8 @@ getnote save <url|text|image_path> [--title <title>] [--tag <tag>]... [--topic-i
 | `--topic-id` | Save directly into an owned DEFAULT / BOOKSPACE / CUSTOMER knowledge base |
 | `--parent-id` | Create a child note; pass the snowflake ID as a decimal string |
 | `--idempotency-key` | Stable 1-128 character request key; reuse it for retries of the same create request |
+| `--content-file` | 从 UTF-8 文件读取长文本，不能与位置参数或 `--stdin` 同时使用 |
+| `--stdin` | 从标准输入读取长文本，不能与位置参数或 `--content-file` 同时使用 |
 
 - URL (`http://` or `https://`) → link note:
   - **Share link** (`biji.com/note/share_note/*` or `d.biji.com/*` short link) → **sync**, returns `note_id` directly, no polling needed
@@ -39,6 +40,8 @@ getnote save <url|text|image_path> [--title <title>] [--tag <tag>]... [--topic-i
 getnote save https://example.com --title "Great article"
 getnote save "Remember to review the docs" --tag work --tag important
 getnote save ./screenshot.png --title "Design mockup"
+getnote save --content-file ./long-note.md --title "Long note"
+pbpaste | getnote save --stdin --title "Clipboard note"
 ```
 
 In `-o json` mode, silently polls and returns the final note JSON (including `title`, `content`/summary, `note_type`, `tags`, `created_at`, and the environment-correct `note_url`). Return that `note_url` to the user after a successful save; do not construct one yourself.
@@ -97,6 +100,7 @@ Returns full note including content, tags, attachments. Use `--field` to extract
 | `--field` values | Description |
 |------|-------------|
 | `id` | Note ID |
+| `note_url` | 当前环境可打开的私有笔记链接 |
 | `title` | Title |
 | `content` | Content / AI summary |
 | `type` | Note type |
@@ -178,7 +182,7 @@ Returns: `share_url` (e.g. `https://biji.com/note/share_note/rBzdMlXrzgYVM`)
 - JSON responses preserve the API envelope `{"success":true,"data":{...}}`.
 - Link/image saves read the async ID from `data.tasks[0].task_id`; task polling only treats `error_msg` as meaningful when `status=failed`.
 - `notes` fetches 20 from the API and may apply a smaller local `--limit`; paginate with the returned string `cursor`.
-- Note IDs are int64 — always handle as strings to avoid precision loss in JavaScript.
+- Note IDs are snowflake IDs — always handle as strings to avoid precision loss in JavaScript.
 - HTTP 200 with `success:false` is still an error. The CLI exits non-zero and preserves `code`, `reason`, `retryable`, `field`, `constraint`, `expected_type`, and `request_id`.
 - Exit code `0` = success; non-zero = error. Error details go to stderr.
 
