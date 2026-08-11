@@ -15,13 +15,13 @@
   },
   "license": "MIT",
   "bin": {
-    "getnote": "./bin/getnote"
+    "getnote": "./bin/getnote.js"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js"
   },
   "files": [
-    "bin/",
+    "bin/getnote.js",
     "scripts/",
     "skills/",
     "README.md"
