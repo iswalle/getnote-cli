@@ -35,6 +35,9 @@ func NewSearchCmd() *cobra.Command {
   getnote search "RAG" --kb qnNX75j0
   getnote search "机器学习" --limit 5 -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 1 || limit > 10 {
+				return fmt.Errorf("--limit 必须在 1 到 10 之间")
+			}
 			query := strings.Join(args, " ")
 			c := client.New("")
 

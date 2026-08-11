@@ -1,7 +1,6 @@
 package notes
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/iswalle/getnote-cli/internal/client"
@@ -12,9 +11,9 @@ func TestApplyLimitKeepsPaginationAtLastVisibleNote(t *testing.T) {
 		Success: true,
 		Data: client.NoteListData{
 			Notes: []client.Note{
-				{ID: json.Number("1916020531058082912"), NoteID: "1916020531058082912"},
-				{ID: json.Number("1916020531058082913"), NoteID: "1916020531058082913"},
-				{ID: json.Number("1916020531058082914"), NoteID: "1916020531058082914"},
+				{ID: client.StringID("1916020531058082912"), NoteID: "1916020531058082912"},
+				{ID: client.StringID("1916020531058082913"), NoteID: "1916020531058082913"},
+				{ID: client.StringID("1916020531058082914"), NoteID: "1916020531058082914"},
 			},
 		},
 	}

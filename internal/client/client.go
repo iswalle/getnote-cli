@@ -21,6 +21,42 @@ import (
 // MembershipPurchaseURL is the CLI-specific OpenAPI membership purchase channel.
 const MembershipPurchaseURL = "https://www.biji.com/checkout?product_alias=9Ab36BB3ZD&spm=openapi_cli"
 
+// StringID accepts snowflake IDs returned by the API as either JSON strings or
+// JSON numbers, but always marshals them as strings. This keeps structured CLI
+// output safe for JavaScript and other runtimes whose number type cannot
+// represent every 64-bit integer exactly.
+type StringID string
+
+func (id StringID) String() string {
+	return string(id)
+}
+
+func (id StringID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(id))
+}
+
+func (id *StringID) UnmarshalJSON(data []byte) error {
+	value := strings.TrimSpace(string(data))
+	if value == "" || value == "null" {
+		*id = ""
+		return nil
+	}
+	if strings.HasPrefix(value, `"`) {
+		var decoded string
+		if err := json.Unmarshal(data, &decoded); err != nil {
+			return err
+		}
+		*id = StringID(decoded)
+		return nil
+	}
+	var number json.Number
+	if err := json.Unmarshal(data, &number); err != nil {
+		return fmt.Errorf("invalid ID %q: %w", value, err)
+	}
+	*id = StringID(number.String())
+	return nil
+}
+
 // APIError represents an error returned by the API.
 type APIError struct {
 	Code          int    `json:"code"`
@@ -147,7 +183,7 @@ type NoteTag struct {
 // Tags can be []string (kb/notes API) or []NoteTag (note/list API);
 // use TagNames() to get plain tag names regardless of format.
 type Note struct {
-	ID        json.Number       `json:"id"`
+	ID        StringID          `json:"id"`
 	NoteID    string            `json:"note_id"`
 	NoteURL   string            `json:"note_url,omitempty"`
 	Title     string            `json:"title"`
@@ -171,7 +207,7 @@ type Note struct {
 	ChildrenIDs   []string          `json:"children_ids"`
 	Topics        []json.RawMessage `json:"topics"`
 	IsChildNote   bool              `json:"is_child_note"`
-	ParentID      json.Number       `json:"parent_id,omitempty"`
+	ParentID      StringID          `json:"parent_id,omitempty"`
 	ParentNoteID  string            `json:"parent_note_id,omitempty"`
 	Attachments   []json.RawMessage `json:"attachments"`
 	Version       int               `json:"version"`
@@ -198,11 +234,11 @@ func (n *Note) TagNames() []string {
 
 // NoteListData is the data field of the note list response.
 type NoteListData struct {
-	Notes      []Note      `json:"notes"`
-	HasMore    bool        `json:"has_more"`
-	NextCursor json.Number `json:"next_cursor"`
-	Total      int         `json:"total"`
-	Cursor     string      `json:"cursor"` // 推荐的翻页方式
+	Notes      []Note   `json:"notes"`
+	HasMore    bool     `json:"has_more"`
+	NextCursor StringID `json:"next_cursor"`
+	Total      int      `json:"total"`
+	Cursor     string   `json:"cursor"` // 推荐的翻页方式
 }
 
 // NoteListParams holds parameters for listing notes.
@@ -293,12 +329,26 @@ func (c *Client) NoteSave(req NoteSaveRequest) (*NoteSaveResponse, error) {
 	resp, err := doPost[NoteSaveResponse](c, "/open/api/v1/resource/note/save", req)
 	if err == nil && resp != nil {
 		if data, ok := resp.Data.(map[string]interface{}); ok {
-			if noteID, ok := data["note_id"].(string); ok && noteID != "" {
+			if noteID := responseID(data["note_id"]); noteID != "" {
+				data["note_id"] = noteID
 				data["note_url"] = c.NoteURL(noteID)
 			}
 		}
 	}
 	return resp, err
+}
+
+func responseID(value interface{}) string {
+	switch id := value.(type) {
+	case string:
+		return id
+	case json.Number:
+		return id.String()
+	case StringID:
+		return id.String()
+	default:
+		return ""
+	}
 }
 
 // NoteUpdateRequest is the request body for updating a note.
@@ -626,15 +676,15 @@ func (c *Client) decorateSearch(resp *NoteSearchResponse) {
 // blogger link as follow_link (not account_url); it also includes
 // notes_count and hook_state.
 type KBBlogger struct {
-	FollowID      json.Number `json:"follow_id"`
-	FollowIDStr   string      `json:"follow_id_str"`
-	AccountName   string      `json:"account_name"`
-	AccountAvatar string      `json:"account_avatar"`
-	NotesCount    int         `json:"notes_count"`
-	Platform      string      `json:"platform"`
-	HookState     string      `json:"hook_state"`
-	FollowLink    string      `json:"follow_link"`
-	FollowTime    string      `json:"follow_time"`
+	FollowID      StringID `json:"follow_id"`
+	FollowIDStr   string   `json:"follow_id_str"`
+	AccountName   string   `json:"account_name"`
+	AccountAvatar string   `json:"account_avatar"`
+	NotesCount    int      `json:"notes_count"`
+	Platform      string   `json:"platform"`
+	HookState     string   `json:"hook_state"`
+	FollowLink    string   `json:"follow_link"`
+	FollowTime    string   `json:"follow_time"`
 }
 
 // KBBloggerListData is the data field of the blogger list response.
@@ -785,12 +835,12 @@ type KBLiveFollowRequest struct {
 }
 
 type KBLiveFollowData struct {
-	FollowID    json.Number `json:"follow_id"`
-	FollowIDStr string      `json:"follow_id_str"`
-	URL         string      `json:"url"`
-	Platform    string      `json:"platform"`
-	Type        string      `json:"type"`
-	CreatedAt   string      `json:"created_at"`
+	FollowID    StringID `json:"follow_id"`
+	FollowIDStr string   `json:"follow_id_str"`
+	URL         string   `json:"url"`
+	Platform    string   `json:"platform"`
+	Type        string   `json:"type"`
+	CreatedAt   string   `json:"created_at"`
 }
 
 type KBLiveFollowResponse struct {

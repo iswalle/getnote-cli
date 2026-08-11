@@ -3,7 +3,6 @@ package note
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/iswalle/getnote-cli/internal/client"
@@ -123,8 +122,7 @@ func printField(n client.Note, field string) error {
 	case "tags":
 		val = strings.Join(n.TagNames(), ", ")
 	default:
-		fmt.Fprintf(os.Stderr, "unknown field %q; valid: id, note_url, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags\n", field)
-		os.Exit(1)
+		return fmt.Errorf("unknown field %q; valid: id, note_url, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags", field)
 	}
 	fmt.Println(val)
 	return nil
@@ -132,6 +130,7 @@ func printField(n client.Note, field string) error {
 
 func newUpdateCmd() *cobra.Command {
 	var title, content, tags string
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -156,6 +155,16 @@ func newUpdateCmd() *cobra.Command {
 			}
 			if req.Title == "" && req.Content == "" && req.Tags == nil {
 				return fmt.Errorf("at least one of --title, --content, --tag is required")
+			}
+			if req.Content != "" || req.Tags != nil {
+				approved, err := ui.ConfirmDestructive(cmd, yes, "This replaces existing note content or all tags. Continue?")
+				if err != nil {
+					return err
+				}
+				if !approved {
+					fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
+					return nil
+				}
 			}
 
 			c := client.New("")
@@ -184,6 +193,7 @@ func newUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "New title")
 	cmd.Flags().StringVar(&content, "content", "", "New content (plain_text notes only)")
 	cmd.Flags().StringVar(&tags, "tag", "", "Tags (comma-separated, replaces existing)")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Confirm replacing content or all tags without prompting")
 	return cmd
 }
 
@@ -197,14 +207,13 @@ func newDeleteCmd() *cobra.Command {
   getnote note delete 1896830231705320746 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !yes {
-				fmt.Fprintf(cmd.OutOrStdout(), "Delete note %s? [y/N] ", args[0])
-				var confirm string
-				fmt.Scanln(&confirm)
-				if strings.ToLower(confirm) != "y" {
-					fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
-					return nil
-				}
+			approved, err := ui.ConfirmDestructive(cmd, yes, fmt.Sprintf("Delete note %s?", args[0]))
+			if err != nil {
+				return err
+			}
+			if !approved {
+				fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
+				return nil
 			}
 
 			c := client.New("")
@@ -235,14 +244,25 @@ func newDeleteCmd() *cobra.Command {
 
 func newShareCmd() *cobra.Command {
 	var excludeAudio bool
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "share <id>",
 		Short: "生成公开分享链接 / Create a public share link",
+		Long: `Create a publicly accessible share link for a note.
+This changes who can view the note and therefore requires confirmation.`,
 		Example: `  getnote note share 1896830231705320746
-  getnote note share 1896830231705320746 --exclude-audio`,
+  getnote note share 1896830231705320746 --exclude-audio --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			approved, err := ui.ConfirmDestructive(cmd, yes, fmt.Sprintf("Create a public share link for note %s?", args[0]))
+			if err != nil {
+				return err
+			}
+			if !approved {
+				fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
+				return nil
+			}
 			resp, err := client.New("").NoteShare(args[0], excludeAudio)
 			if err != nil {
 				return ui.FriendlyError(err)
@@ -257,6 +277,7 @@ func newShareCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&excludeAudio, "exclude-audio", false, "Exclude audio from the shared note")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Confirm creating a public share link without prompting")
 	return cmd
 }
 

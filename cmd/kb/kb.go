@@ -236,10 +236,14 @@ func newAddCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "add <topic_id> <note_id> [note_id...]",
 		Short: "添加笔记到知识库 / Add notes to a knowledge base",
+		Long:  "将笔记加入自有知识库。每次最多处理 20 条；订阅知识库只读。",
 		Example: `  getnote kb add vnrOAaGY 1896830231705320746
   getnote kb add vnrOAaGY 1896830231705320746 1896830231705320747`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateNoteBatch(args[1:]); err != nil {
+				return err
+			}
 			c := client.New("")
 			resp, err := c.KBNotesAdd(args[0], args[1:])
 			if err != nil {
@@ -264,12 +268,26 @@ func newAddCmd() *cobra.Command {
 }
 
 func newRemoveCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "remove <topic_id> <note_id> [note_id...]",
-		Short:   "从知识库移除笔记 / Remove notes from a knowledge base",
-		Example: `  getnote kb remove vnrOAaGY 1896830231705320746`,
-		Args:    cobra.MinimumNArgs(2),
+	var yes bool
+	cmd := &cobra.Command{
+		Use:   "remove <topic_id> <note_id> [note_id...]",
+		Short: "从知识库移除笔记 / Remove notes from a knowledge base",
+		Long:  "从自有知识库移出笔记。每次最多处理 20 条，执行前必须确认。",
+		Example: `  getnote kb remove vnrOAaGY 1896830231705320746
+  getnote kb remove vnrOAaGY 1896830231705320746 --yes`,
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateNoteBatch(args[1:]); err != nil {
+				return err
+			}
+			approved, err := ui.ConfirmDestructive(cmd, yes, fmt.Sprintf("Remove %d note(s) from knowledge base %s?", len(args[1:]), args[0]))
+			if err != nil {
+				return err
+			}
+			if !approved {
+				fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
+				return nil
+			}
 			c := client.New("")
 			resp, err := c.KBNotesRemove(args[0], args[1:])
 			if err != nil {
@@ -291,6 +309,15 @@ func newRemoveCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Confirm removing notes without prompting")
+	return cmd
+}
+
+func validateNoteBatch(noteIDs []string) error {
+	if len(noteIDs) > 20 {
+		return fmt.Errorf("每批最多处理 20 条笔记，当前为 %d 条", len(noteIDs))
+	}
+	return nil
 }
 
 func newBloggersCmd() *cobra.Command {

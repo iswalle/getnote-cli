@@ -3,6 +3,7 @@ package capabilities
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -32,5 +33,29 @@ func TestCapabilitiesExposeSkill2ContractAndUpgrade(t *testing.T) {
 	}
 	if got.Upgrade["check"] != "getnote update --check" || got.Upgrade["cli"] != "getnote update" {
 		t.Fatalf("missing upgrade guidance: %#v", got.Upgrade)
+	}
+}
+
+func TestContractPublishesHistoricalSafetyGuarantees(t *testing.T) {
+	data := currentResponse()
+	if data.ContractVersion != "2.0" ||
+		!data.Guarantees.IDsAsStrings ||
+		!data.Guarantees.StructuredBusinessErrors ||
+		!data.Guarantees.FinalAsyncSaveResult ||
+		!data.Guarantees.EnvironmentNoteURL ||
+		!data.Guarantees.ImageFormatValidation {
+		t.Fatalf("missing execution guarantees: %+v", data.Guarantees)
+	}
+	if data.Guarantees.Limits["search_results"] != 10 ||
+		data.Guarantees.Limits["kb_note_batch"] != 20 {
+		t.Fatalf("historical limits = %+v", data.Guarantees.Limits)
+	}
+	if strings.Join(data.Guarantees.KnowledgeScopes, ",") != "DEFAULT,BOOKSPACE,CUSTOMER" {
+		t.Fatalf("knowledge scopes = %v", data.Guarantees.KnowledgeScopes)
+	}
+	for _, command := range []string{"note update content_or_tags", "note delete", "note share", "kb remove"} {
+		if data.Guarantees.ConfirmationFlags[command] != "--yes" {
+			t.Fatalf("%s confirmation = %q", command, data.Guarantees.ConfirmationFlags[command])
+		}
 	}
 }

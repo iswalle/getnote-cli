@@ -21,6 +21,67 @@ type response struct {
 	Platforms       []platform.Info     `json:"platforms"`
 	Install         map[string]string   `json:"install"`
 	Upgrade         map[string]string   `json:"upgrade"`
+	Guarantees      guarantees          `json:"guarantees"`
+}
+
+type guarantees struct {
+	IDsAsStrings             bool              `json:"ids_as_strings"`
+	StructuredBusinessErrors bool              `json:"structured_business_errors"`
+	FinalAsyncSaveResult     bool              `json:"final_async_save_result"`
+	EnvironmentNoteURL       bool              `json:"environment_note_url"`
+	ImageFormatValidation    bool              `json:"image_format_validation"`
+	SafeLongInput            []string          `json:"safe_long_input"`
+	KnowledgeScopes          []string          `json:"knowledge_scopes"`
+	Limits                   map[string]int    `json:"limits"`
+	ConfirmationFlags        map[string]string `json:"confirmation_flags"`
+}
+
+func currentResponse() response {
+	return response{
+		Success:         true,
+		CLIVersion:      version.String(),
+		ContractVersion: "2.0",
+		Architecture:    "Skill navigates intent; CLI performs deterministic operations",
+		Commands: map[string][]string{
+			"connection":     {"doctor", "capabilities", "auth", "auth login", "auth status", "auth logout", "setup"},
+			"notes":          {"save", "task", "notes", "note", "note update", "note delete", "note share"},
+			"search":         {"search"},
+			"knowledge_base": {"kbs", "kbs-sub", "kb", "kb create", "kb add", "kb remove", "kb bloggers", "kb blogger-contents", "kb blogger-content", "kb lives", "kb live", "kb live-follow"},
+			"tags":           {"tag", "tag list", "tag add", "tag remove"},
+			"account":        {"quota", "version", "update"},
+		},
+		NoteTypes: []string{"plain_text", "link", "img_text"},
+		Platforms: platform.Detect(),
+		Install: map[string]string{
+			"simple":   "Choose a supported AI and install the GetNote skill",
+			"terminal": "npx -y @getnote/cli@latest setup",
+			"fallback": "npx -y @getnote/mcp",
+		},
+		Upgrade: map[string]string{
+			"check": "getnote update --check",
+			"cli":   "getnote update",
+			"npm":   "npm install -g @getnote/cli@latest",
+		},
+		Guarantees: guarantees{
+			IDsAsStrings:             true,
+			StructuredBusinessErrors: true,
+			FinalAsyncSaveResult:     true,
+			EnvironmentNoteURL:       true,
+			ImageFormatValidation:    true,
+			SafeLongInput:            []string{"--content-file", "--stdin"},
+			KnowledgeScopes:          []string{"DEFAULT", "BOOKSPACE", "CUSTOMER"},
+			Limits: map[string]int{
+				"search_results": 10,
+				"kb_note_batch":  20,
+			},
+			ConfirmationFlags: map[string]string{
+				"note update content_or_tags": "--yes",
+				"note delete":                 "--yes",
+				"note share":                  "--yes",
+				"kb remove":                   "--yes",
+			},
+		},
+	}
 }
 
 // NewCapabilitiesCmd reports the stable execution surface exposed to an AI host.
@@ -31,32 +92,7 @@ func NewCapabilitiesCmd() *cobra.Command {
 		Example: `  getnote capabilities
   getnote capabilities -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			data := response{
-				Success:         true,
-				CLIVersion:      version.String(),
-				ContractVersion: "2.0",
-				Architecture:    "Skill navigates intent; CLI performs deterministic operations",
-				Commands: map[string][]string{
-					"connection":     {"doctor", "capabilities", "auth", "auth login", "auth status", "auth logout", "setup"},
-					"notes":          {"save", "task", "notes", "note", "note update", "note delete", "note share"},
-					"search":         {"search"},
-					"knowledge_base": {"kbs", "kbs-sub", "kb", "kb create", "kb add", "kb remove", "kb bloggers", "kb blogger-contents", "kb blogger-content", "kb lives", "kb live", "kb live-follow"},
-					"tags":           {"tag", "tag list", "tag add", "tag remove"},
-					"account":        {"quota", "version", "update"},
-				},
-				NoteTypes: []string{"plain_text", "link", "img_text"},
-				Platforms: platform.Detect(),
-				Install: map[string]string{
-					"simple":   "Choose a supported AI and install the GetNote skill",
-					"terminal": "npx -y @getnote/cli@latest setup",
-					"fallback": "npx -y @getnote/mcp",
-				},
-				Upgrade: map[string]string{
-					"check": "getnote update --check",
-					"cli":   "getnote update",
-					"npm":   "npm install -g @getnote/cli@latest",
-				},
-			}
+			data := currentResponse()
 			out, _ := cmd.Root().PersistentFlags().GetString("output")
 			if out == "json" {
 				encoder := json.NewEncoder(cmd.OutOrStdout())

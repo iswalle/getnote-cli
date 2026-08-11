@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -178,5 +179,56 @@ func TestRequestErrorFromRateLimitBodyPreservesFields(t *testing.T) {
 		err.RequestID != "req_rate" ||
 		err.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("rate-limit error = %+v", err)
+	}
+}
+
+func TestSnowflakeIDsAlwaysMarshalAsStrings(t *testing.T) {
+	var response NoteListResponse
+	if err := decodeJSON([]byte(`{
+		"success": true,
+		"data": {
+			"notes": [{"id": 1916020531058082912, "parent_id": "1916020531058082911"}],
+			"next_cursor": 1916020531058082913
+		}
+	}`), &response); err != nil {
+		t.Fatal(err)
+	}
+
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(encoded)
+	for _, want := range []string{
+		`"id":"1916020531058082912"`,
+		`"parent_id":"1916020531058082911"`,
+		`"next_cursor":"1916020531058082913"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("structured output %s does not contain %s", got, want)
+		}
+	}
+}
+
+func TestNoteSaveNormalizesNumericIDAndAddsEnvironmentURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{"note_id":1916020531058082913}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("GETNOTE_API_URL", server.URL)
+	t.Setenv("GETNOTE_WEB_URL", "https://preview.example.com")
+	resp, err := New("").NoteSave(NoteSaveRequest{NoteType: "plain_text", Content: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, ok := resp.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("data = %#v", resp.Data)
+	}
+	if data["note_id"] != "1916020531058082913" ||
+		data["note_url"] != "https://preview.example.com/note/1916020531058082913" {
+		t.Fatalf("normalized save data = %#v", data)
 	}
 }

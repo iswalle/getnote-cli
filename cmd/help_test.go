@@ -103,3 +103,31 @@ func TestBundledSkillsOnlyReferenceRealCommands(t *testing.T) {
 		}
 	}
 }
+
+// TestHistoricalSafetyFlags keeps high-risk operations guarded in the CLI even
+// when a host ignores or truncates Skill instructions.
+func TestHistoricalSafetyFlags(t *testing.T) {
+	want := map[string]string{
+		"note update": "yes",
+		"note delete": "yes",
+		"note share":  "yes",
+		"kb remove":   "yes",
+	}
+	var visit func(*cobra.Command)
+	visit = func(command *cobra.Command) {
+		path := strings.TrimPrefix(command.CommandPath(), rootCmd.Name()+" ")
+		if flag, ok := want[path]; ok {
+			if command.Flags().Lookup(flag) == nil {
+				t.Errorf("%s: missing --%s safety flag", path, flag)
+			}
+			delete(want, path)
+		}
+		for _, child := range command.Commands() {
+			visit(child)
+		}
+	}
+	visit(rootCmd)
+	for path := range want {
+		t.Errorf("safety command not found: %s", path)
+	}
+}
