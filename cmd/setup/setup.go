@@ -27,6 +27,15 @@ type result struct {
 	Next            string   `json:"next,omitempty"`
 }
 
+func configureInstallProcess(command *exec.Cmd, output string, stdout, stderr interface{ Write([]byte) (int, error) }) {
+	command.Stdout = stdout
+	command.Stderr = stderr
+	if output == "json" {
+		// Keep stdout machine-readable; dependency installer progress is diagnostic output.
+		command.Stdout = stderr
+	}
+}
+
 // NewSetupCmd installs the bundled atomic skills into supported local AI hosts, then starts authorization.
 func NewSetupCmd() *cobra.Command {
 	var targets []string
@@ -69,8 +78,7 @@ func NewSetupCmd() *cobra.Command {
 
 			install := exec.Command("npx", installArgs...)
 			install.Stdin = cmd.InOrStdin()
-			install.Stdout = cmd.OutOrStdout()
-			install.Stderr = cmd.ErrOrStderr()
+			configureInstallProcess(install, out, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			if err := install.Run(); err != nil {
 				return fmt.Errorf("安装 GetNote Skills 失败: %w", err)
 			}
@@ -79,8 +87,7 @@ func NewSetupCmd() *cobra.Command {
 			if !skipAuth && !authed {
 				login := exec.Command(os.Args[0], "auth", "login")
 				login.Stdin = cmd.InOrStdin()
-				login.Stdout = cmd.OutOrStdout()
-				login.Stderr = cmd.ErrOrStderr()
+				configureInstallProcess(login, out, cmd.OutOrStdout(), cmd.ErrOrStderr())
 				if err := login.Run(); err != nil {
 					return fmt.Errorf("得到大脑授权失败: %w", err)
 				}

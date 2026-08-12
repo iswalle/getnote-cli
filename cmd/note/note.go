@@ -101,9 +101,7 @@ func newTodosCmd() *cobra.Command {
 			if err != nil {
 				return ui.FriendlyError(err)
 			}
-			enc := json.NewEncoder(cmd.OutOrStdout())
-			enc.SetIndent("", "  ")
-			return enc.Encode(resp.Data.Note.MeetingTodos)
+			return writeDetailResult(cmd, resp.Data.Note, "meeting_todos", resp.Data.Note.MeetingTodos)
 		},
 	}
 }
@@ -133,6 +131,9 @@ func newOriginalCmd() *cobra.Command {
 			if value == "" {
 				return fmt.Errorf("original content is not available for this note")
 			}
+			if outputFormat(cmd) == "json" {
+				return writeDetailResult(cmd, n, "original", value)
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), value)
 			return nil
 		},
@@ -153,6 +154,9 @@ func newTranscriptCmd() *cobra.Command {
 			if resp.Data.Note.Audio == nil || resp.Data.Note.Audio.Original == "" {
 				return fmt.Errorf("audio transcript is not available for this note")
 			}
+			if outputFormat(cmd) == "json" {
+				return writeDetailResult(cmd, resp.Data.Note, "transcript", resp.Data.Note.Audio.Original)
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), resp.Data.Note.Audio.Original)
 			return nil
 		},
@@ -170,9 +174,7 @@ func newAttachmentsCmd() *cobra.Command {
 			if err != nil {
 				return ui.FriendlyError(err)
 			}
-			enc := json.NewEncoder(cmd.OutOrStdout())
-			enc.SetIndent("", "  ")
-			return enc.Encode(resp.Data.Note.Attachments)
+			return writeDetailResult(cmd, resp.Data.Note, "attachments", resp.Data.Note.Attachments)
 		},
 	}
 }
@@ -191,9 +193,7 @@ func newTimelineCmd() *cobra.Command {
 			if resp.Data.Note.Timeline == nil {
 				return fmt.Errorf("timeline is not available for this note")
 			}
-			enc := json.NewEncoder(cmd.OutOrStdout())
-			enc.SetIndent("", "  ")
-			return enc.Encode(resp.Data.Note.Timeline)
+			return writeDetailResult(cmd, resp.Data.Note, "timeline", resp.Data.Note.Timeline)
 		},
 	}
 }
@@ -213,10 +213,27 @@ func newQuickNoteCmd() *cobra.Command {
 			if resp.Data.Note.QuickNote == "" {
 				return fmt.Errorf("quick note is not available for this note")
 			}
+			if outputFormat(cmd) == "json" {
+				return writeDetailResult(cmd, resp.Data.Note, "quick_note", resp.Data.Note.QuickNote)
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), resp.Data.Note.QuickNote)
 			return nil
 		},
 	}
+}
+
+func writeDetailResult(cmd *cobra.Command, note client.Note, key string, value interface{}) error {
+	payload := map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"note_id": ui.NoteID(note.NoteID, note.ID),
+			"title":   note.Title,
+			key:       value,
+		},
+	}
+	enc := json.NewEncoder(cmd.OutOrStdout())
+	enc.SetIndent("", "  ")
+	return enc.Encode(payload)
 }
 
 // printField outputs a single field from a note as plain text.

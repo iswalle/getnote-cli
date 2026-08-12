@@ -43,7 +43,8 @@ var rootCmd = &cobra.Command{
 getnote is a command-line tool for interacting with Get笔记.
 It allows both humans and AI agents to manage notes and knowledge bases
 from the terminal.`,
-	SilenceUsage: true,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	CompletionOptions: cobra.CompletionOptions{
 		HiddenDefaultCmd: true,
 	},
@@ -59,10 +60,20 @@ func Execute() {
 
 func writeError(w io.Writer, err error, format string) {
 	var requestErr *client.RequestError
-	if format == "json" && errors.As(err, &requestErr) {
-		apiErr := requestErr.APIError
-		if apiErr.Code == 10201 {
-			apiErr.MembershipURL = client.MembershipPurchaseURL
+	if format == "json" {
+		apiErr := client.APIError{
+			Code:      -1,
+			Message:   err.Error(),
+			Reason:    "cli_error",
+			Retryable: false,
+		}
+		requestID := ""
+		if errors.As(err, &requestErr) {
+			apiErr = requestErr.APIError
+			requestID = requestErr.RequestID
+			if apiErr.Code == 10201 {
+				apiErr.MembershipURL = client.MembershipPurchaseURL
+			}
 		}
 		payload := struct {
 			Success   bool             `json:"success"`
@@ -73,7 +84,7 @@ func writeError(w io.Writer, err error, format string) {
 			Success:   false,
 			Data:      nil,
 			Error:     &apiErr,
-			RequestID: requestErr.RequestID,
+			RequestID: requestID,
 		}
 		encoder := json.NewEncoder(w)
 		encoder.SetIndent("", "  ")

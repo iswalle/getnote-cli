@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -39,6 +40,24 @@ func TestWriteErrorOutputsStructuredJSON(t *testing.T) {
 	}
 }
 
+func TestWriteErrorOutputsStructuredJSONForLocalErrors(t *testing.T) {
+	var output bytes.Buffer
+	writeError(&output, errors.New("local validation failed"), "json")
+
+	var payload struct {
+		Success bool            `json:"success"`
+		Data    interface{}     `json:"data"`
+		Error   client.APIError `json:"error"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Success || payload.Data != nil || payload.Error.Code != -1 ||
+		payload.Error.Reason != "cli_error" || payload.Error.Message != "local validation failed" {
+		t.Fatalf("payload = %+v", payload)
+	}
+}
+
 func TestWriteErrorAddsCLIMembershipPurchaseURL(t *testing.T) {
 	requestErr := &client.RequestError{
 		APIError: client.APIError{
@@ -64,5 +83,11 @@ func TestWriteErrorAddsCLIMembershipPurchaseURL(t *testing.T) {
 	writeError(&textOutput, requestErr, "table")
 	if !strings.Contains(textOutput.String(), client.MembershipPurchaseURL) {
 		t.Fatalf("text error missing membership URL: %s", textOutput.String())
+	}
+}
+
+func TestRootSilencesCobraDuplicateErrors(t *testing.T) {
+	if !rootCmd.SilenceErrors {
+		t.Fatal("root command must let writeError own the final error output")
 	}
 }

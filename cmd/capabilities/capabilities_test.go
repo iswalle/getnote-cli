@@ -37,6 +37,15 @@ func TestCapabilitiesExposeSkill2ContractAndUpgrade(t *testing.T) {
 	if got.CommandAliases["gnote"] != "getnote" || got.CommandAliases["kb dir"] != "kb directories" {
 		t.Fatalf("missing compact command aliases: %#v", got.CommandAliases)
 	}
+	for _, key := range []string{"common_success", "common_error", "save", "task", "notes", "note", "search", "knowledge", "tags"} {
+		if len(got.ResultContracts[key]) == 0 {
+			t.Fatalf("missing result contract %s: %#v", key, got.ResultContracts)
+		}
+	}
+	if strings.Join(got.ResultContracts["search"], ",") != "data.results[]" ||
+		strings.Join(got.ResultContracts["tags"], ",") != "data.note_id,data.tags[]" {
+		t.Fatalf("incorrect result paths: %#v", got.ResultContracts)
+	}
 }
 
 func TestContractPublishesHistoricalSafetyGuarantees(t *testing.T) {

@@ -22,6 +22,7 @@ type response struct {
 	Platforms       []platform.Info     `json:"platforms"`
 	Install         map[string]string   `json:"install"`
 	Upgrade         map[string]string   `json:"upgrade"`
+	ResultContracts map[string][]string `json:"result_contracts"`
 	Guarantees      guarantees          `json:"guarantees"`
 }
 
@@ -73,6 +74,17 @@ func currentResponse() response {
 			"check": "getnote update --check",
 			"cli":   "getnote update",
 			"npm":   "npm install -g @getnote/cli@latest",
+		},
+		ResultContracts: map[string][]string{
+			"common_success": {"success=true", "data"},
+			"common_error":   {"success=false", "data=null", "error.code", "error.message", "error.reason", "error.retryable", "request_id?"},
+			"save":           {"data.note.note_id", "data.note.title", "data.note.note_url"},
+			"task":           {"data.task_id", "data.status", "data.note_id?", "data.msg?", "data.error_msg?"},
+			"notes":          {"data.notes[]", "data.total", "data.has_more", "data.cursor"},
+			"note":           {"data.note.note_id", "data.note.title", "data.note.note_url", "data.note.note_type"},
+			"search":         {"data.results[]"},
+			"knowledge":      {"data.topics[]|data.notes[]|data.directories[]|data.resources[]"},
+			"tags":           {"data.note_id", "data.tags[]"},
 		},
 		Guarantees: guarantees{
 			IDsAsStrings:             true,
