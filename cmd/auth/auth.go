@@ -15,7 +15,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const oauthClientID = "cli_a1b2c3d4e5f6789012345678abcdef90"
+const (
+	productionOAuthClientID = "cli_a1b2c3d4e5f6789012345678abcdef90"
+	testOAuthClientID       = "cli_f9937f36283fa04a1e617e34"
+)
+
+func resolveOAuthClientID() string {
+	if clientID := strings.TrimSpace(os.Getenv("GETNOTE_CLIENT_ID")); clientID != "" {
+		return clientID
+	}
+	return resolveOAuthClientIDForURL(oauthURL(""), config.Get().ClientID)
+}
+
+func resolveOAuthClientIDForURL(apiURL, configuredClientID string) string {
+	if clientID := strings.TrimSpace(configuredClientID); clientID != "" && clientID != config.DefaultClientID {
+		return clientID
+	}
+	apiURL = strings.ToLower(apiURL)
+	if strings.Contains(apiURL, "dev.didatrip.com") || strings.Contains(apiURL, "openapi-dev.biji.com") {
+		return testOAuthClientID
+	}
+	return productionOAuthClientID
+}
 
 func oauthURL(path string) string {
 	baseURL := strings.TrimRight(os.Getenv("GETNOTE_API_URL"), "/")
@@ -66,8 +87,8 @@ API Key 登录时建议同时提供所属 Client ID。`,
 				cfg.APIKey = apiKey
 				if clientID != "" {
 					cfg.ClientID = clientID
-				} else if cfg.ClientID == "" {
-					cfg.ClientID = oauthClientID
+				} else if cfg.ClientID == "" || cfg.ClientID == config.DefaultClientID {
+					cfg.ClientID = resolveOAuthClientID()
 				}
 				if err := cfg.Save(); err != nil {
 					return fmt.Errorf("saving config: %w", err)
@@ -88,8 +109,9 @@ API Key 登录时建议同时提供所属 Client ID。`,
 
 // runDeviceFlow runs the OAuth 2.0 Device Authorization Flow.
 func runDeviceFlow(out io.Writer) error {
+	clientID := resolveOAuthClientID()
 	// Step 1: request device code
-	body := fmt.Sprintf(`{"client_id":"%s"}`, oauthClientID)
+	body := fmt.Sprintf(`{"client_id":"%s"}`, clientID)
 	resp, err := http.Post(oauthURL("/oauth/device/code"), "application/json", strings.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("requesting device code: %w", err)
@@ -127,7 +149,7 @@ func runDeviceFlow(out io.Writer) error {
 	fmt.Fprintf(out, "Waiting for authorization")
 
 	// Step 3: poll
-	pollBody := fmt.Sprintf(`{"grant_type":"device_code","client_id":"%s","code":"%s"}`, oauthClientID, d.Code)
+	pollBody := fmt.Sprintf(`{"grant_type":"device_code","client_id":"%s","code":"%s"}`, clientID, d.Code)
 	for time.Now().Before(deadline) {
 		time.Sleep(interval)
 		fmt.Fprint(out, ".")
