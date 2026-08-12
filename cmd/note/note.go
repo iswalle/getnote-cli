@@ -85,7 +85,27 @@ func NewNoteCmd() *cobra.Command {
 	cmd.AddCommand(newAttachmentsCmd())
 	cmd.AddCommand(newTimelineCmd())
 	cmd.AddCommand(newQuickNoteCmd())
+	cmd.AddCommand(newTodosCmd())
 	return cmd
+}
+
+func newTodosCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "todos <id>",
+		Short:   "读取会议总结中的待办 / Read todos parsed from a meeting summary",
+		Long:    "返回从会议总结中明确的待办章节按规则解析出的条目。结果会保留 source，未识别到明确章节时返回空列表，不使用模型猜测。",
+		Example: "  getnote note todos 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc.SetIndent("", "  ")
+			return enc.Encode(resp.Data.Note.MeetingTodos)
+		},
+	}
 }
 
 func newOriginalCmd() *cobra.Command {

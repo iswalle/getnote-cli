@@ -46,7 +46,7 @@ func currentResponse() response {
 		Architecture:    "Skill navigates intent; CLI performs deterministic operations",
 		Commands: map[string][]string{
 			"connection":     {"doctor", "capabilities", "auth", "auth login", "auth status", "auth logout", "setup"},
-			"notes":          {"save", "task", "notes", "note", "note original", "note transcript", "note attachments", "note timeline", "note quick-note", "note update", "note delete", "note share"},
+			"notes":          {"save", "task", "notes", "note", "note original", "note transcript", "note attachments", "note timeline", "note quick-note", "note todos", "note update", "note delete", "note share"},
 			"search":         {"search"},
 			"knowledge_base": {"kbs", "kbs-sub", "kb", "kb create", "kb add", "kb remove", "kb directories", "kb directory-create", "kb directory-update", "kb directory-delete", "kb bloggers", "kb blogger-follow", "kb blogger-contents", "kb blogger-content", "kb lives", "kb live", "kb live-follow"},
 			"tags":           {"tag", "tag list", "tag add", "tag remove"},
@@ -73,7 +73,7 @@ func currentResponse() response {
 			SafeLongInput:            []string{"--content-file", "--stdin"},
 			KnowledgeScopes:          []string{"DEFAULT", "BOOKSPACE", "CUSTOMER", "TEAMSPACE"},
 			KnowledgeFeatures:        []string{"directories", "add_to_directory", "douyin_blogger_subscription"},
-			NoteDetailViews:          []string{"summary", "original", "transcript", "attachments", "timeline", "quick_note"},
+			NoteDetailViews:          []string{"summary", "original", "transcript", "attachments", "timeline", "quick_note", "meeting_todos"},
 			Limits: map[string]int{
 				"search_results": 10,
 				"kb_note_batch":  20,

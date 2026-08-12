@@ -20,6 +20,7 @@ description: 使用 getnote CLI 保存文字、链接、图片和长笔记，查
 | 列出图片、音频和文件附件 | `getnote note attachments` |
 | 读取录音或会议时间线 | `getnote note timeline` |
 | 读取录音快捷笔记 | `getnote note quick-note` |
+| 读取会议总结中的派生待办 | `getnote note todos` |
 | 修改笔记 | `getnote note update` |
 | 删除笔记 | `getnote note delete` |
 | 创建公开分享 | `getnote note share` |
@@ -34,5 +35,5 @@ description: 使用 getnote CLI 保存文字、链接、图片和长笔记，查
 - 不擅自补充知识库、父笔记或标签。
 - 删除、覆盖正文、替换全部标签和公开分享前必须确认；确认后按 `--help` 使用 CLI 的 `--yes` 放行。
 - 用户要求链接、文字原文时使用 `getnote note original`；要求录音、会议或课堂转写时使用 `getnote note transcript`，不要把 AI 摘要冒充原文。
-- 会议待办当前仍属于总结正文，不要声称存在结构化待办字段。
+- 会议待办使用 `getnote note todos`，并保留其 `source`；这是从总结明确章节规则解析的派生结果，不要描述成上游原生待办，也不要自由补写。
 - 在群聊或共享会话中不主动展开私密笔记全文；先确认请求者和展示范围。

@@ -202,6 +202,7 @@ type Note struct {
 	} `json:"audio,omitempty"`
 	QuickNote     string            `json:"quick_note,omitempty"`
 	Timeline      *NoteTimeline     `json:"timeline,omitempty"`
+	MeetingTodos  NoteMeetingTodos  `json:"meeting_todos"`
 	RefContent    string            `json:"ref_content"`
 	Source        string            `json:"source"`
 	EntryType     string            `json:"entry_type"`
@@ -213,6 +214,16 @@ type Note struct {
 	ParentNoteID  string            `json:"parent_note_id,omitempty"`
 	Attachments   []json.RawMessage `json:"attachments"`
 	Version       int               `json:"version"`
+}
+
+type NoteMeetingTodos struct {
+	Source string            `json:"source"`
+	Items  []NoteMeetingTodo `json:"items"`
+}
+
+type NoteMeetingTodo struct {
+	Text      string `json:"text"`
+	Completed bool   `json:"completed"`
 }
 
 type NoteTimeline struct {
