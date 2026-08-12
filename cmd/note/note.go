@@ -201,6 +201,7 @@ func newTimelineCmd() *cobra.Command {
 func newQuickNoteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "quick-note <id>",
+		Aliases: []string{"quick"},
 		Short:   "读取录音快捷笔记 / Read a recording quick note",
 		Example: "  getnote note quick-note 1896830231705320746",
 		Args:    cobra.ExactArgs(1),

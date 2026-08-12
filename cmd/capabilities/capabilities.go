@@ -17,6 +17,7 @@ type response struct {
 	ContractVersion string              `json:"contract_version"`
 	Architecture    string              `json:"architecture"`
 	Commands        map[string][]string `json:"commands"`
+	CommandAliases  map[string]string   `json:"command_aliases"`
 	NoteTypes       []string            `json:"note_types"`
 	Platforms       []platform.Info     `json:"platforms"`
 	Install         map[string]string   `json:"install"`
@@ -51,6 +52,15 @@ func currentResponse() response {
 			"knowledge_base": {"kbs", "kbs-sub", "kb", "kb create", "kb add", "kb remove", "kb directories", "kb directory-create", "kb directory-update", "kb directory-delete", "kb bloggers", "kb blogger-follow", "kb blogger-contents", "kb blogger-content", "kb lives", "kb live", "kb live-follow"},
 			"tags":           {"tag", "tag list", "tag add", "tag remove"},
 			"account":        {"quota", "version", "update"},
+		},
+		CommandAliases: map[string]string{
+			"gnote":      "getnote",
+			"kb dir":     "kb directories",
+			"kb dirs":    "kb directories",
+			"kb mkdir":   "kb directory-create",
+			"kb mvdir":   "kb directory-update",
+			"kb rmdir":   "kb directory-delete",
+			"note quick": "note quick-note",
 		},
 		NoteTypes: []string{"plain_text", "link", "img_text"},
 		Platforms: platform.Detect(),

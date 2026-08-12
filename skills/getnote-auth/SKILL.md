@@ -16,6 +16,8 @@ description: 使用 getnote CLI 登录、退出、诊断连接、查看版本和
 | 退出登录 | `getnote auth logout` |
 | 诊断连接 | `getnote doctor -o json` |
 | 查看能力兼容性 | `getnote capabilities -o json` |
+| 为本机 AI 安装领域 Skill | `getnote setup` |
+| 查看 AI 对话额度 | `getnote quota` |
 | 查看版本 | `getnote version` |
 | 检查或执行升级 | `getnote update --check` / `getnote update` |
 
@@ -28,3 +30,4 @@ description: 使用 getnote CLI 登录、退出、诊断连接、查看版本和
 - 未授权时运行 `getnote auth login`，把浏览器授权步骤交给用户。
 - 用户未明确要求时不要执行 `auth logout`。
 - CLI 升级后重新运行 `doctor`；CLI 升级不会自动更新 Skill。
+- 用户要求更新整套得到大脑能力时，升级 CLI 后运行 `getnote setup` 同步领域 Skill，再执行诊断。

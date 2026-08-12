@@ -15,7 +15,8 @@
   },
   "license": "MIT",
   "bin": {
-    "getnote": "./bin/getnote.js"
+    "getnote": "./bin/getnote.js",
+    "gnote": "./bin/getnote.js"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js"

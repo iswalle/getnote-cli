@@ -16,7 +16,7 @@ description: 使用 getnote CLI 查看和管理自有或订阅知识库、书籍
 | 查看知识库内笔记 | `getnote kb` |
 | 新建知识库 | `getnote kb create` |
 | 加入或移出笔记 | `getnote kb add` / `getnote kb remove` |
-| 浏览和管理文件夹 | `getnote kb directories` / `getnote kb directory-create` / `getnote kb directory-update` / `getnote kb directory-delete` |
+| 浏览和管理文件夹 | `gnote kb dir` / `gnote kb mkdir` / `gnote kb mvdir` / `gnote kb rmdir` |
 | 把笔记加入指定文件夹 | `getnote kb add`，再按 `--help` 使用目录参数 |
 | 查看订阅博主及内容 | `getnote kb bloggers` / `getnote kb blogger-contents` / `getnote kb blogger-content` |
 | 订阅抖音博主 | `getnote kb blogger-follow` |
@@ -31,3 +31,4 @@ description: 使用 getnote CLI 查看和管理自有或订阅知识库、书籍
 - 订阅知识库通常只读；执行写操作前确认权限。
 - 移出笔记属于高风险操作，执行前向用户确认；确认后按 `--help` 使用 CLI 的 `--yes` 放行。
 - 删除目录属于高风险操作，必须确认，并让 CLI 校验目录是否为空。
+- `gnote` 和目录短命令只是稳定别名；遇到旧环境没有别名时，回退到 `getnote kb directories` 等完整命令。

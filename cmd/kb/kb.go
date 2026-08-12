@@ -280,6 +280,7 @@ func newDirectoriesCmd() *cobra.Command {
 	var directoryID string
 	cmd := &cobra.Command{
 		Use:     "directories <topic_id>",
+		Aliases: []string{"dir", "dirs"},
 		Short:   "浏览知识库目录和资源 / Browse knowledge-base folders and resources",
 		Example: "  getnote kb directories vnrOAaGY\n  getnote kb directories vnrOAaGY --directory-id 7123456789012345678",
 		Args:    cobra.ExactArgs(1),
@@ -301,6 +302,7 @@ func newDirectoryCreateCmd() *cobra.Command {
 	var parentID string
 	cmd := &cobra.Command{
 		Use:     "directory-create <topic_id> <name>",
+		Aliases: []string{"mkdir"},
 		Short:   "创建知识库目录 / Create a knowledge-base folder",
 		Example: "  getnote kb directory-create vnrOAaGY 产品资料\n  getnote kb directory-create vnrOAaGY 用户研究 --parent-id 7123456789012345678",
 		Args:    cobra.ExactArgs(2),
@@ -320,6 +322,7 @@ func newDirectoryUpdateCmd() *cobra.Command {
 	var parentID, name string
 	cmd := &cobra.Command{
 		Use:     "directory-update <topic_id> <directory_id>",
+		Aliases: []string{"mvdir"},
 		Short:   "重命名或移动知识库目录 / Rename or move a knowledge-base folder",
 		Long:    "至少提供 --name 或 --parent-id。只改名称时目录位置保持不变，只移动时目录名称保持不变。",
 		Example: "  getnote kb directory-update vnrOAaGY 7123456789012345678 --name 新名称\n  getnote kb directory-update vnrOAaGY 7123456789012345678 --parent-id 7234567890123456789",
@@ -344,6 +347,7 @@ func newDirectoryDeleteCmd() *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
 		Use:     "directory-delete <topic_id> <directory_id>",
+		Aliases: []string{"rmdir"},
 		Short:   "删除空知识库目录 / Delete an empty knowledge-base folder",
 		Example: "  getnote kb directory-delete vnrOAaGY 7123456789012345678 --yes",
 		Args:    cobra.ExactArgs(2),

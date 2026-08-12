@@ -34,6 +34,9 @@ func TestCapabilitiesExposeSkill2ContractAndUpgrade(t *testing.T) {
 	if got.Upgrade["check"] != "getnote update --check" || got.Upgrade["cli"] != "getnote update" {
 		t.Fatalf("missing upgrade guidance: %#v", got.Upgrade)
 	}
+	if got.CommandAliases["gnote"] != "getnote" || got.CommandAliases["kb dir"] != "kb directories" {
+		t.Fatalf("missing compact command aliases: %#v", got.CommandAliases)
+	}
 }
 
 func TestContractPublishesHistoricalSafetyGuarantees(t *testing.T) {

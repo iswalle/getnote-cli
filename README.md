@@ -22,6 +22,8 @@ npx -y @getnote/cli@latest setup
 getnote doctor -o json
 ```
 
+安装完成后，`getnote` 和更短的 `gnote` 可以互换使用，例如 `gnote notes`。
+
 ### 只安装命令行
 
 ```bash
@@ -218,6 +220,7 @@ getnote note transcript <id>         直接输出录音、会议或课堂转写�
 getnote note attachments <id>        列出图片、音频和文件附件
 getnote note timeline <id>           读取录音或会议时间线
 getnote note quick-note <id>         读取录音快捷笔记
+getnote note todos <id>              读取会议总结中明确章节解析出的待办
 
 getnote note update <id>             更新笔记
   --title <标题>
@@ -285,6 +288,16 @@ getnote kb blogger-follow <topic_id> <抖音链接>      订阅抖音博主
 getnote kb live-follow <topic_id> <url>              订阅得到直播课，直播结束后 AI 摘要自动入库
 
 getnote kbs-sub                                      获取我订阅的知识库列表
+```
+
+常用目录命令提供短别名，旧命令继续兼容：
+
+```bash
+gnote kb dir <topic_id>
+gnote kb mkdir <topic_id> <名称>
+gnote kb mvdir <topic_id> <directory_id> --name <新名称>
+gnote kb rmdir <topic_id> <directory_id> --yes
+gnote note quick <note_id>
 ```
 
 ---

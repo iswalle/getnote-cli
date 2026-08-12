@@ -75,7 +75,8 @@ async function main() {
     fs.chmodSync(binaryPath, 0o755);
     console.log(`getnote installed at ${binaryPath}`);
 
-    // Create symlink in npm global bin directory so `getnote` is on PATH
+    // `getnote` is linked directly to the downloaded binary. The compact
+    // `gnote` alias is provided by package.json and uses bin/getnote.js.
     createSymlink(binaryPath, binaryName);
   } catch (err) {
     console.error('Failed to install getnote:', err.message);

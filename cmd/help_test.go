@@ -53,11 +53,16 @@ func TestAllCommandsProvideCompleteHelp(t *testing.T) {
 // specification in Markdown.
 func TestBundledSkillsOnlyReferenceRealCommands(t *testing.T) {
 	available := make(map[string]struct{})
+	aliases := make(map[string]string)
 	var collect func(*cobra.Command)
 	collect = func(command *cobra.Command) {
 		if command != rootCmd && !command.Hidden {
 			path := strings.TrimPrefix(command.CommandPath(), rootCmd.Name()+" ")
 			available[path] = struct{}{}
+			parent := strings.TrimSuffix(path, command.Name())
+			for _, alias := range command.Aliases {
+				aliases[strings.TrimSpace(parent+alias)] = path
+			}
 		}
 		for _, child := range command.Commands() {
 			collect(child)
@@ -73,7 +78,7 @@ func TestBundledSkillsOnlyReferenceRealCommands(t *testing.T) {
 		t.Fatal("no bundled Skills found")
 	}
 
-	commandPattern := regexp.MustCompile("`getnote\\s+([^`]+)`")
+	commandPattern := regexp.MustCompile("`(?:getnote|gnote)\\s+([^`]+)`")
 	for _, file := range files {
 		content, readErr := os.ReadFile(file)
 		if readErr != nil {
@@ -96,12 +101,109 @@ func TestBundledSkillsOnlyReferenceRealCommands(t *testing.T) {
 					found = true
 					break
 				}
+				if canonical, ok := aliases[candidate]; ok {
+					if _, exists := available[canonical]; exists {
+						found = true
+						break
+					}
+				}
 			}
 			if !found {
 				t.Errorf("%s: documented command does not exist: getnote %s", file, match[1])
 			}
 		}
 	}
+}
+
+func TestCompactCommandAliases(t *testing.T) {
+	want := map[string][]string{
+		"kb directories":      {"dir", "dirs"},
+		"kb directory-create": {"mkdir"},
+		"kb directory-update": {"mvdir"},
+		"kb directory-delete": {"rmdir"},
+		"note quick-note":     {"quick"},
+	}
+	var visit func(*cobra.Command)
+	visit = func(command *cobra.Command) {
+		path := strings.TrimPrefix(command.CommandPath(), rootCmd.Name()+" ")
+		if aliases, ok := want[path]; ok {
+			for _, alias := range aliases {
+				if !contains(command.Aliases, alias) {
+					t.Errorf("%s: missing alias %s", path, alias)
+				}
+			}
+			delete(want, path)
+		}
+		for _, child := range command.Commands() {
+			visit(child)
+		}
+	}
+	visit(rootCmd)
+	for path := range want {
+		t.Errorf("compact alias command not found: %s", path)
+	}
+}
+
+func TestBundledSkillsCoverAllCapabilities(t *testing.T) {
+	available := make(map[string]struct{})
+	aliases := make(map[string]string)
+	var collect func(*cobra.Command)
+	collect = func(command *cobra.Command) {
+		if command != rootCmd && !command.Hidden && command.Runnable() {
+			path := strings.TrimPrefix(command.CommandPath(), rootCmd.Name()+" ")
+			available[path] = struct{}{}
+			parent := strings.TrimSuffix(path, command.Name())
+			for _, alias := range command.Aliases {
+				aliases[strings.TrimSpace(parent+alias)] = path
+			}
+		}
+		for _, child := range command.Commands() {
+			collect(child)
+		}
+	}
+	collect(rootCmd)
+
+	mentioned := make(map[string]struct{})
+	files, err := filepath.Glob(filepath.Join("..", "skills", "*", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	commandPattern := regexp.MustCompile("`(?:getnote|gnote)\\s+([^`]+)`")
+	for _, file := range files {
+		content, readErr := os.ReadFile(file)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		for _, match := range commandPattern.FindAllStringSubmatch(string(content), -1) {
+			fields := strings.Fields(match[1])
+			for length := min(3, len(fields)); length > 0; length-- {
+				candidate := strings.Join(fields[:length], " ")
+				if _, ok := available[candidate]; ok {
+					mentioned[candidate] = struct{}{}
+					break
+				}
+				if canonical, ok := aliases[candidate]; ok {
+					mentioned[canonical] = struct{}{}
+					break
+				}
+			}
+		}
+	}
+	for command := range available {
+		if _, ok := mentioned[command]; ok {
+			continue
+		}
+		t.Errorf("CLI capability is not routed by a bundled Skill: %s", command)
+	}
+}
+
+func contains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 // TestHistoricalSafetyFlags keeps high-risk operations guarded in the CLI even
