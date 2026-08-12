@@ -7,6 +7,20 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 
 通过官方 `getnote` CLI 完成真实操作。不要自己拼 OpenAPI 请求、ID 或笔记链接；机器调用优先使用 `-o json`，以退出码和下述结果契约判断结果。
 
+## 统一结果判定
+
+所有 API 命令的 JSON 结果先看下面这层结构，再读取每条命令规定的 `data` 字段：
+
+```json
+{
+  "success": true,
+  "data": {},
+  "request_id": "可选"
+}
+```
+
+失败结果为 `success=false` 或命令退出码非 0，读取 `error.code`、`error.message`、`error.reason`、`error.retryable` 和可选 `request_id`。HTTP 成功、上传完成、出现任务 ID 或拿到空笔记链接，都不能替代最终成功结果。
+
 ## 意图路由
 
 | 意图 | 命令入口 |

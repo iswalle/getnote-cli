@@ -5,7 +5,9 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 
 # 得到大脑知识库
 
-通过官方 CLI 读取真实知识库、权限和目录后再操作；不能用名称猜 ID。
+通过官方 CLI 读取真实知识库、权限和目录后再操作；不能用名称猜 ID。机器调用统一使用 `-o json`；只有退出码为 0 且 `success=true` 才是业务成功。返回中的所有知识库、目录、博主和笔记 ID 都按字符串原样传递。
+
+所有 API 命令的 JSON 都先判断 `success`。`success=false` 或退出码非 0 时读取 `error.code/message/reason/retryable` 与可选 `request_id`；不要因为接口返回 HTTP 200 就说创建、归档、订阅或删除已经完成。
 
 ## 意图路由
 
@@ -75,3 +77,11 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 | `getnote kb live-follow <topic_id> <link> -o json` | `success=true`、`data.follow_id_str/url/platform/type/created_at` | 说明真实订阅对象和平台。 |
 
 权限不足、目录非空、批量超限等失败必须原样解释，不伪造降级成功；保留 `request_id` 和 `retryable`。
+
+## 完成、处理中与失败后的动作
+
+- `kbs`、`kbs-sub`、`kb`、`dir`、博主和直播的空列表都是成功结果：如实说“目前没有”，不要自动创建知识库、目录或订阅。
+- `kb create`、`kb add`、`mkdir`、`mvdir` 等写操作的 `data` 可能因服务版本不同而不提供完整对象。只在 `success=true` 时确认动作已提交；若要向用户返回新目录 ID、最终层级或笔记归属，必须紧接着重新读取 `gnote kb dir` 或 `getnote kb <topic_id>`，不能猜字段。
+- `kb add` 即使请求成功，也不能把“已发起加入”说成“已进入某个目录”；只有重新读取后出现对应 `note_id` / `directory_id` 才能展示最终归属。
+- `kb remove`、`rmdir` 前必须有用户明确确认并带 `--yes`；退出码非 0、`success=false`、权限不足或目录非空时，都应说明真实失败原因和下一步，绝不宣称已删除。
+- 用户给的团队知识库不在 `getnote kbs` 返回中时，先说明当前账号没有访问权限；不能把个人知识库同名项替代成团队知识库。
