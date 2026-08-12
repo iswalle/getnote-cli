@@ -52,9 +52,26 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 2. 列表先返回博主/直播名称、真实字符串 ID 和必要状态，选中后再读取完整内容。
 3. 博主内容详情中的 `post_media_text` 才是完整原文，不用摘要冒充。
 
-## 结果契约
+## 每条命令的结果与回复格式
 
-- 列表命令：退出码 0 且 `success=true`；从 `data.topics[]`、`data.notes[]`、`data.bloggers[]`、`data.contents[]` 或 `data.lives[]` 读取实际项目和分页状态。
-- 目录浏览：读取 `data.current_directory`、`data.directories[]`、`data.resources[]`、`data.total`；ID 全程按字符串。
-- 创建/移动/删除目录、加入/移出笔记和订阅：只有退出码 0 且业务 `success=true` 才回复完成；回复实际知识库、目录或订阅对象。
-- 权限不足、目录非空、批量超限等失败必须原样解释，不伪造降级成功；保留 `request_id` 和 `retryable`。
+| 命令 | 成功结果必须包含 | 回复规则 |
+|---|---|---|
+| `getnote kbs -o json` | `success=true`、`data.topics[].topic_id/name/scope/stats`、`has_more/total` | 展示全部真实 Scope，不只展示默认知识库。 |
+| `getnote kbs-sub -o json` | `success=true`、`data.topics[].topic_id/name`、`has_more/total` | 订阅知识库通常只读，不能把它当作可写知识库。 |
+| `getnote kb <topic_id> -o json` | `success=true`、`data.notes[].note_id/title/note_type`、`has_more/total` | 返回知识库内真实笔记；需要链接时再用 `note` 读取详情。 |
+| `getnote kb create <name> -o json` | `success=true`、`data?` | 仅创建个人知识库；不得在没有返回 ID 时虚构 `topic_id`。 |
+| `getnote kb add <topic_id> <note_id…> -o json` | `success=true`、`data?` | 最多 20 条；需要确认最终目录归属时重新读取目录。 |
+| `getnote kb remove <topic_id> <note_id…> --yes -o json` | `success=true`、`data?` | 最多 20 条；先确认，再说明已从该知识库移出。 |
+| `gnote kb dir <topic_id> -o json` | `success=true`、`data.current_directory?`、`directories[].id/name`、`resources[]`、`total` | 只使用返回的 `directory_id`；旧环境回退 `getnote kb directories`。 |
+| `gnote kb mkdir <topic_id> <name> -o json` | `success=true`、`data?` | 若需给出新目录 ID 或层级，随后重新读取目录，不猜返回结构。 |
+| `gnote kb mvdir <topic_id> <directory_id> … -o json` | `success=true`、`data?` | 只确认用户指定的改名/移动；需要最终名称或父级时重新读取目录。 |
+| `gnote kb rmdir <topic_id> <directory_id> --yes -o json` | `success=true`、`data?` | 只删除空目录；说明已删除前必须拿到业务成功。 |
+| `getnote kb bloggers <topic_id> -o json` | `success=true`、`data.bloggers[].follow_id_str/account_name/platform`、`has_more/total` | 列表中使用 `follow_id_str` 作为后续查询 ID。 |
+| `getnote kb blogger-follow <topic_id> <link> -o json` | `success=true`、`data.follow_id_str/url/platform/type/created_at` | 说明实际订阅的平台和对象；先确认目标知识库有写权限。 |
+| `getnote kb blogger-contents <topic_id> <follow_id> -o json` | `success=true`、`data.contents[].post_id_alias/post_title/post_publish_time`、`has_more/total` | 返回标题与摘要；阅读全文前让用户选择具体内容。 |
+| `getnote kb blogger-content <topic_id> <post_id> -o json` | `success=true`、`data.post_title/post_summary?/post_media_text?/post_url?/post_publish_time` | `post_media_text` 才是完整原文，摘要不能替代它。 |
+| `getnote kb lives <topic_id> -o json` | `success=true`、`data.lives[].live_id/name/status`、`has_more/total` | 先列出真实直播，再按用户选择读取详情。 |
+| `getnote kb live <topic_id> <live_id> -o json` | `success=true`、`data.post_title/post_summary?/post_media_text?/post_publish_time` | `post_media_text` 是直播原文/转写；没有时不凭摘要补写。 |
+| `getnote kb live-follow <topic_id> <link> -o json` | `success=true`、`data.follow_id_str/url/platform/type/created_at` | 说明真实订阅对象和平台。 |
+
+权限不足、目录非空、批量超限等失败必须原样解释，不伪造降级成功；保留 `request_id` 和 `retryable`。

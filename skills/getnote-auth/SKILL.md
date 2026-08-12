@@ -37,12 +37,22 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 
 参数不确定时读取对应命令的 `--help`，不要凭旧文档猜参数。
 
-## 结果契约
+## 每条命令的结果与下一步
 
-- `doctor -o json`：读取 `success`、`cli_version`、`checks[]`、`platforms[]`。`success=false` 或关键检查失败都表示尚未可用。
-- `capabilities -o json`：读取 `contract_version`、`commands`、`command_aliases`、`guarantees`；只在首次安装、升级后或兼容性排查时使用，不要每次任务都调用。
-- `quota -o json`：按 CLI 返回的真实额度窗口说明已用和剩余次数，不自行换算。
-- 所有命令以退出码为第一判断：退出码非 0 即失败。使用 `-o json` 时，API 与本地错误都返回 `success=false`、`data=null`、`error.code/message/reason/retryable` 和可选 `request_id`；不能伪装成功。
+| 命令 | 成功后读取/确认 | 成功后怎么做 |
+|---|---|---|
+| `getnote auth login` | 浏览器已确认，凭证已写入本机 | 再运行 `doctor -o json`；不在聊天中展示凭证。 |
+| `getnote auth status` | `Authenticated` / `Not authenticated` 或环境变量登录状态 | 未登录才启动 `auth login`；状态里只能出现掩码。 |
+| `getnote auth logout` | `Logged out successfully.` | 只说明本机已退出；不声称已撤销服务端授权。 |
+| `getnote doctor -o json` | `success`、`cli_version`、`checks[].name/ok/message`、`platforms[]` | 只有 `cli`、`auth`、`api` 均为 `ok=true` 才宣布可用。 |
+| `getnote capabilities -o json` | `contract_version`、`commands`、`command_aliases`、`command_results`、`guarantees` | 只在安装、升级或兼容排查时读取；这是命令和结果字段的唯一事实源。 |
+| `getnote setup -o json` | `success`、`targets[]`、`installed_skills`、`authenticated`、`next` | 仅同步本机 Agent 的领域 Skill；没有可识别目标不等于账号失败。 |
+| `getnote quota -o json` | `data.read/write/write_note` 下的 `daily/monthly.limit/used/remaining/reset_at` | 按真实桶说明剩余额度，不自行换算或合并桶。 |
+| `getnote version` | 版本文本 | 只用于展示版本；机器契约仍以 `capabilities -o json` 为准。 |
+| `getnote update --check` | 当前/可用新版本文本 | 有新版本再运行 `getnote update`。 |
+| `getnote update` | 更新完成文本 | 必须再运行 `version` 和 `doctor -o json`，通过后才能说升级完成。 |
+
+所有命令以退出码为第一判断：退出码非 0 即失败。使用 `-o json` 的 API 与本地错误均返回 `success=false`、`data=null`、`error.code/message/reason/retryable` 和可选 `request_id`；不能把 HTTP 200 或“命令运行过”当成成功。
 
 ## 更新闭环
 

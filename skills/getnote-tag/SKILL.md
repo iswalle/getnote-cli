@@ -12,9 +12,12 @@ description: 查看得到大脑笔记已有标签，为笔记添加标签，或�
 3. 删除前从列表中取得真实 `tag_id`，再运行 `getnote tag remove <note_id> <tag_id> -o json`；不能把标签名当 ID。
 4. 系统标签不可删除。替换全部标签属于覆盖性操作，必须先确认并按 `getnote note update --help` 使用对应参数。
 
-## 结果契约
+## 每条命令的结果与回复格式
 
-- 标签列表成功返回 `success=true` 和 `data.note_id/data.tags[]`；展示每项真实 `id/name/type`。
-- 添加成功必须退出码 0、业务 `success=true`，并从 `data.note_id` 和 `data.tags[]` 展示更新后的标签。
-- 删除成功必须退出码 0、业务 `success=true`；需要时重新读取列表核验。
-- 失败时说明 `error.message/reason`、是否可重试和 `request_id`；系统标签、无权限或标签不存在都不能说成已删除。
+| 命令 | 成功结果必须包含 | 回复规则 |
+|---|---|---|
+| `getnote tag list <note_id> -o json` | `success=true`、`data.note_id`、`data.tags[].id/name/type` | 列出真实标签；删除时只能使用返回的 `tag_id`。 |
+| `getnote tag add <note_id> <tag> -o json` | `success=true`、`data.note_id`、更新后的 `data.tags[]` | 说明已新增的标签，不暗示替换了旧标签。 |
+| `getnote tag remove <note_id> <tag_id> -o json` | `success=true`、`data?` | 仅确认指定标签已删除；需要展示剩余标签时再运行 `tag list` 核验。 |
+
+失败时说明 `error.message/reason`、是否可重试和 `request_id`；系统标签、无权限或标签不存在都不能说成已删除。

@@ -13,11 +13,10 @@ description: 在得到大脑的全部笔记或指定知识库中按自然语言�
 4. 用户只要求搜索时不自动修改、移动、分享或创建笔记。
 5. 用户选中结果后，再交给笔记 Skill 读取详情、原文或转写。
 
-## 结果契约
+## 命令结果与回复格式
 
-- 命令退出码必须为 0，业务结果必须 `success=true`。
-- 从 `data.results[]` 读取 `title`、`content`、`note_type`、字符串 `note_id`、`note_url` 和 `score`。
-- 非笔记类型结果可能没有 `note_id` 或 `note_url`，如实说明类型，不编造 ID/链接。
-- 没有结果时明确说“未找到匹配笔记”，可以建议用户换关键词或取消知识库限制，不声称索引故障。
-- 有结果时按相关性顺序返回精简编号列表：标题 + 必要摘要 + 真实链接；控制在用户要求数量内。
-- 失败时说明 `error.message/reason`、是否可重试和 `request_id`。群聊中不主动展开私密全文。
+| 命令 | 成功结果必须包含 | 回复规则 |
+|---|---|---|
+| `getnote search <query> -o json` | `success=true`、`data.results[].title/score`，笔记结果还应有 `note_id/note_url`，可选 `content/note_type` | 按相关性返回编号列表：标题 + 必要摘要 + 真实链接。空 `results[]` 是“未找到”，不是失败；非笔记结果没有 ID/链接时如实说明。 |
+
+失败时说明 `error.message/reason`、是否可重试和 `request_id`。群聊中不主动展开私密全文。

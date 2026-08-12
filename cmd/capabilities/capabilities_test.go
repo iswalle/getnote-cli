@@ -25,8 +25,11 @@ func TestCapabilitiesExposeSkill2ContractAndUpgrade(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &got); err != nil {
 		t.Fatalf("decode capabilities: %v\n%s", err, output.String())
 	}
-	if got.ContractVersion != "2.0" {
-		t.Fatalf("contract_version = %q, want 2.0", got.ContractVersion)
+	if got.ContractVersion != "2.1" {
+		t.Fatalf("contract_version = %q, want 2.1", got.ContractVersion)
+	}
+	if got.CommandResults["save"].SuccessFields == nil {
+		t.Fatal("capabilities must expose save result fields")
 	}
 	if len(got.Commands["notes"]) == 0 || len(got.Commands["knowledge_base"]) == 0 {
 		t.Fatalf("missing command groups: %#v", got.Commands)
@@ -50,7 +53,7 @@ func TestCapabilitiesExposeSkill2ContractAndUpgrade(t *testing.T) {
 
 func TestContractPublishesHistoricalSafetyGuarantees(t *testing.T) {
 	data := currentResponse()
-	if data.ContractVersion != "2.0" ||
+	if data.ContractVersion != "2.1" ||
 		!data.Guarantees.IDsAsStrings ||
 		!data.Guarantees.StructuredBusinessErrors ||
 		!data.Guarantees.FinalAsyncSaveResult ||

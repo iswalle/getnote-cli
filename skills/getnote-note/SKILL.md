@@ -75,13 +75,24 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 3. 覆盖正文、替换全部标签、删除和公开分享必须先确认；确认后才使用 `--yes`。
 4. 用户未要求公开时只返回私有 `note_url`，不自动生成分享链接。
 
-## 结果契约与回复格式
+## 每条命令的结果与回复格式
 
-- `save -o json`：最终成功是 `success=true` 且 `data.note` 有 `note_id/title/note_url`。回复“已保存《标题》”并附真实链接。
-- `task -o json`：读取 `data.task_id/status/note_id/msg/error_msg`；处理中继续查询，失败说明原因，完成后再读详情。
-- `notes -o json`：读取 `data.notes[]`、`data.has_more`、`data.cursor`；每项使用真实标题、字符串 ID、`note_url`。
-- `note -o json`：读取 `data.note`。`original/transcript/attachments/timeline/quick-note/todos -o json` 统一返回 `success=true`、`data.note_id`、`data.title`，并在 `data` 中分别提供 `original`、`transcript`、`attachments`、`timeline`、`quick_note`、`meeting_todos`；不猜缺失字段。
-- 更新/删除/分享：退出码 0 且业务 `success=true` 才算完成；分享只使用返回的 `share_url`。
-- API 失败时回复失败步骤、`error.message/reason`、是否可重试和 `request_id`；不能把 HTTP 200 当业务成功。
+| 命令 | 成功结果必须包含 | 回复规则 |
+|---|---|---|
+| `getnote save … -o json` | `success=true`、`data.note.note_id/title/note_url` | 回复“已保存《标题》”和真实链接。链接/图片先只得到 `task_id` 时还未成功，继续查任务。 |
+| `getnote task <task_id> -o json` | `data.task_id/status/note_id?/msg?/error_msg?` | 仅 `done`/`success` 且有 `note_id` 为完成；`pending`/`processing` 是处理中；`failed` 说明真实原因。 |
+| `getnote notes -o json` | `data.notes[].note_id/title/note_url`、`has_more/cursor/total` | 返回标题、字符串 ID 和真实链接；下一页只用返回的 `cursor`。 |
+| `getnote note <id> -o json` | `data.note.note_id/title/note_url/note_type`，按需读 `content` | 先给摘要和链接；私密全文只在用户明确要求时展开。 |
+| `getnote note original <id> -o json` | `data.note_id/title/original` | 只把 `original` 当原文；空字段就是该笔记没有可用原文。 |
+| `getnote note transcript <id> -o json` | `data.note_id/title/transcript` | 仅录音类笔记可用；不可用时如实说明。 |
+| `getnote note attachments <id> -o json` | `data.note_id/title/attachments[]` | 列出真实附件，不把笔记封面冒充附件。 |
+| `getnote note timeline <id> -o json` | `data.note_id/title/timeline` | 仅在存在录音/会议时间线时展示。 |
+| `gnote note quick <id> -o json` | `data.note_id/title/quick_note` | 返回现场快捷笔记；旧环境回退 `getnote note quick-note`。 |
+| `getnote note todos <id> -o json` | `data.note_id/title/meeting_todos[]` | 保留每项 `source`；这是从明确会议总结章节按规则解析，不说成上游原生待办。 |
+| `getnote note update <id> … -o json` | `success=true`、`data?` | 修改正文或全量标签前必须 `--yes`；需要展示最终内容时再读一次 `note`。 |
+| `getnote note delete <id> --yes -o json` | `success=true`、`data?` | 只能说“已移入回收站”，不是永久删除。 |
+| `getnote note share <id> --yes -o json` | `success=true`、`data.note_id/share_id/share_url` | 只返回真实 `share_url`，并明确其为公开链接。 |
+
+API 失败时回复失败步骤、`error.message/reason`、是否可重试和 `request_id`；不能把 HTTP 200 当业务成功。
 
 群聊或共享会话中只先展示必要标题和链接，不主动展开私密全文。
