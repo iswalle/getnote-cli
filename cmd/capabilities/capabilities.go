@@ -137,7 +137,7 @@ func commandResults() map[string]commandResult {
 		},
 		"search": {
 			SuccessFields: []string{"success=true", "data.results[].note_id?", "data.results[].title", "data.results[].note_url?", "data.results[].content?", "data.results[].score"},
-			Notes:         "No results is a successful empty results array, not a search failure.",
+			Notes:         "No results is a successful empty results array, not a search failure. On timeout, retry later or narrow the query / knowledge base; do not report an empty result.",
 		},
 		"kbs": {
 			SuccessFields: []string{"success=true", "data.topics[].topic_id", "data.topics[].name", "data.topics[].scope", "data.topics[].stats", "data.has_more", "data.total"},
@@ -165,7 +165,7 @@ func commandResults() map[string]commandResult {
 		},
 		"kb directory-create": {
 			SuccessFields: []string{"success=true", "data?"},
-			Notes:         "Use returned IDs only. If an exact directory object is needed, re-read kb directories.",
+			Notes:         "The name may be positional or passed with --name. Use returned IDs only. If an exact directory object is needed, re-read kb directories.",
 		},
 		"kb directory-update": {
 			SuccessFields: []string{"success=true", "data?"},
@@ -173,7 +173,7 @@ func commandResults() map[string]commandResult {
 		},
 		"kb directory-delete": {
 			SuccessFields: []string{"success=true", "data?"},
-			Notes:         "Requires --yes and the service only deletes an empty directory.",
+			Notes:         "Requires --yes and the service only deletes an empty directory. reason=knowledge_directory_not_empty means move its contents or delete child folders first; it is not retryable.",
 		},
 		"kb bloggers": {
 			SuccessFields: []string{"success=true", "data.bloggers[].follow_id_str", "data.bloggers[].account_name", "data.bloggers[].platform", "data.has_more", "data.total"},

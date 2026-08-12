@@ -65,7 +65,7 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 | `getnote kb add <topic_id> <note_id…> -o json` | `success=true`、`data?` | 最多 20 条；需要确认最终目录归属时重新读取目录。 |
 | `getnote kb remove <topic_id> <note_id…> --yes -o json` | `success=true`、`data?` | 最多 20 条；先确认，再说明已从该知识库移出。 |
 | `gnote kb dir <topic_id> -o json` | `success=true`、`data.current_directory?`、`directories[].id/name`、`resources[]`、`total` | 只使用返回的 `directory_id`；旧环境回退 `getnote kb directories`。 |
-| `gnote kb mkdir <topic_id> <name> -o json` | `success=true`、`data?` | 若需给出新目录 ID 或层级，随后重新读取目录，不猜返回结构。 |
+| `gnote kb mkdir <topic_id> --name <name> -o json` | `success=true`、`data?` | 也兼容位置参数 `<name>`；二者不可同时使用。若需给出新目录 ID 或层级，随后重新读取目录。 |
 | `gnote kb mvdir <topic_id> <directory_id> … -o json` | `success=true`、`data?` | 只确认用户指定的改名/移动；需要最终名称或父级时重新读取目录。 |
 | `gnote kb rmdir <topic_id> <directory_id> --yes -o json` | `success=true`、`data?` | 只删除空目录；说明已删除前必须拿到业务成功。 |
 | `getnote kb bloggers <topic_id> -o json` | `success=true`、`data.bloggers[].follow_id_str/account_name/platform`、`has_more/total` | 列表中使用 `follow_id_str` 作为后续查询 ID。 |
@@ -83,5 +83,5 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 - `kbs`、`kbs-sub`、`kb`、`dir`、博主和直播的空列表都是成功结果：如实说“目前没有”，不要自动创建知识库、目录或订阅。
 - `kb create`、`kb add`、`mkdir`、`mvdir` 等写操作的 `data` 可能因服务版本不同而不提供完整对象。只在 `success=true` 时确认动作已提交；若要向用户返回新目录 ID、最终层级或笔记归属，必须紧接着重新读取 `gnote kb dir` 或 `getnote kb <topic_id>`，不能猜字段。
 - `kb add` 即使请求成功，也不能把“已发起加入”说成“已进入某个目录”；只有重新读取后出现对应 `note_id` / `directory_id` 才能展示最终归属。
-- `kb remove`、`rmdir` 前必须有用户明确确认并带 `--yes`；退出码非 0、`success=false`、权限不足或目录非空时，都应说明真实失败原因和下一步，绝不宣称已删除。
+- `kb remove`、`rmdir` 前必须有用户明确确认并带 `--yes`；若 `reason=knowledge_directory_not_empty`，明确提示“目录非空，请先移出内容或删除子目录”，不要原请求重试。其它失败也应说明真实原因和下一步，绝不宣称已删除。
 - 用户给的团队知识库不在 `getnote kbs` 返回中时，先说明当前账号没有访问权限；不能把个人知识库同名项替代成团队知识库。

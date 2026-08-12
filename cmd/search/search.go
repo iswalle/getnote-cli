@@ -1,8 +1,11 @@
 package search
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/iswalle/getnote-cli/internal/client"
@@ -50,6 +53,9 @@ func NewSearchCmd() *cobra.Command {
 				resp, err = c.NoteSearch(query, limit)
 			}
 			if err != nil {
+				if isSearchTimeout(err) {
+					return fmt.Errorf("搜索服务响应超时，请稍后重试；也可以缩小关键词或指定知识库后再试: %w", err)
+				}
 				return ui.FriendlyError(err)
 			}
 
@@ -88,6 +94,14 @@ func NewSearchCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 10, "Max results to return (max 10)")
 	cmd.Flags().StringVar(&kb, "kb", "", "Limit search to a knowledge base (topic_id)")
 	return cmd
+}
+
+func isSearchTimeout(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 func outputFormat(cmd *cobra.Command) string {

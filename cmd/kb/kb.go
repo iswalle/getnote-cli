@@ -3,6 +3,7 @@ package kb
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/iswalle/getnote-cli/internal/client"
@@ -299,23 +300,47 @@ func newDirectoriesCmd() *cobra.Command {
 }
 
 func newDirectoryCreateCmd() *cobra.Command {
-	var parentID string
+	var parentID, nameFlag string
 	cmd := &cobra.Command{
-		Use:     "directory-create <topic_id> <name>",
+		Use:     "directory-create <topic_id> [name]",
 		Aliases: []string{"mkdir"},
 		Short:   "创建知识库目录 / Create a knowledge-base folder",
-		Example: "  getnote kb directory-create vnrOAaGY 产品资料\n  getnote kb directory-create vnrOAaGY 用户研究 --parent-id 7123456789012345678",
-		Args:    cobra.ExactArgs(2),
+		Long:    "目录名称既可作为第二个位置参数，也可通过 --name 指定；两种写法等价且不能同时使用。",
+		Example: "  getnote kb directory-create vnrOAaGY 产品资料\n  getnote kb directory-create vnrOAaGY --name 用户研究 --parent-id 7123456789012345678",
+		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := client.New("").KBDirectoryCreate(args[0], parentID, args[1])
+			name, err := resolveDirectoryCreateName(args, nameFlag)
+			if err != nil {
+				return err
+			}
+			resp, err := client.New("").KBDirectoryCreate(args[0], parentID, name)
 			if err != nil {
 				return ui.FriendlyError(err)
 			}
 			return writeJSON(cmd, resp)
 		},
 	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Directory name (alternative to the positional name argument)")
 	cmd.Flags().StringVar(&parentID, "parent-id", "", "Parent directory ID; omit for root")
 	return cmd
+}
+
+func resolveDirectoryCreateName(args []string, nameFlag string) (string, error) {
+	positionalName := ""
+	if len(args) > 1 {
+		positionalName = strings.TrimSpace(args[1])
+	}
+	nameFlag = strings.TrimSpace(nameFlag)
+	if positionalName != "" && nameFlag != "" {
+		return "", fmt.Errorf("目录名称不能同时使用位置参数和 --name 指定")
+	}
+	if positionalName != "" {
+		return positionalName, nil
+	}
+	if nameFlag != "" {
+		return nameFlag, nil
+	}
+	return "", fmt.Errorf("必须提供目录名称：使用 <name> 或 --name")
 }
 
 func newDirectoryUpdateCmd() *cobra.Command {
