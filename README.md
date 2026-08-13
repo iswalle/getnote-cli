@@ -10,13 +10,21 @@
 
 ### 让本地 AI 自动完成安装（推荐）
 
-适用于 Codex、Claude Code 和 Cursor：
+适用于 WorkBuddy、Codex、Claude Code 和 Cursor：
 
 ```bash
 npx -y @getnote/cli@latest setup
 ```
 
-这条命令会安装 CLI、识别本机支持的平台、安装五个原子 Skill，并引导完成一次得到大脑授权。安装后运行：
+这条命令会把 CLI 安装到稳定的全局路径、识别本机支持的平台、安装五个原子 Skill，并引导完成一次得到大脑授权。检测到 WorkBuddy 时，会把 Skills 安装到 `~/.workbuddy/skills/`；安装完成后需要完全退出并重新打开 WorkBuddy。
+
+如果只想安装到 WorkBuddy，可明确指定：
+
+```bash
+npx -y @getnote/cli@latest setup --target workbuddy
+```
+
+安装后运行：
 
 ```bash
 getnote doctor -o json
@@ -379,6 +387,7 @@ $ getnote search "工作日志" --limit 7 -o json
 
 | 日期 | 版本 | 新能力 | 适合怎么用 |
 |------|------|--------|------------|
+| 2026-08-13 | **v1.5.1** | 1. 修复通过 `npx setup` 安装后命令指向临时 npm 缓存的问题<br>2. 同时提供稳定的 `getnote` / `gnote` 双命令<br>3. 自动把五个领域 Skill 安装到 WorkBuddy<br>4. 重复安装保留已有授权凭证 | 在 WorkBuddy、Codex、Claude Code 或 Cursor 中重复执行同一条安装命令即可修复或升级，不需要重新授权 |
 | 2026-08-13 | **v1.5.0** | 1. 支持浏览、创建、移动和删除知识库目录<br>2. 笔记可直接加入指定目录，支持已有团队知识库 `TEAMSPACE` 的成员读取与管理员维护<br>3. 支持订阅抖音博主并读取博主内容<br>4. 新增录音原文、链接原文、附件、时间线、快捷笔记和会议待办等一级命令<br>5. 完善结构化结果、错误原因、短命令、`doctor` 和升级检查 | 让人和 AI 用同一套命令完成知识库整理、资料归档和深层笔记读取；失败时能识别原因，不再猜参数或把未完成任务当成成功 |
 | 2026-08-11 | **v1.4.0** | 1. Skill 2.0 稳定执行契约<br>2. 所有子命令完整 `-h` / `--help`<br>3. `getnote update --check` 与升级引导<br>4. `--content-file` / `--stdin` 安全保存长文本 | 让独立 Skill 和 CLI 内置原子 Skills 共用同一套真实命令，降低 AI 猜参数和长内容转义失败的概率 |
 | 2026-04-23 | **v1.1.1** | 1. 笔记内链<br>2. 保存分享链接自动变笔记 | 1. 用内链串联每天的工作日志和项目笔记，实践时间日志法<br>2. 收到别人发来的分享链接直接存入笔记 |

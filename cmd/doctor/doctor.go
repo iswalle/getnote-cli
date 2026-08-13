@@ -3,8 +3,11 @@ package doctor
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/iswalle/getnote-cli/internal/client"
 	"github.com/iswalle/getnote-cli/internal/config"
@@ -41,6 +44,9 @@ func NewDoctorCmd() *cobra.Command {
 			cfg := config.Get()
 			checks := []check{
 				{Name: "cli", OK: version.String() != "", Message: "CLI is executable"},
+				commandPathCheck("getnote", true),
+				commandPathCheck("gnote", npmGlobalPackageInstalled()),
+				npmPackageVersionCheck(),
 				{Name: "node", OK: hasCommand("node"), Message: "Node.js is available for skill installation"},
 				{Name: "npx", OK: hasCommand("npx"), Message: "npx is available for skill installation"},
 				{Name: "auth", OK: cfg.IsLoggedIn(), Message: authMessage(cfg.IsLoggedIn())},
@@ -80,6 +86,66 @@ func NewDoctorCmd() *cobra.Command {
 }
 
 func hasCommand(name string) bool { _, err := exec.LookPath(name); return err == nil }
+
+type npmPackage struct {
+	Version string `json:"version"`
+}
+
+func commandPathCheck(name string, required bool) check {
+	path, err := exec.LookPath(name)
+	if err != nil {
+		if required {
+			return check{Name: name, OK: false, Message: name + " command is missing; run: npm install -g @getnote/cli@latest"}
+		}
+		return check{Name: name, OK: true, Message: name + " alias is optional for direct binary installation"}
+	}
+	resolved := path
+	if realPath, err := filepath.EvalSymlinks(path); err == nil {
+		resolved = realPath
+	}
+	if isTemporaryNpxPath(path) || isTemporaryNpxPath(resolved) {
+		return check{Name: name, OK: false, Message: name + " points to a disposable npx cache; rerun: npx -y @getnote/cli@latest setup"}
+	}
+	return check{Name: name, OK: true, Message: path}
+}
+
+func isTemporaryNpxPath(path string) bool {
+	normalized := filepath.ToSlash(path)
+	return strings.Contains(normalized, "/.npm/_npx/") || strings.Contains(normalized, "/_npx/")
+}
+
+func npmGlobalPackageDir() string {
+	out, err := exec.Command("npm", "root", "-g").Output()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(strings.TrimSpace(string(out)), "@getnote", "cli")
+}
+
+func npmGlobalPackageInstalled() bool {
+	_, err := os.Stat(filepath.Join(npmGlobalPackageDir(), "package.json"))
+	return err == nil
+}
+
+func npmPackageVersionCheck() check {
+	path := filepath.Join(npmGlobalPackageDir(), "package.json")
+	raw, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return check{Name: "npm_package", OK: true, Message: "not installed through npm (optional)"}
+	}
+	if err != nil {
+		return check{Name: "npm_package", OK: false, Message: "cannot read global package metadata"}
+	}
+	var pkg npmPackage
+	if err := json.Unmarshal(raw, &pkg); err != nil || strings.TrimSpace(pkg.Version) == "" {
+		return check{Name: "npm_package", OK: false, Message: "invalid global package metadata"}
+	}
+	want := strings.TrimPrefix(version.String(), "v")
+	if want != "dev" && pkg.Version != want {
+		return check{Name: "npm_package", OK: false, Message: fmt.Sprintf("global npm package is v%s but running CLI is v%s; run setup again", pkg.Version, want)}
+	}
+	return check{Name: "npm_package", OK: true, Message: "global npm package v" + pkg.Version}
+}
 func authMessage(ok bool) string {
 	if ok {
 		return "GetNote account is connected"
