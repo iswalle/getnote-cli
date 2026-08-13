@@ -267,7 +267,7 @@ getnote tag list <note_id>           查看笔记的所有标签
 ### 知识库
 
 ```
-getnote kbs                          列出所有可访问知识库（DEFAULT / BOOKSPACE / CUSTOMER / TEAMSPACE / AITEAMSPACE）
+getnote kbs                          列出所有可访问知识库（DEFAULT / BOOKSPACE / CUSTOMER / TEAMSPACE）
 
 getnote kb <topic_id>                知识库内的笔记
   --limit <n>

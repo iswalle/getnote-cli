@@ -35,9 +35,9 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 
 ## 选择知识库和权限
 
-1. 先执行 `getnote kbs -o json`，保留全部真实 Scope：`DEFAULT`、`BOOKSPACE`、`CUSTOMER`、`TEAMSPACE`、`AITEAMSPACE`，不能只返回默认知识库。
+1. 先执行 `getnote kbs -o json`，保留全部真实 Scope：`DEFAULT`、`BOOKSPACE`、`CUSTOMER`、`TEAMSPACE`，不能只返回默认知识库。
 2. 按名称和 `scope` 匹配；同名或用户意图不明确时让用户选择，不猜 `topic_id`。
-3. 订阅知识库通常只读。普通团队知识库（`TEAMSPACE`）和 AI 团队知识库（`AITEAMSPACE`）成员都可以读取；只有接口返回具备维护权限的拥有者或管理员才能创建目录、加入笔记或订阅内容。
+3. 订阅知识库通常只读。团队知识库（`TEAMSPACE`）成员可以读取；只有接口返回具备维护权限的拥有者或管理员才能创建目录、加入笔记或订阅内容。
 4. 普通成员写入失败时明确说明权限不足，不尝试绕过。当前不代替用户新建团队知识库。
 
 ## 文件夹和归档流程

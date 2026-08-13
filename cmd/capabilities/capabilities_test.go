@@ -65,7 +65,7 @@ func TestContractPublishesHistoricalSafetyGuarantees(t *testing.T) {
 		data.Guarantees.Limits["kb_note_batch"] != 20 {
 		t.Fatalf("historical limits = %+v", data.Guarantees.Limits)
 	}
-	if strings.Join(data.Guarantees.KnowledgeScopes, ",") != "DEFAULT,BOOKSPACE,CUSTOMER,TEAMSPACE,AITEAMSPACE" {
+	if strings.Join(data.Guarantees.KnowledgeScopes, ",") != "DEFAULT,BOOKSPACE,CUSTOMER,TEAMSPACE" {
 		t.Fatalf("knowledge scopes = %v", data.Guarantees.KnowledgeScopes)
 	}
 	if strings.Join(data.Guarantees.KnowledgeFeatures, ",") != "directories,add_to_directory,douyin_blogger_subscription" {

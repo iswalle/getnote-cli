@@ -263,7 +263,7 @@ func currentResponse() response {
 			EnvironmentNoteURL:       true,
 			ImageFormatValidation:    true,
 			SafeLongInput:            []string{"--content-file", "--stdin"},
-			KnowledgeScopes:          []string{"DEFAULT", "BOOKSPACE", "CUSTOMER", "TEAMSPACE", "AITEAMSPACE"},
+			KnowledgeScopes:          []string{"DEFAULT", "BOOKSPACE", "CUSTOMER", "TEAMSPACE"},
 			KnowledgeFeatures:        []string{"directories", "add_to_directory", "douyin_blogger_subscription"},
 			NoteDetailViews:          []string{"summary", "original", "transcript", "attachments", "timeline", "quick_note", "meeting_todos"},
 			Limits: map[string]int{
