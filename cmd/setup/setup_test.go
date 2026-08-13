@@ -2,7 +2,9 @@ package setup
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -34,7 +36,97 @@ func TestJSONSetupKeepsDependencyProgressOffStdout(t *testing.T) {
 }
 
 func TestResolveTargetsRejectsUnsupportedHost(t *testing.T) {
-	if _, err := resolveTargets([]string{"workbuddy"}); err == nil {
-		t.Fatal("resolveTargets() should reject hosts that require marketplace installation")
+	if _, err := resolveTargets([]string{"qclaw"}); err == nil {
+		t.Fatal("resolveTargets() should reject unsupported hosts")
+	}
+}
+
+func TestResolveTargetsSupportsWorkBuddy(t *testing.T) {
+	got, err := resolveTargets([]string{"workbuddy,codex"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"codex", "workbuddy"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("resolveTargets() = %v, want %v", got, want)
+	}
+}
+
+func TestInstallWorkBuddySkillsCopiesOnlyBundledSkills(t *testing.T) {
+	source := t.TempDir()
+	target := t.TempDir()
+	unrelated := filepath.Join(target, "my-existing-skill")
+	if err := os.MkdirAll(unrelated, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(unrelated, "SKILL.md"), []byte("keep me"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range workBuddySkillNames {
+		dir := filepath.Join(source, name)
+		if err := os.MkdirAll(filepath.Join(dir, "references"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: "+name+"\n---\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "references", "commands.md"), []byte("commands"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := installWorkBuddySkills(source, target); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range workBuddySkillNames {
+		for _, file := range []string{"SKILL.md", filepath.Join("references", "commands.md")} {
+			if _, err := os.Stat(filepath.Join(target, name, file)); err != nil {
+				t.Fatalf("missing installed file %s/%s: %v", name, file, err)
+			}
+		}
+	}
+	if raw, err := os.ReadFile(filepath.Join(unrelated, "SKILL.md")); err != nil || string(raw) != "keep me" {
+		t.Fatalf("unrelated WorkBuddy skill was changed: content=%q err=%v", raw, err)
+	}
+}
+
+func TestWorkBuddyInstallDoesNotTouchCredentials(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	credentialPath := filepath.Join(home, ".getnote", "config.json")
+	if err := os.MkdirAll(filepath.Dir(credentialPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	want := []byte("{\n  \"api_key\": \"gk_test_keep_me\",\n  \"client_id\": \"cli_keep_me\"\n}\n")
+	if err := os.WriteFile(credentialPath, want, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	source := t.TempDir()
+	target := filepath.Join(home, ".workbuddy", "skills")
+	for _, name := range workBuddySkillNames {
+		dir := filepath.Join(source, name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: "+name+"\n---\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := installWorkBuddySkills(source, target); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(credentialPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("credential changed during repeated install:\n got %s\nwant %s", got, want)
+	}
+	info, err := os.Stat(credentialPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("credential permissions changed: %o", info.Mode().Perm())
 	}
 }
