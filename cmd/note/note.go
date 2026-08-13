@@ -3,7 +3,6 @@ package note
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/iswalle/getnote-cli/internal/client"
@@ -47,6 +46,9 @@ func NewNoteCmd() *cobra.Command {
 			table.SetBorder(false)
 			table.SetAutoWrapText(false)
 			table.Append([]string{"ID", ui.NoteID(n.NoteID, n.ID)})
+			if n.NoteURL != "" {
+				table.Append([]string{"Note URL", n.NoteURL})
+			}
 			table.Append([]string{"Title", n.Title})
 			table.Append([]string{"Type", n.NoteType})
 			table.Append([]string{"Created", n.CreatedAt})
@@ -74,11 +76,164 @@ func NewNoteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags)")
+	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, note_url, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags)")
 	cmd.AddCommand(newUpdateCmd())
 	cmd.AddCommand(newDeleteCmd())
 	cmd.AddCommand(newShareCmd())
+	cmd.AddCommand(newOriginalCmd())
+	cmd.AddCommand(newTranscriptCmd())
+	cmd.AddCommand(newAttachmentsCmd())
+	cmd.AddCommand(newTimelineCmd())
+	cmd.AddCommand(newQuickNoteCmd())
+	cmd.AddCommand(newTodosCmd())
 	return cmd
+}
+
+func newTodosCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "todos <id>",
+		Short:   "读取会议总结中的待办 / Read todos parsed from a meeting summary",
+		Long:    "返回从会议总结中明确的待办章节按规则解析出的条目。结果会保留 source，未识别到明确章节时返回空列表，不使用模型猜测。",
+		Example: "  getnote note todos 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			return writeDetailResult(cmd, resp.Data.Note, "meeting_todos", resp.Data.Note.MeetingTodos)
+		},
+	}
+}
+
+func newOriginalCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "original <id>",
+		Short:   "读取笔记原文 / Read the original note content",
+		Long:    "按笔记类型返回真实原文：链接笔记返回网页原文，录音笔记返回转写原文，文字笔记返回正文。",
+		Example: "  getnote note original 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			n := resp.Data.Note
+			var value string
+			switch {
+			case n.WebPage != nil && n.WebPage.Content != "":
+				value = n.WebPage.Content
+			case n.Audio != nil && n.Audio.Original != "":
+				value = n.Audio.Original
+			default:
+				value = n.Content
+			}
+			if value == "" {
+				return fmt.Errorf("original content is not available for this note")
+			}
+			if outputFormat(cmd) == "json" {
+				return writeDetailResult(cmd, n, "original", value)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), value)
+			return nil
+		},
+	}
+}
+
+func newTranscriptCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "transcript <id>",
+		Short:   "读取录音转写原文 / Read an audio-note transcript",
+		Example: "  getnote note transcript 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			if resp.Data.Note.Audio == nil || resp.Data.Note.Audio.Original == "" {
+				return fmt.Errorf("audio transcript is not available for this note")
+			}
+			if outputFormat(cmd) == "json" {
+				return writeDetailResult(cmd, resp.Data.Note, "transcript", resp.Data.Note.Audio.Original)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), resp.Data.Note.Audio.Original)
+			return nil
+		},
+	}
+}
+
+func newAttachmentsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "attachments <id>",
+		Short:   "列出笔记附件 / List note attachments",
+		Example: "  getnote note attachments 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			return writeDetailResult(cmd, resp.Data.Note, "attachments", resp.Data.Note.Attachments)
+		},
+	}
+}
+
+func newTimelineCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "timeline <id>",
+		Short:   "读取录音或会议时间线 / Read an audio or meeting timeline",
+		Example: "  getnote note timeline 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			if resp.Data.Note.Timeline == nil {
+				return fmt.Errorf("timeline is not available for this note")
+			}
+			return writeDetailResult(cmd, resp.Data.Note, "timeline", resp.Data.Note.Timeline)
+		},
+	}
+}
+
+func newQuickNoteCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "quick-note <id>",
+		Aliases: []string{"quick"},
+		Short:   "读取录音快捷笔记 / Read a recording quick note",
+		Example: "  getnote note quick-note 1896830231705320746",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			if resp.Data.Note.QuickNote == "" {
+				return fmt.Errorf("quick note is not available for this note")
+			}
+			if outputFormat(cmd) == "json" {
+				return writeDetailResult(cmd, resp.Data.Note, "quick_note", resp.Data.Note.QuickNote)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), resp.Data.Note.QuickNote)
+			return nil
+		},
+	}
+}
+
+func writeDetailResult(cmd *cobra.Command, note client.Note, key string, value interface{}) error {
+	payload := map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"note_id": ui.NoteID(note.NoteID, note.ID),
+			"title":   note.Title,
+			key:       value,
+		},
+	}
+	enc := json.NewEncoder(cmd.OutOrStdout())
+	enc.SetIndent("", "  ")
+	return enc.Encode(payload)
 }
 
 // printField outputs a single field from a note as plain text.
@@ -87,6 +242,8 @@ func printField(n client.Note, field string) error {
 	switch field {
 	case "id":
 		val = ui.NoteID(n.NoteID, n.ID)
+	case "note_url":
+		val = n.NoteURL
 	case "title":
 		val = n.Title
 	case "content":
@@ -118,8 +275,7 @@ func printField(n client.Note, field string) error {
 	case "tags":
 		val = strings.Join(n.TagNames(), ", ")
 	default:
-		fmt.Fprintf(os.Stderr, "unknown field %q; valid: id, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags\n", field)
-		os.Exit(1)
+		return fmt.Errorf("unknown field %q; valid: id, note_url, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags", field)
 	}
 	fmt.Println(val)
 	return nil
@@ -127,11 +283,15 @@ func printField(n client.Note, field string) error {
 
 func newUpdateCmd() *cobra.Command {
 	var title, content, tags string
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "更新笔记标题/内容/标签 / Update a note's title, content, or tags",
-		Args:  cobra.ExactArgs(1),
+		Example: `  getnote note update 1896830231705320746 --title "新标题"
+  getnote note update 1896830231705320746 --content "更新后的正文"
+  getnote note update 1896830231705320746 --tag "工作,重点"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req := client.NoteUpdateRequest{ID: args[0]}
 			if title != "" {
@@ -148,6 +308,16 @@ func newUpdateCmd() *cobra.Command {
 			}
 			if req.Title == "" && req.Content == "" && req.Tags == nil {
 				return fmt.Errorf("at least one of --title, --content, --tag is required")
+			}
+			if req.Content != "" || req.Tags != nil {
+				approved, err := ui.ConfirmDestructive(cmd, yes, "This replaces existing note content or all tags. Continue?")
+				if err != nil {
+					return err
+				}
+				if !approved {
+					fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
+					return nil
+				}
 			}
 
 			c := client.New("")
@@ -176,6 +346,7 @@ func newUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "New title")
 	cmd.Flags().StringVar(&content, "content", "", "New content (plain_text notes only)")
 	cmd.Flags().StringVar(&tags, "tag", "", "Tags (comma-separated, replaces existing)")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Confirm replacing content or all tags without prompting")
 	return cmd
 }
 
@@ -185,16 +356,17 @@ func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "删除笔记（移入回收站）/ Delete a note (moves to trash)",
-		Args:  cobra.ExactArgs(1),
+		Example: `  getnote note delete 1896830231705320746
+  getnote note delete 1896830231705320746 --yes`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !yes {
-				fmt.Fprintf(cmd.OutOrStdout(), "Delete note %s? [y/N] ", args[0])
-				var confirm string
-				fmt.Scanln(&confirm)
-				if strings.ToLower(confirm) != "y" {
-					fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
-					return nil
-				}
+			approved, err := ui.ConfirmDestructive(cmd, yes, fmt.Sprintf("Delete note %s?", args[0]))
+			if err != nil {
+				return err
+			}
+			if !approved {
+				fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
+				return nil
 			}
 
 			c := client.New("")
@@ -225,12 +397,25 @@ func newDeleteCmd() *cobra.Command {
 
 func newShareCmd() *cobra.Command {
 	var excludeAudio bool
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "share <id>",
 		Short: "生成公开分享链接 / Create a public share link",
-		Args:  cobra.ExactArgs(1),
+		Long: `Create a publicly accessible share link for a note.
+This changes who can view the note and therefore requires confirmation.`,
+		Example: `  getnote note share 1896830231705320746
+  getnote note share 1896830231705320746 --exclude-audio --yes`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			approved, err := ui.ConfirmDestructive(cmd, yes, fmt.Sprintf("Create a public share link for note %s?", args[0]))
+			if err != nil {
+				return err
+			}
+			if !approved {
+				fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
+				return nil
+			}
 			resp, err := client.New("").NoteShare(args[0], excludeAudio)
 			if err != nil {
 				return ui.FriendlyError(err)
@@ -245,6 +430,7 @@ func newShareCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&excludeAudio, "exclude-audio", false, "Exclude audio from the shared note")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Confirm creating a public share link without prompting")
 	return cmd
 }
 

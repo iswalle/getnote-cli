@@ -121,8 +121,11 @@ func newTagListCmd() *cobra.Command {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(map[string]interface{}{
-					"note_id": ui.NoteID(note.NoteID, note.ID),
-					"tags":    tags,
+					"success": true,
+					"data": map[string]interface{}{
+						"note_id": ui.NoteID(note.NoteID, note.ID),
+						"tags":    tags,
+					},
 				})
 			}
 

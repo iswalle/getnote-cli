@@ -3,6 +3,7 @@ package kb
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/iswalle/getnote-cli/internal/client"
@@ -73,7 +74,12 @@ func NewKbCmd() *cobra.Command {
 	cmd.AddCommand(newCreateCmd())
 	cmd.AddCommand(newAddCmd())
 	cmd.AddCommand(newRemoveCmd())
+	cmd.AddCommand(newDirectoriesCmd())
+	cmd.AddCommand(newDirectoryCreateCmd())
+	cmd.AddCommand(newDirectoryUpdateCmd())
+	cmd.AddCommand(newDirectoryDeleteCmd())
 	cmd.AddCommand(newBloggersCmd())
+	cmd.AddCommand(newBloggerFollowCmd())
 	cmd.AddCommand(newBloggerContentsCmd())
 	cmd.AddCommand(newBloggerContentCmd())
 	cmd.AddCommand(newLivesCmd())
@@ -85,9 +91,10 @@ func NewKbCmd() *cobra.Command {
 func newLiveFollowCmd() *cobra.Command {
 	var platform string
 	cmd := &cobra.Command{
-		Use:   "live-follow <topic_id> <link>",
-		Short: "订阅直播到知识库 / Follow a live into a knowledge base",
-		Args:  cobra.ExactArgs(2),
+		Use:     "live-follow <topic_id> <link>",
+		Short:   "订阅直播到知识库 / Follow a live into a knowledge base",
+		Example: `  getnote kb live-follow vnrOAaGY https://www.dedao.cn/live/example`,
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := client.New("").KBLiveFollow(args[0], args[1], platform)
 			if err != nil {
@@ -202,7 +209,9 @@ func newCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <name>",
 		Short: "创建知识库 / Create a new knowledge base",
-		Args:  cobra.ExactArgs(1),
+		Example: `  getnote kb create "产品研究"
+  getnote kb create "产品研究" --desc "产品资料与用户反馈"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 			resp, err := c.KBCreate(client.KBCreateRequest{Name: args[0], Description: desc})
@@ -230,13 +239,21 @@ func newCreateCmd() *cobra.Command {
 }
 
 func newAddCmd() *cobra.Command {
-	return &cobra.Command{
+	var directoryID string
+	cmd := &cobra.Command{
 		Use:   "add <topic_id> <note_id> [note_id...]",
 		Short: "添加笔记到知识库 / Add notes to a knowledge base",
-		Args:  cobra.MinimumNArgs(2),
+		Long:  "将笔记加入自有知识库。每次最多处理 20 条；订阅知识库只读。",
+		Example: `  getnote kb add vnrOAaGY 1896830231705320746
+  getnote kb add vnrOAaGY 1896830231705320746 --directory-id 7123456789012345678
+  getnote kb add vnrOAaGY 1896830231705320746 1896830231705320747`,
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateNoteBatch(args[1:]); err != nil {
+				return err
+			}
 			c := client.New("")
-			resp, err := c.KBNotesAdd(args[0], args[1:])
+			resp, err := c.KBNotesAdd(args[0], directoryID, args[1:])
 			if err != nil {
 				return err
 			}
@@ -256,14 +273,171 @@ func newAddCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&directoryID, "directory-id", "", "Target directory ID; omit for the knowledge-base root")
+	return cmd
+}
+
+func newDirectoriesCmd() *cobra.Command {
+	var directoryID string
+	cmd := &cobra.Command{
+		Use:     "directories <topic_id>",
+		Aliases: []string{"dir", "dirs"},
+		Short:   "浏览知识库目录和资源 / Browse knowledge-base folders and resources",
+		Example: "  getnote kb directories vnrOAaGY\n  getnote kb directories vnrOAaGY --directory-id 7123456789012345678",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").KBDirectoryList(args[0], directoryID)
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc.SetIndent("", "  ")
+			return enc.Encode(resp)
+		},
+	}
+	cmd.Flags().StringVar(&directoryID, "directory-id", "", "Directory ID to browse; omit for root")
+	return cmd
+}
+
+func newDirectoryCreateCmd() *cobra.Command {
+	var parentID, nameFlag string
+	cmd := &cobra.Command{
+		Use:     "directory-create <topic_id> [name]",
+		Aliases: []string{"mkdir"},
+		Short:   "创建知识库目录 / Create a knowledge-base folder",
+		Long:    "目录名称既可作为第二个位置参数，也可通过 --name 指定；两种写法等价且不能同时使用。",
+		Example: "  getnote kb directory-create vnrOAaGY 产品资料\n  getnote kb directory-create vnrOAaGY --name 用户研究 --parent-id 7123456789012345678",
+		Args:    cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name, err := resolveDirectoryCreateName(args, nameFlag)
+			if err != nil {
+				return err
+			}
+			resp, err := client.New("").KBDirectoryCreate(args[0], parentID, name)
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			return writeJSON(cmd, resp)
+		},
+	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Directory name (alternative to the positional name argument)")
+	cmd.Flags().StringVar(&parentID, "parent-id", "", "Parent directory ID; omit for root")
+	return cmd
+}
+
+func resolveDirectoryCreateName(args []string, nameFlag string) (string, error) {
+	positionalName := ""
+	if len(args) > 1 {
+		positionalName = strings.TrimSpace(args[1])
+	}
+	nameFlag = strings.TrimSpace(nameFlag)
+	if positionalName != "" && nameFlag != "" {
+		return "", fmt.Errorf("目录名称不能同时使用位置参数和 --name 指定")
+	}
+	if positionalName != "" {
+		return positionalName, nil
+	}
+	if nameFlag != "" {
+		return nameFlag, nil
+	}
+	return "", fmt.Errorf("必须提供目录名称：使用 <name> 或 --name")
+}
+
+func newDirectoryUpdateCmd() *cobra.Command {
+	var parentID, name string
+	cmd := &cobra.Command{
+		Use:     "directory-update <topic_id> <directory_id>",
+		Aliases: []string{"mvdir"},
+		Short:   "重命名或移动知识库目录 / Rename or move a knowledge-base folder",
+		Long:    "至少提供 --name 或 --parent-id。只改名称时目录位置保持不变，只移动时目录名称保持不变。",
+		Example: "  getnote kb directory-update vnrOAaGY 7123456789012345678 --name 新名称\n  getnote kb directory-update vnrOAaGY 7123456789012345678 --parent-id 7234567890123456789",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if name == "" && parentID == "" {
+				return fmt.Errorf("at least one of --name or --parent-id is required")
+			}
+			resp, err := client.New("").KBDirectoryUpdate(args[0], args[1], parentID, name)
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			return writeJSON(cmd, resp)
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "New directory name; omit to keep the current name")
+	cmd.Flags().StringVar(&parentID, "parent-id", "", "New parent directory ID; omit to keep the current parent")
+	return cmd
+}
+
+func newDirectoryDeleteCmd() *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use:     "directory-delete <topic_id> <directory_id>",
+		Aliases: []string{"rmdir"},
+		Short:   "删除空知识库目录 / Delete an empty knowledge-base folder",
+		Example: "  getnote kb directory-delete vnrOAaGY 7123456789012345678 --yes",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			approved, err := ui.ConfirmDestructive(cmd, yes, "Delete this knowledge-base directory?")
+			if err != nil || !approved {
+				return err
+			}
+			resp, err := client.New("").KBDirectoryDelete(args[0], args[1])
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			return writeJSON(cmd, resp)
+		},
+	}
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt")
+	return cmd
+}
+
+func newBloggerFollowCmd() *cobra.Command {
+	var platform string
+	cmd := &cobra.Command{
+		Use:     "blogger-follow <topic_id> <link>",
+		Short:   "订阅抖音博主到知识库 / Follow a Douyin creator into a knowledge base",
+		Example: "  getnote kb blogger-follow vnrOAaGY https://www.douyin.com/user/example",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").KBBloggerFollow(args[0], args[1], platform)
+			if err != nil {
+				return ui.FriendlyError(err)
+			}
+			return writeJSON(cmd, resp)
+		},
+	}
+	cmd.Flags().StringVar(&platform, "platform", "douyin", "Creator platform")
+	return cmd
+}
+
+func writeJSON(cmd *cobra.Command, value interface{}) error {
+	enc := json.NewEncoder(cmd.OutOrStdout())
+	enc.SetIndent("", "  ")
+	return enc.Encode(value)
 }
 
 func newRemoveCmd() *cobra.Command {
-	return &cobra.Command{
+	var yes bool
+	cmd := &cobra.Command{
 		Use:   "remove <topic_id> <note_id> [note_id...]",
 		Short: "从知识库移除笔记 / Remove notes from a knowledge base",
-		Args:  cobra.MinimumNArgs(2),
+		Long:  "从自有知识库移出笔记。每次最多处理 20 条，执行前必须确认。",
+		Example: `  getnote kb remove vnrOAaGY 1896830231705320746
+  getnote kb remove vnrOAaGY 1896830231705320746 --yes`,
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateNoteBatch(args[1:]); err != nil {
+				return err
+			}
+			approved, err := ui.ConfirmDestructive(cmd, yes, fmt.Sprintf("Remove %d note(s) from knowledge base %s?", len(args[1:]), args[0]))
+			if err != nil {
+				return err
+			}
+			if !approved {
+				fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
+				return nil
+			}
 			c := client.New("")
 			resp, err := c.KBNotesRemove(args[0], args[1:])
 			if err != nil {
@@ -285,6 +459,15 @@ func newRemoveCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Confirm removing notes without prompting")
+	return cmd
+}
+
+func validateNoteBatch(noteIDs []string) error {
+	if len(noteIDs) > 20 {
+		return fmt.Errorf("每批最多处理 20 条笔记，当前为 %d 条", len(noteIDs))
+	}
+	return nil
 }
 
 func newBloggersCmd() *cobra.Command {

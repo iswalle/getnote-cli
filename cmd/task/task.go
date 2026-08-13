@@ -14,7 +14,9 @@ func NewTaskCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "task <task_id>",
 		Short: "查询保存任务进度 / Check the progress of a save task",
-		Args:  cobra.ExactArgs(1),
+		Example: `  getnote task task_abc123
+  getnote task task_abc123 -o json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 			resp, err := c.NoteTask(args[0])

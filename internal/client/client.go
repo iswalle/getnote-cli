@@ -21,6 +21,42 @@ import (
 // MembershipPurchaseURL is the CLI-specific OpenAPI membership purchase channel.
 const MembershipPurchaseURL = "https://www.biji.com/checkout?product_alias=9Ab36BB3ZD&spm=openapi_cli"
 
+// StringID accepts snowflake IDs returned by the API as either JSON strings or
+// JSON numbers, but always marshals them as strings. This keeps structured CLI
+// output safe for JavaScript and other runtimes whose number type cannot
+// represent every 64-bit integer exactly.
+type StringID string
+
+func (id StringID) String() string {
+	return string(id)
+}
+
+func (id StringID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(id))
+}
+
+func (id *StringID) UnmarshalJSON(data []byte) error {
+	value := strings.TrimSpace(string(data))
+	if value == "" || value == "null" {
+		*id = ""
+		return nil
+	}
+	if strings.HasPrefix(value, `"`) {
+		var decoded string
+		if err := json.Unmarshal(data, &decoded); err != nil {
+			return err
+		}
+		*id = StringID(decoded)
+		return nil
+	}
+	var number json.Number
+	if err := json.Unmarshal(data, &number); err != nil {
+		return fmt.Errorf("invalid ID %q: %w", value, err)
+	}
+	*id = StringID(number.String())
+	return nil
+}
+
 // APIError represents an error returned by the API.
 type APIError struct {
 	Code          int    `json:"code"`
@@ -61,6 +97,7 @@ func (e *RequestError) Error() string {
 // Client is an HTTP client for the getnote API.
 type Client struct {
 	baseURL    string
+	webBaseURL string
 	apiKey     string
 	clientID   string
 	httpClient *http.Client
@@ -92,14 +129,36 @@ func New(envTarget string) *Client {
 		clientID = v
 	}
 
+	webBaseURL := strings.TrimRight(os.Getenv("GETNOTE_WEB_URL"), "/")
+	if webBaseURL == "" {
+		webBaseURL = webURLForAPI(baseURL)
+	}
+
 	return &Client{
-		baseURL:  baseURL,
-		apiKey:   apiKey,
-		clientID: clientID,
+		baseURL:    baseURL,
+		webBaseURL: webBaseURL,
+		apiKey:     apiKey,
+		clientID:   clientID,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}
+}
+
+func webURLForAPI(apiURL string) string {
+	value := strings.ToLower(apiURL)
+	if strings.Contains(value, "dev.didatrip.com") || strings.Contains(value, "openapi-dev.biji.com") {
+		return "http://biji.dev.didatrip.com"
+	}
+	return "https://www.biji.com"
+}
+
+// NoteURL returns the environment-correct browser URL for a note.
+func (c *Client) NoteURL(noteID string) string {
+	if noteID == "" {
+		return ""
+	}
+	return c.webBaseURL + "/note/" + noteID
 }
 
 func normalizeAPIHost(value string) string {
@@ -124,8 +183,9 @@ type NoteTag struct {
 // Tags can be []string (kb/notes API) or []NoteTag (note/list API);
 // use TagNames() to get plain tag names regardless of format.
 type Note struct {
-	ID        json.Number       `json:"id"`
+	ID        StringID          `json:"id"`
 	NoteID    string            `json:"note_id"`
+	NoteURL   string            `json:"note_url,omitempty"`
 	Title     string            `json:"title"`
 	Content   string            `json:"content"`
 	NoteType  string            `json:"note_type"`
@@ -140,6 +200,9 @@ type Note struct {
 	Audio *struct {
 		Original string `json:"original"` // 录音转写原文
 	} `json:"audio,omitempty"`
+	QuickNote     string            `json:"quick_note,omitempty"`
+	Timeline      *NoteTimeline     `json:"timeline,omitempty"`
+	MeetingTodos  NoteMeetingTodos  `json:"meeting_todos"`
 	RefContent    string            `json:"ref_content"`
 	Source        string            `json:"source"`
 	EntryType     string            `json:"entry_type"`
@@ -147,10 +210,38 @@ type Note struct {
 	ChildrenIDs   []string          `json:"children_ids"`
 	Topics        []json.RawMessage `json:"topics"`
 	IsChildNote   bool              `json:"is_child_note"`
-	ParentID      json.Number       `json:"parent_id,omitempty"`
+	ParentID      StringID          `json:"parent_id,omitempty"`
 	ParentNoteID  string            `json:"parent_note_id,omitempty"`
 	Attachments   []json.RawMessage `json:"attachments"`
 	Version       int               `json:"version"`
+}
+
+type NoteMeetingTodos struct {
+	Source string            `json:"source"`
+	Items  []NoteMeetingTodo `json:"items"`
+}
+
+type NoteMeetingTodo struct {
+	Text      string `json:"text"`
+	Completed bool   `json:"completed"`
+}
+
+type NoteTimeline struct {
+	Version   int64                  `json:"version"`
+	Moments   []NoteTimelineMoment   `json:"moments"`
+	Resources []NoteOriginalResource `json:"resources"`
+}
+
+type NoteTimelineMoment struct {
+	StartMs int64  `json:"start_ms"`
+	EndMs   int64  `json:"end_ms"`
+	Text    string `json:"text"`
+}
+
+type NoteOriginalResource struct {
+	Type       string `json:"type"`
+	URL        string `json:"url"`
+	ActionTime int64  `json:"action_time"`
 }
 
 // TagNames returns tag names regardless of whether tags are strings or objects.
@@ -174,11 +265,11 @@ func (n *Note) TagNames() []string {
 
 // NoteListData is the data field of the note list response.
 type NoteListData struct {
-	Notes      []Note      `json:"notes"`
-	HasMore    bool        `json:"has_more"`
-	NextCursor json.Number `json:"next_cursor"`
-	Total      int         `json:"total"`
-	Cursor     string      `json:"cursor"` // 推荐的翻页方式
+	Notes      []Note   `json:"notes"`
+	HasMore    bool     `json:"has_more"`
+	NextCursor StringID `json:"next_cursor"`
+	Total      int      `json:"total"`
+	Cursor     string   `json:"cursor"` // 推荐的翻页方式
 }
 
 // NoteListParams holds parameters for listing notes.
@@ -205,7 +296,13 @@ func (c *Client) NoteList(params NoteListParams) (*NoteListResponse, error) {
 	if params.Limit > 0 {
 		q.Set("limit", fmt.Sprintf("%d", params.Limit))
 	}
-	return doGet[NoteListResponse](c, "/open/api/v1/resource/note/list", q)
+	resp, err := doGet[NoteListResponse](c, "/open/api/v1/resource/note/list", q)
+	if err == nil {
+		for i := range resp.Data.Notes {
+			resp.Data.Notes[i].NoteURL = c.NoteURL(noteIdentity(resp.Data.Notes[i]))
+		}
+	}
+	return resp, err
 }
 
 // NoteGetData is the data field of the note detail response.
@@ -223,7 +320,18 @@ type NoteGetResponse struct {
 // GET /open/api/v1/resource/note/detail?id=<note_id>
 func (c *Client) NoteGet(noteID string) (*NoteGetResponse, error) {
 	q := url.Values{"id": {noteID}}
-	return doGet[NoteGetResponse](c, "/open/api/v1/resource/note/detail", q)
+	resp, err := doGet[NoteGetResponse](c, "/open/api/v1/resource/note/detail", q)
+	if err == nil {
+		resp.Data.Note.NoteURL = c.NoteURL(noteIdentity(resp.Data.Note))
+	}
+	return resp, err
+}
+
+func noteIdentity(note Note) string {
+	if note.NoteID != "" {
+		return note.NoteID
+	}
+	return note.ID.String()
 }
 
 // NoteSaveRequest is the request body for saving a note.
@@ -249,7 +357,29 @@ type NoteSaveResponse struct {
 // NoteSave saves a new note (URL or plain text).
 // POST /open/api/v1/resource/note/save
 func (c *Client) NoteSave(req NoteSaveRequest) (*NoteSaveResponse, error) {
-	return doPost[NoteSaveResponse](c, "/open/api/v1/resource/note/save", req)
+	resp, err := doPost[NoteSaveResponse](c, "/open/api/v1/resource/note/save", req)
+	if err == nil && resp != nil {
+		if data, ok := resp.Data.(map[string]interface{}); ok {
+			if noteID := responseID(data["note_id"]); noteID != "" {
+				data["note_id"] = noteID
+				data["note_url"] = c.NoteURL(noteID)
+			}
+		}
+	}
+	return resp, err
+}
+
+func responseID(value interface{}) string {
+	switch id := value.(type) {
+	case string:
+		return id
+	case json.Number:
+		return id.String()
+	case StringID:
+		return id.String()
+	default:
+		return ""
+	}
 }
 
 // NoteUpdateRequest is the request body for updating a note.
@@ -469,8 +599,9 @@ func (c *Client) KBNotes(params KBNotesParams) (*KBNotesResponse, error) {
 
 // KBNotesBatchAddRequest is the request body for batch-adding notes to a KB.
 type KBNotesBatchAddRequest struct {
-	TopicID string   `json:"topic_id"`
-	NoteIDs []string `json:"note_ids"`
+	TopicID     string   `json:"topic_id"`
+	DirectoryID string   `json:"directory_id,omitempty"`
+	NoteIDs     []string `json:"note_ids"`
 }
 
 // KBNotesBatchAddResponse is the response from the batch-add endpoint.
@@ -482,9 +613,72 @@ type KBNotesBatchAddResponse struct {
 
 // KBNotesAdd adds notes to a knowledge base.
 // POST /open/api/v1/resource/knowledge/note/batch-add
-func (c *Client) KBNotesAdd(topicID string, noteIDs []string) (*KBNotesBatchAddResponse, error) {
-	req := KBNotesBatchAddRequest{TopicID: topicID, NoteIDs: noteIDs}
+func (c *Client) KBNotesAdd(topicID, directoryID string, noteIDs []string) (*KBNotesBatchAddResponse, error) {
+	req := KBNotesBatchAddRequest{TopicID: topicID, DirectoryID: directoryID, NoteIDs: noteIDs}
 	return doPost[KBNotesBatchAddResponse](c, "/open/api/v1/resource/knowledge/note/batch-add", req)
+}
+
+type KBDirectory struct {
+	ID           string `json:"id"`
+	TopicID      string `json:"topic_id"`
+	ParentID     string `json:"parent_id"`
+	Name         string `json:"name"`
+	Type         string `json:"type"`
+	ResourceDesc string `json:"resource_desc,omitempty"`
+}
+
+type KBResource struct {
+	ID          string `json:"id"`
+	DirectoryID string `json:"directory_id"`
+	NoteID      string `json:"note_id,omitempty"`
+	Name        string `json:"name"`
+	URL         string `json:"url,omitempty"`
+	Type        string `json:"type"`
+	Status      string `json:"status"`
+}
+
+type KBDirectoryListData struct {
+	CurrentDirectory *KBDirectory  `json:"current_directory,omitempty"`
+	Directories      []KBDirectory `json:"directories"`
+	Resources        []KBResource  `json:"resources"`
+	Total            int64         `json:"total"`
+}
+
+type KBDirectoryListResponse struct {
+	Success bool                `json:"success"`
+	Data    KBDirectoryListData `json:"data"`
+}
+
+func (c *Client) KBDirectoryList(topicID, directoryID string) (*KBDirectoryListResponse, error) {
+	q := url.Values{"topic_id": {topicID}}
+	if directoryID != "" {
+		q.Set("directory_id", directoryID)
+	}
+	return doGet[KBDirectoryListResponse](c, "/open/api/v1/resource/knowledge/directories", q)
+}
+
+type KBDirectoryRequest struct {
+	TopicID     string `json:"topic_id"`
+	DirectoryID string `json:"directory_id,omitempty"`
+	ParentID    string `json:"parent_id,omitempty"`
+	Name        string `json:"name,omitempty"`
+}
+
+type KBDirectoryMutationResponse struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+}
+
+func (c *Client) KBDirectoryCreate(topicID, parentID, name string) (*KBDirectoryMutationResponse, error) {
+	return doPost[KBDirectoryMutationResponse](c, "/open/api/v1/resource/knowledge/directory/create", KBDirectoryRequest{TopicID: topicID, ParentID: parentID, Name: name})
+}
+
+func (c *Client) KBDirectoryUpdate(topicID, directoryID, parentID, name string) (*KBDirectoryMutationResponse, error) {
+	return doPost[KBDirectoryMutationResponse](c, "/open/api/v1/resource/knowledge/directory/update", KBDirectoryRequest{TopicID: topicID, DirectoryID: directoryID, ParentID: parentID, Name: name})
+}
+
+func (c *Client) KBDirectoryDelete(topicID, directoryID string) (*KBDirectoryMutationResponse, error) {
+	return doPost[KBDirectoryMutationResponse](c, "/open/api/v1/resource/knowledge/directory/delete", KBDirectoryRequest{TopicID: topicID, DirectoryID: directoryID})
 }
 
 // KBNotesRemoveRequest is the request body for removing notes from a KB.
@@ -514,6 +708,7 @@ func (c *Client) KBNotesRemove(topicID string, noteIDs []string) (*KBNotesRemove
 // RecallResult is a single search result item.
 type RecallResult struct {
 	NoteID    string  `json:"note_id"`
+	NoteURL   string  `json:"note_url,omitempty"`
 	NoteType  string  `json:"note_type"`
 	Title     string  `json:"title"`
 	Content   string  `json:"content"`
@@ -538,7 +733,9 @@ type NoteSearchResponse struct {
 // NoteSearch performs global semantic search across all notes.
 // POST /open/api/v1/resource/recall
 func (c *Client) NoteSearch(query string, topK int) (*NoteSearchResponse, error) {
-	return doPost[NoteSearchResponse](c, "/open/api/v1/resource/recall", NoteSearchRequest{Query: query, TopK: topK})
+	resp, err := doPost[NoteSearchResponse](c, "/open/api/v1/resource/recall", NoteSearchRequest{Query: query, TopK: topK})
+	c.decorateSearch(resp)
+	return resp, err
 }
 
 // KBSearchRequest is the request body for knowledge base recall.
@@ -551,7 +748,18 @@ type KBSearchRequest struct {
 // KBSearch performs semantic search within a specific knowledge base.
 // POST /open/api/v1/resource/recall/knowledge
 func (c *Client) KBSearch(topicID, query string, topK int) (*NoteSearchResponse, error) {
-	return doPost[NoteSearchResponse](c, "/open/api/v1/resource/recall/knowledge", KBSearchRequest{TopicID: topicID, Query: query, TopK: topK})
+	resp, err := doPost[NoteSearchResponse](c, "/open/api/v1/resource/recall/knowledge", KBSearchRequest{TopicID: topicID, Query: query, TopK: topK})
+	c.decorateSearch(resp)
+	return resp, err
+}
+
+func (c *Client) decorateSearch(resp *NoteSearchResponse) {
+	if resp == nil {
+		return
+	}
+	for i := range resp.Data.Results {
+		resp.Data.Results[i].NoteURL = c.NoteURL(resp.Data.Results[i].NoteID)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -563,15 +771,15 @@ func (c *Client) KBSearch(topicID, query string, topK int) (*NoteSearchResponse,
 // blogger link as follow_link (not account_url); it also includes
 // notes_count and hook_state.
 type KBBlogger struct {
-	FollowID      json.Number `json:"follow_id"`
-	FollowIDStr   string      `json:"follow_id_str"`
-	AccountName   string      `json:"account_name"`
-	AccountAvatar string      `json:"account_avatar"`
-	NotesCount    int         `json:"notes_count"`
-	Platform      string      `json:"platform"`
-	HookState     string      `json:"hook_state"`
-	FollowLink    string      `json:"follow_link"`
-	FollowTime    string      `json:"follow_time"`
+	FollowID      StringID `json:"follow_id"`
+	FollowIDStr   string   `json:"follow_id_str"`
+	AccountName   string   `json:"account_name"`
+	AccountAvatar string   `json:"account_avatar"`
+	NotesCount    int      `json:"notes_count"`
+	Platform      string   `json:"platform"`
+	HookState     string   `json:"hook_state"`
+	FollowLink    string   `json:"follow_link"`
+	FollowTime    string   `json:"follow_time"`
 }
 
 // KBBloggerListData is the data field of the blogger list response.
@@ -593,6 +801,12 @@ func (c *Client) KBBloggerList(topicID string, page int) (*KBBloggerListResponse
 	return doGet[KBBloggerListResponse](c, "/open/api/v1/resource/knowledge/bloggers", url.Values{
 		"topic_id": {topicID},
 		"page":     {fmt.Sprintf("%d", page)},
+	})
+}
+
+func (c *Client) KBBloggerFollow(topicID, link, platform string) (*KBLiveFollowResponse, error) {
+	return doPost[KBLiveFollowResponse](c, "/open/api/v1/resource/knowledge/blogger/follow", KBLiveFollowRequest{
+		TopicID: topicID, Link: link, Platform: platform,
 	})
 }
 
@@ -722,12 +936,12 @@ type KBLiveFollowRequest struct {
 }
 
 type KBLiveFollowData struct {
-	FollowID    json.Number `json:"follow_id"`
-	FollowIDStr string      `json:"follow_id_str"`
-	URL         string      `json:"url"`
-	Platform    string      `json:"platform"`
-	Type        string      `json:"type"`
-	CreatedAt   string      `json:"created_at"`
+	FollowID    StringID `json:"follow_id"`
+	FollowIDStr string   `json:"follow_id_str"`
+	URL         string   `json:"url"`
+	Platform    string   `json:"platform"`
+	Type        string   `json:"type"`
+	CreatedAt   string   `json:"created_at"`
 }
 
 type KBLiveFollowResponse struct {

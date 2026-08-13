@@ -15,7 +15,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const oauthClientID = "cli_a1b2c3d4e5f6789012345678abcdef90"
+const (
+	productionOAuthClientID = "cli_a1b2c3d4e5f6789012345678abcdef90"
+	testOAuthClientID       = "cli_f9937f36283fa04a1e617e34"
+)
+
+func resolveOAuthClientID() string {
+	if clientID := strings.TrimSpace(os.Getenv("GETNOTE_CLIENT_ID")); clientID != "" {
+		return clientID
+	}
+	return resolveOAuthClientIDForURL(oauthURL(""), config.Get().ClientID)
+}
+
+func resolveOAuthClientIDForURL(apiURL, configuredClientID string) string {
+	if clientID := strings.TrimSpace(configuredClientID); clientID != "" && clientID != config.DefaultClientID {
+		return clientID
+	}
+	apiURL = strings.ToLower(apiURL)
+	if strings.Contains(apiURL, "dev.didatrip.com") || strings.Contains(apiURL, "openapi-dev.biji.com") {
+		return testOAuthClientID
+	}
+	return productionOAuthClientID
+}
 
 func oauthURL(path string) string {
 	baseURL := strings.TrimRight(os.Getenv("GETNOTE_API_URL"), "/")
@@ -37,7 +58,10 @@ func NewAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
 		Short: "管理认证 / Manage authentication",
-		Long:  "Log in, log out, or check the status of your getnote API key.",
+		Long:  "登录、退出或检查得到大脑授权状态。凭证只保存在本机，不会在帮助和状态输出中完整展示。",
+		Example: `  getnote auth login
+  getnote auth status
+  getnote auth logout`,
 	}
 
 	cmd.AddCommand(newLoginCmd())
@@ -52,10 +76,10 @@ func newLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "登录 Get笔记 / Authenticate with Get笔记",
-		Long: `Authenticate via OAuth Device Flow (recommended) or directly with an API key.
-
-  getnote auth login              # OAuth: open browser to authorize
-  getnote auth login --api-key <key>  # Direct: save API key`,
+		Long: `推荐使用 OAuth Device Flow 在浏览器完成授权；也支持直接保存已有的 API Key。
+API Key 登录时建议同时提供所属 Client ID。`,
+		Example: `  getnote auth login
+  getnote auth login --api-key gk_live_xxx --client-id cli_xxx`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Direct mode: --api-key provided
 			if apiKey != "" {
@@ -63,8 +87,8 @@ func newLoginCmd() *cobra.Command {
 				cfg.APIKey = apiKey
 				if clientID != "" {
 					cfg.ClientID = clientID
-				} else if cfg.ClientID == "" {
-					cfg.ClientID = oauthClientID
+				} else if cfg.ClientID == "" || cfg.ClientID == config.DefaultClientID {
+					cfg.ClientID = resolveOAuthClientID()
 				}
 				if err := cfg.Save(); err != nil {
 					return fmt.Errorf("saving config: %w", err)
@@ -85,8 +109,9 @@ func newLoginCmd() *cobra.Command {
 
 // runDeviceFlow runs the OAuth 2.0 Device Authorization Flow.
 func runDeviceFlow(out io.Writer) error {
+	clientID := resolveOAuthClientID()
 	// Step 1: request device code
-	body := fmt.Sprintf(`{"client_id":"%s"}`, oauthClientID)
+	body := fmt.Sprintf(`{"client_id":"%s"}`, clientID)
 	resp, err := http.Post(oauthURL("/oauth/device/code"), "application/json", strings.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("requesting device code: %w", err)
@@ -124,7 +149,7 @@ func runDeviceFlow(out io.Writer) error {
 	fmt.Fprintf(out, "Waiting for authorization")
 
 	// Step 3: poll
-	pollBody := fmt.Sprintf(`{"grant_type":"device_code","client_id":"%s","code":"%s"}`, oauthClientID, d.Code)
+	pollBody := fmt.Sprintf(`{"grant_type":"device_code","client_id":"%s","code":"%s"}`, clientID, d.Code)
 	for time.Now().Before(deadline) {
 		time.Sleep(interval)
 		fmt.Fprint(out, ".")
@@ -186,8 +211,9 @@ func runDeviceFlow(out io.Writer) error {
 
 func newLogoutCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "logout",
-		Short: "退出登录 / Remove the saved API key",
+		Use:     "logout",
+		Short:   "退出登录 / Remove the saved API key",
+		Example: `  getnote auth logout`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.Get()
 			if err := cfg.Clear(); err != nil {
@@ -201,8 +227,9 @@ func newLogoutCmd() *cobra.Command {
 
 func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "status",
-		Short: "查看认证状态 / Show the current authentication status",
+		Use:     "status",
+		Short:   "查看认证状态 / Show the current authentication status",
+		Example: `  getnote auth status`,
 		Run: func(cmd *cobra.Command, args []string) {
 			cfg := config.Get()
 

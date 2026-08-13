@@ -1,8 +1,11 @@
 package search
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/iswalle/getnote-cli/internal/client"
@@ -17,6 +20,7 @@ var cols = []ui.ColSpec{
 	{Value: "Score", Width: 6},
 	{Value: "Created", Width: 19},
 	{Value: "Content", Width: 50},
+	{Value: "Note URL", Width: 44},
 }
 
 const sep = "  "
@@ -34,6 +38,9 @@ func NewSearchCmd() *cobra.Command {
   getnote search "RAG" --kb qnNX75j0
   getnote search "机器学习" --limit 5 -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 1 || limit > 10 {
+				return fmt.Errorf("--limit 必须在 1 到 10 之间")
+			}
 			query := strings.Join(args, " ")
 			c := client.New("")
 
@@ -46,6 +53,9 @@ func NewSearchCmd() *cobra.Command {
 				resp, err = c.NoteSearch(query, limit)
 			}
 			if err != nil {
+				if isSearchTimeout(err) {
+					return fmt.Errorf("搜索服务响应超时，请稍后重试；也可以缩小关键词或指定知识库后再试: %w", err)
+				}
 				return ui.FriendlyError(err)
 			}
 
@@ -72,6 +82,7 @@ func NewSearchCmd() *cobra.Command {
 					{Value: fmt.Sprintf("%.2f", r.Score), Width: cols[3].Width},
 					{Value: r.CreatedAt, Width: cols[4].Width},
 					{Value: ui.Truncate(r.Content, cols[5].Width), Width: cols[5].Width},
+					{Value: r.NoteURL, Width: cols[6].Width},
 				}
 				fmt.Fprint(out, ui.PrintRow(row, sep))
 			}
@@ -85,8 +96,15 @@ func NewSearchCmd() *cobra.Command {
 	return cmd
 }
 
+func isSearchTimeout(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
 func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
 }
-

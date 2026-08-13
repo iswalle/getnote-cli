@@ -1,243 +1,87 @@
 ---
 name: getnote-kb
-version: 0.6.0
-description: Manage knowledge bases in Get笔记 via the getnote CLI
+description: 查看和管理得到大脑的默认知识库、书籍、客户档案、团队知识库、文件夹、抖音博主订阅与直播，并把笔记准确归档到指定知识库和目录。
 ---
 
-# getnote-kb Skill
-
-Manage knowledge bases — list, create, browse notes, add/remove notes. Also supports subscribed knowledge bases, blogger content, live sessions, and quota.
-
-## Prerequisites
-
-- `getnote` CLI installed and authenticated (`getnote auth status` should show "Authenticated")
-
-## Commands
-
-### List all knowledge bases
-
-```
-getnote kbs
-```
-
-Returns all owned knowledge bases, including `DEFAULT` (normal), `BOOKSPACE` (book), and `CUSTOMER` (customer profile). Each item includes `topic_id`, `name`, `scope`, `description`, and stats.
-
-```bash
-getnote kbs
-getnote kbs -o json
-```
-
-> When saving into a named knowledge base, select it from the complete list by `name` and `scope`, then call `getnote save ... --topic-id <topic_id>`. Do not filter the list to `DEFAULT` only.
-
----
-
-### List subscribed knowledge bases
-
-```
-getnote kbs-sub [--page <n>]
-```
-
-Returns knowledge bases the user has subscribed to. Supports pagination.
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--page` | 1 | Page number |
-
-```bash
-getnote kbs-sub
-getnote kbs-sub --page 2
-getnote kbs-sub -o json
-```
-
-> Use `getnote kb <topic_id>` to browse notes inside a subscribed knowledge base.
-
----
-
-### List notes in a knowledge base
-
-```
-getnote kb <topic_id> [--limit <n>] [--all]
-```
-
-Returns 20 notes per page by default.
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--limit` | 20 | Notes per page |
-| `--all` | — | Fetch all notes (auto-paginate) |
-
-```bash
-getnote kb vnrOAaGY
-getnote kb vnrOAaGY --all
-getnote kb vnrOAaGY -o json
-```
-
----
-
-### Create a knowledge base
-
-```
-getnote kb create <name> [--desc <description>]
-```
-
-```bash
-getnote kb create "Research Papers"
-getnote kb create "Project Docs" --desc "Documentation links"
-```
-
-> Max 50 knowledge bases per day (resets at 00:00 Beijing time).
-
----
-
-### Add notes to a knowledge base
-
-```
-getnote kb add <topic_id> <note_id> [note_id...]
-```
-
-Supports multiple note IDs. Max 20 per call.
-
-```bash
-getnote kb add vnrOAaGY 1234567890
-getnote kb add vnrOAaGY 1234567890 9876543210
-```
-
-> Already-existing notes are silently skipped.
-
----
-
-### Remove notes from a knowledge base
-
-```
-getnote kb remove <topic_id> <note_id> [note_id...]
-```
-
-```bash
-getnote kb remove vnrOAaGY 1234567890
-```
-
-> ⚠️ **订阅知识库限制**：如果目标知识库是他人创建（通过 `getnote kbs-sub` 获取），且用户不是该知识库的管理员，则无法添加或移除笔记，API 会返回错误。只有自己创建的知识库（`getnote kbs`）才支持完整的增删操作。
-
----
-
-### List bloggers in a knowledge base
-
-```
-getnote kb bloggers <topic_id> [--page <n>]
-```
-
-Returns subscribed bloggers. Each item includes: `follow_id` (required for content queries), `account_name`, `platform`, `follow_time`.
-
-```bash
-getnote kb bloggers vnrOAaGY
-getnote kb bloggers vnrOAaGY --page 2 -o json
-```
-
----
-
-### List blogger contents
-
-```
-getnote kb blogger-contents <topic_id> <follow_id> [--page <n>]
-```
-
-Returns content list (no full text). Use `post_id_alias` to fetch detail.
-
-```bash
-getnote kb blogger-contents vnrOAaGY follow123
-getnote kb blogger-contents vnrOAaGY follow123 --page 2
-```
-
----
-
-### Show blogger content detail
-
-```
-getnote kb blogger-content <topic_id> <post_id>
-```
-
-Returns full content including original text (`post_media_text`).
-
-```bash
-getnote kb blogger-content vnrOAaGY post_abc123
-getnote kb blogger-content vnrOAaGY post_abc123 -o json
-```
-
----
-
-### List completed lives in a knowledge base
-
-```
-getnote kb lives <topic_id> [--page <n>]
-```
-
-Returns only completed live sessions that have been AI-processed.
-
-```bash
-getnote kb lives vnrOAaGY
-getnote kb lives vnrOAaGY --page 2
-```
-
----
-
-### Show live detail
-
-```
-getnote kb live <topic_id> <live_id>
-```
-
-Returns AI summary (`post_summary`) and full transcript (`post_media_text`).
-
-```bash
-getnote kb live vnrOAaGY live_abc123
-getnote kb live vnrOAaGY live_abc123 -o json
-```
-
----
-
-### Follow a live channel in a knowledge base
-
-```
-getnote kb live-follow <topic_id> <link> [--platform <platform>]
-```
-
-Subscribes a Dedao live channel to a knowledge base. Once the live session ends and is AI-processed, it will appear in `kb lives`.
-
-> ⚠️ Currently only Dedao App live links are supported.
-
-```bash
-getnote kb live-follow vnrOAaGY https://m.dedao.cn/live/xxxxx
-getnote kb live-follow vnrOAaGY https://m.dedao.cn/live/xxxxx -o json
-```
-
-Returns: `follow_id`, `url`, `platform`, `type`, `created_at`.
-
----
-
-### Show API quota usage
-
-```
-getnote quota
-```
-
-```bash
-getnote quota
-getnote quota -o json
-```
-
----
-
-## Agent Usage Notes
-
-- Use `-o json` when parsing results programmatically.
-- `kbs -o json` returns `{"success":true,"data":{"topics":[...],"total":N}}`
-- `kbs-sub -o json` returns the same shape as `kbs -o json`.
-- `kb <topic_id> -o json` returns `{"success":true,"data":{"notes":[...],"has_more":...}}`
-- Get `topic_id` from `getnote kbs -o json` or `getnote kbs-sub -o json` → `data.topics[].topic_id` field (not `id`). Owned lists include DEFAULT / BOOKSPACE / CUSTOMER.
-- `kb add` / `kb remove` accept multiple note IDs — prefer batching over multiple calls.
-- **Subscribed KBs are read-only** unless the user is an admin of that KB. `kb add` / `kb remove` will return an API error on subscribed KBs owned by others. Use `getnote kbs` (owned) vs `getnote kbs-sub` (subscribed) to distinguish.
-- `kb bloggers` → get `follow_id` → `kb blogger-contents` → get `post_id_alias` → `kb blogger-content` for full text.
-- `kb lives` → get `live_id` → `kb live` for AI summary + transcript.
-- `kb live-follow <topic_id> <link>` to subscribe a live channel; newly finished lives will appear in `kb lives`.
-- `quota -o json` returns `{"success":true,"data":{"read":{"daily":{limit,used,remaining,reset_at},"monthly":{...}},"write":{...},"write_note":{...}}}`
-- Exit code `0` = success; non-zero = error. Error details go to stderr.
+# 得到大脑知识库
+
+通过官方 CLI 读取真实知识库、权限和目录后再操作；不能用名称猜 ID。机器调用统一使用 `-o json`；只有退出码为 0 且 `success=true` 才是业务成功。返回中的所有知识库、目录、博主和笔记 ID 都按字符串原样传递。
+
+所有 API 命令的 JSON 都先判断 `success`。`success=false` 或退出码非 0 时读取 `error.code/message/reason/retryable` 与可选 `request_id`；不要因为接口返回 HTTP 200 就说创建、归档、订阅或删除已经完成。
+
+## 意图路由
+
+| 意图 | 命令入口 |
+|---|---|
+| 自有/可管理知识库 | `getnote kbs` |
+| 订阅知识库 | `getnote kbs-sub` |
+| 知识库笔记 | `getnote kb <topic_id>` |
+| 新建个人知识库 | `getnote kb create` |
+| 加入笔记 | `getnote kb add` |
+| 移出笔记 | `getnote kb remove` |
+| 浏览文件夹 | `gnote kb dir` |
+| 创建文件夹 | `gnote kb mkdir` |
+| 重命名/移动文件夹 | `gnote kb mvdir` |
+| 删除空文件夹 | `gnote kb rmdir` |
+| 博主列表 | `getnote kb bloggers` |
+| 博主内容列表 | `getnote kb blogger-contents` |
+| 博主内容详情 | `getnote kb blogger-content` |
+| 订阅抖音博主 | `getnote kb blogger-follow` |
+| 直播列表 | `getnote kb lives` |
+| 直播详情 | `getnote kb live` |
+| 订阅直播 | `getnote kb live-follow` |
+
+`gnote` 和短命令是稳定别名；旧环境没有别名时回退到 `getnote kb directories/directory-create/directory-update/directory-delete`。参数一律以目标命令 `--help` 为准。
+
+## 选择知识库和权限
+
+1. 先执行 `getnote kbs -o json`，保留全部真实 Scope：`DEFAULT`、`BOOKSPACE`、`CUSTOMER`、`TEAMSPACE`，不能只返回默认知识库。
+2. 按名称和 `scope` 匹配；同名或用户意图不明确时让用户选择，不猜 `topic_id`。
+3. 订阅知识库通常只读。团队知识库（`TEAMSPACE`）成员可以读取；只有接口返回具备维护权限的拥有者或管理员才能创建目录、加入笔记或订阅内容。
+4. 普通成员写入失败时明确说明权限不足，不尝试绕过。当前不代替用户新建团队知识库。
+
+## 文件夹和归档流程
+
+1. 用户要求放入文件夹时，用 `gnote kb dir <topic_id> -o json` 读取根目录或指定目录。
+2. 已有文件夹使用返回的真实 `directory_id`；缺失时先询问是否创建，再用 `mkdir`。
+3. `getnote kb add` 同时传真实 `topic_id`、字符串 `note_id` 和 CLI 帮助中规定的目录参数。
+4. 每批最多 20 条。移出笔记和删除目录必须先确认；删除目录还必须由 CLI/服务校验为空。
+5. 移动或重命名时只改变用户指定项，未指定的名称或父目录保持不变。
+
+## 博主和直播
+
+1. 用户给出抖音主页并要求持续关注时，先确认目标知识库和写权限，再使用 `blogger-follow`；只是找某条内容时先查询，不创建订阅。
+2. 列表先返回博主/直播名称、真实字符串 ID 和必要状态，选中后再读取完整内容。
+3. 博主内容详情中的 `post_media_text` 才是完整原文，不用摘要冒充。
+
+## 每条命令的结果与回复格式
+
+| 命令 | 成功结果必须包含 | 回复规则 |
+|---|---|---|
+| `getnote kbs -o json` | `success=true`、`data.topics[].topic_id/name/scope/stats`、`has_more/total` | 展示全部真实 Scope，不只展示默认知识库。 |
+| `getnote kbs-sub -o json` | `success=true`、`data.topics[].topic_id/name`、`has_more/total` | 订阅知识库通常只读，不能把它当作可写知识库。 |
+| `getnote kb <topic_id> -o json` | `success=true`、`data.notes[].note_id/title/note_type`、`has_more/total` | 返回知识库内真实笔记；需要链接时再用 `note` 读取详情。 |
+| `getnote kb create <name> -o json` | `success=true`、`data?` | 仅创建个人知识库；不得在没有返回 ID 时虚构 `topic_id`。 |
+| `getnote kb add <topic_id> <note_id…> -o json` | `success=true`、`data?` | 最多 20 条；需要确认最终目录归属时重新读取目录。 |
+| `getnote kb remove <topic_id> <note_id…> --yes -o json` | `success=true`、`data?` | 最多 20 条；先确认，再说明已从该知识库移出。 |
+| `gnote kb dir <topic_id> -o json` | `success=true`、`data.current_directory?`、`directories[].id/name`、`resources[]`、`total` | 只使用返回的 `directory_id`；旧环境回退 `getnote kb directories`。 |
+| `gnote kb mkdir <topic_id> --name <name> -o json` | `success=true`、`data?` | 也兼容位置参数 `<name>`；二者不可同时使用。若需给出新目录 ID 或层级，随后重新读取目录。 |
+| `gnote kb mvdir <topic_id> <directory_id> … -o json` | `success=true`、`data?` | 只确认用户指定的改名/移动；需要最终名称或父级时重新读取目录。 |
+| `gnote kb rmdir <topic_id> <directory_id> --yes -o json` | `success=true`、`data?` | 只删除空目录；说明已删除前必须拿到业务成功。 |
+| `getnote kb bloggers <topic_id> -o json` | `success=true`、`data.bloggers[].follow_id_str/account_name/platform`、`has_more/total` | 列表中使用 `follow_id_str` 作为后续查询 ID。 |
+| `getnote kb blogger-follow <topic_id> <link> -o json` | `success=true`、`data.follow_id_str/url/platform/type/created_at` | 说明实际订阅的平台和对象；先确认目标知识库有写权限。 |
+| `getnote kb blogger-contents <topic_id> <follow_id> -o json` | `success=true`、`data.contents[].post_id_alias/post_title/post_publish_time`、`has_more/total` | 返回标题与摘要；阅读全文前让用户选择具体内容。 |
+| `getnote kb blogger-content <topic_id> <post_id> -o json` | `success=true`、`data.post_title/post_summary?/post_media_text?/post_url?/post_publish_time` | `post_media_text` 才是完整原文，摘要不能替代它。 |
+| `getnote kb lives <topic_id> -o json` | `success=true`、`data.lives[].live_id/name/status`、`has_more/total` | 先列出真实直播，再按用户选择读取详情。 |
+| `getnote kb live <topic_id> <live_id> -o json` | `success=true`、`data.post_title/post_summary?/post_media_text?/post_publish_time` | `post_media_text` 是直播原文/转写；没有时不凭摘要补写。 |
+| `getnote kb live-follow <topic_id> <link> -o json` | `success=true`、`data.follow_id_str/url/platform/type/created_at` | 说明真实订阅对象和平台。 |
+
+权限不足、目录非空、批量超限等失败必须原样解释，不伪造降级成功；保留 `request_id` 和 `retryable`。
+
+## 完成、处理中与失败后的动作
+
+- `kbs`、`kbs-sub`、`kb`、`dir`、博主和直播的空列表都是成功结果：如实说“目前没有”，不要自动创建知识库、目录或订阅。
+- `kb create`、`kb add`、`mkdir`、`mvdir` 等写操作的 `data` 可能因服务版本不同而不提供完整对象。只在 `success=true` 时确认动作已提交；若要向用户返回新目录 ID、最终层级或笔记归属，必须紧接着重新读取 `gnote kb dir` 或 `getnote kb <topic_id>`，不能猜字段。
+- `kb add` 即使请求成功，也不能把“已发起加入”说成“已进入某个目录”；只有重新读取后出现对应 `note_id` / `directory_id` 才能展示最终归属。
+- `kb remove`、`rmdir` 前必须有用户明确确认并带 `--yes`；若 `reason=knowledge_directory_not_empty`，明确提示“目录非空，请先移出内容或删除子目录”，不要原请求重试。其它失败也应说明真实原因和下一步，绝不宣称已删除。
+- 用户给的团队知识库不在 `getnote kbs` 返回中时，先说明当前账号没有访问权限；不能把个人知识库同名项替代成团队知识库。

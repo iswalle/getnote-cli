@@ -7,21 +7,10 @@ import (
 	"unicode/utf8"
 )
 
-// FriendlyError extracts a human-readable message from raw API error strings.
-// If the error contains a JSON "message" field, that value is returned.
-// Otherwise the original error is returned unchanged.
+// FriendlyError preserves the original error so the root command can retain
+// structured API fields such as reason, retryable and request_id. Human-facing
+// formatting belongs at the final output boundary, not inside a subcommand.
 func FriendlyError(err error) error {
-	if err == nil {
-		return nil
-	}
-	msg := err.Error()
-	if idx := strings.Index(msg, `"message":"`); idx != -1 {
-		start := idx + len(`"message":"`)
-		end := strings.Index(msg[start:], `"`)
-		if end > 0 {
-			return fmt.Errorf("%s", msg[start:start+end])
-		}
-	}
 	return err
 }
 

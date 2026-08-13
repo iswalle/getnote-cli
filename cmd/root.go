@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"github.com/iswalle/getnote-cli/cmd/auth"
+	"github.com/iswalle/getnote-cli/cmd/capabilities"
+	"github.com/iswalle/getnote-cli/cmd/doctor"
 	"github.com/iswalle/getnote-cli/cmd/kb"
 	"github.com/iswalle/getnote-cli/cmd/kbs"
 	"github.com/iswalle/getnote-cli/cmd/kbssub"
@@ -16,6 +18,7 @@ import (
 	"github.com/iswalle/getnote-cli/cmd/quota"
 	"github.com/iswalle/getnote-cli/cmd/save"
 	"github.com/iswalle/getnote-cli/cmd/search"
+	"github.com/iswalle/getnote-cli/cmd/setup"
 	"github.com/iswalle/getnote-cli/cmd/tag"
 	"github.com/iswalle/getnote-cli/cmd/task"
 	"github.com/iswalle/getnote-cli/cmd/update"
@@ -40,7 +43,8 @@ var rootCmd = &cobra.Command{
 getnote is a command-line tool for interacting with Get笔记.
 It allows both humans and AI agents to manage notes and knowledge bases
 from the terminal.`,
-	SilenceUsage: true,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	CompletionOptions: cobra.CompletionOptions{
 		HiddenDefaultCmd: true,
 	},
@@ -56,10 +60,20 @@ func Execute() {
 
 func writeError(w io.Writer, err error, format string) {
 	var requestErr *client.RequestError
-	if format == "json" && errors.As(err, &requestErr) {
-		apiErr := requestErr.APIError
-		if apiErr.Code == 10201 {
-			apiErr.MembershipURL = client.MembershipPurchaseURL
+	if format == "json" {
+		apiErr := client.APIError{
+			Code:      -1,
+			Message:   err.Error(),
+			Reason:    "cli_error",
+			Retryable: false,
+		}
+		requestID := ""
+		if errors.As(err, &requestErr) {
+			apiErr = requestErr.APIError
+			requestID = requestErr.RequestID
+			if apiErr.Code == 10201 {
+				apiErr.MembershipURL = client.MembershipPurchaseURL
+			}
 		}
 		payload := struct {
 			Success   bool             `json:"success"`
@@ -70,7 +84,7 @@ func writeError(w io.Writer, err error, format string) {
 			Success:   false,
 			Data:      nil,
 			Error:     &apiErr,
-			RequestID: requestErr.RequestID,
+			RequestID: requestID,
 		}
 		encoder := json.NewEncoder(w)
 		encoder.SetIndent("", "  ")
@@ -92,6 +106,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "输出格式 / Output format: table or json")
 
 	rootCmd.AddCommand(auth.NewAuthCmd())
+	rootCmd.AddCommand(capabilities.NewCapabilitiesCmd())
+	rootCmd.AddCommand(doctor.NewDoctorCmd())
+	rootCmd.AddCommand(setup.NewSetupCmd())
 	rootCmd.AddCommand(save.NewSaveCmd())
 	rootCmd.AddCommand(task.NewTaskCmd())
 	rootCmd.AddCommand(notes.NewNotesCmd())

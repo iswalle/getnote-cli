@@ -14,9 +14,10 @@ const sep = "  "
 
 var cols = []ui.ColSpec{
 	{Value: "ID", Width: 20},
-	{Value: "Title", Width: 52},
+	{Value: "Title", Width: 38},
 	{Value: "Type", Width: 14},
 	{Value: "Created", Width: 19},
+	{Value: "Note URL", Width: 44},
 }
 
 // NewNotesCmd returns the top-level notes (list) command.
@@ -82,7 +83,7 @@ func applyLimit(resp *client.NoteListResponse, limit int) {
 	last := resp.Data.Notes[len(resp.Data.Notes)-1]
 	cursor := ui.NoteID(last.NoteID, last.ID)
 	resp.Data.Cursor = cursor
-	resp.Data.NextCursor = json.Number(cursor)
+	resp.Data.NextCursor = client.StringID(cursor)
 	resp.Data.HasMore = true
 }
 
@@ -151,6 +152,7 @@ func printRow(cmd *cobra.Command, n client.Note) {
 		{Value: n.Title, Width: cols[1].Width},
 		{Value: n.NoteType, Width: cols[2].Width},
 		{Value: n.CreatedAt, Width: cols[3].Width},
+		{Value: n.NoteURL, Width: cols[4].Width},
 	}
 	fmt.Fprint(cmd.OutOrStdout(), ui.PrintRow(row, sep))
 }

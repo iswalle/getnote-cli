@@ -8,8 +8,27 @@
 
 ## 安装
 
+### 让本地 AI 自动完成安装（推荐）
+
+适用于 Codex、Claude Code 和 Cursor：
+
+```bash
+npx -y @getnote/cli@latest setup
+```
+
+这条命令会安装 CLI、识别本机支持的平台、安装五个原子 Skill，并引导完成一次得到大脑授权。安装后运行：
+
+```bash
+getnote doctor -o json
+```
+
+安装完成后，`getnote` 和更短的 `gnote` 可以互换使用，例如 `gnote notes`。
+
+### 只安装命令行
+
 ```bash
 npm install -g @getnote/cli
+getnote auth login
 ```
 
 或者从 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载对应平台的二进制文件，放到 `$PATH` 里。
@@ -34,23 +53,16 @@ npm install -g @getnote/cli --ignore-scripts
 
 ---
 
-## 三步开始用
+## 开始使用
 
-**第一步：安装**
-```bash
-# 已完成，如上
-```
-
-**（可选）安装 AI Agent Skill**
-
-在 Claude Code、Cursor 等 AI 编程工具里用自然语言操作笔记，需要额外安装 Skill：
+如果已经单独安装 CLI，还可以为 Codex、Claude Code、Cursor 补装内置的五个原子 Skill：
 ```bash
 npx skills add iswalle/getnote-cli -y -g
 ```
 
-> ⚠️ 需先完成第一步安装 CLI，再安装 Skill。
+使用 `getnote setup` 时不需要再执行这条命令。
 
-**第二步：登录**
+登录：
 ```bash
 getnote auth login
 ```
@@ -59,7 +71,7 @@ getnote auth login
 getnote auth login --api-key gk_live_xxx --client-id cli_xxx
 ```
 
-**第三步：开始用**
+开始用：
 ```bash
 # 存一篇文章
 getnote save https://example.com/article --tag 阅读
@@ -69,6 +81,25 @@ getnote save "周五前要回复王总的邮件" --tag 待办
 
 # 看最近的笔记
 getnote notes
+```
+
+## 检查和升级
+
+```bash
+# 查看当前版本并检查是否有新版
+getnote version --check-update
+
+# 只检查，不安装
+getnote update --check
+
+# 升级到最新 GitHub Release
+getnote update
+```
+
+如果通过 npm 安装，也可以完整更新 npm 包和可执行程序：
+
+```bash
+npm install -g @getnote/cli@latest
 ```
 
 ---
@@ -126,13 +157,17 @@ getnote search "关键词" -o json
 getnote save https://example.com -o json   # 自动轮询，返回最终笔记
 ```
 
-`skills/` 目录下有 Claude Code 专用的 Skill 文件，安装后 AI Agent 可以直接用自然语言操作笔记：
+保存、列表、详情和搜索的 JSON 结果都会返回当前环境可打开的 `note_url`。测试环境会返回测试站地址，生产环境返回 `https://www.biji.com/note/{id}`。
+
+`skills/` 目录是 CLI 内置的五个原子 Skill，也是本地 Agent 的唯一维护源。安装后 AI Agent 可以直接用自然语言操作笔记：
 
 ```bash
 npx skills add iswalle/getnote-cli -y -g
 ```
 
 安装后在 Claude Code / Cursor 里说「帮我搜一下关于 RAG 的笔记」即可直接调用。
+
+独立的聚合 Skill 面向 WorkBuddy、QClaw 和 OpenClaw 生态，只负责意图理解，底层仍调用同一个 CLI，不再维护第二套 OpenAPI 请求实现。
 
 ---
 
@@ -145,6 +180,9 @@ getnote auth login                   OAuth 登录（浏览器授权）
 getnote auth login --api-key <key> --client-id <id>  直接用 API Key 登录
 getnote auth status                  查看当前登录状态
 getnote auth logout                  退出登录
+getnote doctor                       检查安装、登录和 API 连通性
+getnote capabilities                 查看当前版本的稳定能力
+getnote setup                        为本机 AI 安装原子 Skill 并引导授权
 ```
 
 ### 保存笔记
@@ -156,6 +194,8 @@ getnote save <url|文字|图片路径>      保存链接/文字/图片笔记
   --topic-id <topic_id>               直接存入普通/书籍/客户档案知识库
   --parent-id <note_id>               创建子笔记（ID 推荐传字符串）
   --idempotency-key <key>             同一创建请求重试时复用的幂等键
+  --content-file <文件>               从 UTF-8 文件读取长文本，避免命令行转义和长度限制
+  --stdin                              从标准输入读取长文本
 
 getnote task <task_id>               查看异步任务进度
 ```
@@ -171,9 +211,16 @@ getnote notes                        最近 20 条笔记
 
 getnote note <id>                    笔记详情
   --field <字段名>                   只输出某个字段的值
-                                     （id/title/content/type/
+                                     （id/note_url/title/content/type/
                                        created_at/url/excerpt/
                                        web_content/audio_original）
+
+getnote note original <id>           按笔记类型直接输出真实原文
+getnote note transcript <id>         直接输出录音、会议或课堂转写原文
+getnote note attachments <id>        列出图片、音频和文件附件
+getnote note timeline <id>           读取录音或会议时间线
+getnote note quick-note <id>         读取录音快捷笔记
+getnote note todos <id>              读取会议总结中明确章节解析出的待办
 
 getnote note update <id>             更新笔记
   --title <标题>
@@ -199,7 +246,7 @@ getnote note share <id>              生成公开分享链接
 | 知识库博主内容 | `post_media_text`（via `kb blogger-content`）| `content` |
 | 知识库直播 | `post_media_text`（via `kb live`）| `post_summary` |
 
-> **AI Agent 提示**：用户要求"读原文"时，先用 `getnote note <id> -o json` 查看 `note_type`，再按上表选择对应字段。
+> **AI Agent 提示**：用户要求“读原文”时优先使用 `getnote note original`；明确要求录音、会议或课堂转写时使用 `getnote note transcript`，避免把 AI 摘要误当成原文。
 
 ### 搜索
 
@@ -213,14 +260,14 @@ getnote search <关键词>              全局语义搜索
 
 ```
 getnote tag add <note_id> <标签>     给笔记加标签
-getnote tag remove <note_id> <标签>  删除笔记标签
+getnote tag remove <note_id> <tag_id>  按标签 ID 删除笔记标签
 getnote tag list <note_id>           查看笔记的所有标签
 ```
 
 ### 知识库
 
 ```
-getnote kbs                          列出所有自有知识库（DEFAULT / BOOKSPACE / CUSTOMER）
+getnote kbs                          列出所有可访问知识库（DEFAULT / BOOKSPACE / CUSTOMER / TEAMSPACE）
 
 getnote kb <topic_id>                知识库内的笔记
   --limit <n>
@@ -231,10 +278,26 @@ getnote kb create <名称>             新建知识库
   --desc <描述>
 
 getnote kb add <topic_id> <note_id> [note_id...]     加入知识库
+getnote kb add <topic_id> <note_id> --directory-id <id>  加入指定文件夹
 getnote kb remove <topic_id> <note_id> [note_id...]  移出知识库
+getnote kb directories <topic_id>                    浏览文件夹和资源
+getnote kb directory-create <topic_id> <名称>        创建文件夹
+getnote kb directory-update <topic_id> <id> --name <名称>  重命名或移动文件夹
+getnote kb directory-delete <topic_id> <id> --yes    删除空文件夹
+getnote kb blogger-follow <topic_id> <抖音链接>      订阅抖音博主
 getnote kb live-follow <topic_id> <url>              订阅得到直播课，直播结束后 AI 摘要自动入库
 
 getnote kbs-sub                                      获取我订阅的知识库列表
+```
+
+常用目录命令提供短别名，旧命令继续兼容：
+
+```bash
+gnote kb dir <topic_id>
+gnote kb mkdir <topic_id> <名称>
+gnote kb mvdir <topic_id> <directory_id> --name <新名称>
+gnote kb rmdir <topic_id> <directory_id> --yes
+gnote note quick <note_id>
 ```
 
 ---
@@ -245,7 +308,6 @@ getnote kbs-sub                                      获取我订阅的知识库
 |------|------|
 | `--api-key <key>` | 临时覆盖 API Key |
 | `-o, --output json\|table` | 输出格式（默认 table） |
-| `--env prod\|dev` | 切换 API 环境 |
 
 ---
 
@@ -267,6 +329,7 @@ getnote kbs-sub                                      获取我订阅的知识库
 | `GETNOTE_API_KEY` | API Key |
 | `GETNOTE_CLIENT_ID` | Client ID |
 | `GETNOTE_API_URL` | 覆盖 API 地址 |
+| `GETNOTE_WEB_URL` | 覆盖笔记网页地址；通常无需设置，CLI 会随 API 环境自动选择 |
 
 `GETNOTE_API_URL` 可传站点根地址、`/open` 或完整 `/open/api/v1`，业务请求和 OAuth 会同时使用该地址；未设置时仍使用生产环境。
 
@@ -280,7 +343,7 @@ getnote kbs-sub                                      获取我订阅的知识库
 
 ## 从源码构建
 
-需要 Go 1.21+。
+需要 Go 1.24.2+。
 
 ```bash
 git clone https://github.com/iswalle/getnote-cli.git
@@ -316,6 +379,7 @@ $ getnote search "工作日志" --limit 7 -o json
 
 | 日期 | 版本 | 新能力 | 适合怎么用 |
 |------|------|--------|------------|
+| 2026-08-11 | **v1.4.0** | 1. Skill 2.0 稳定执行契约<br>2. 所有子命令完整 `-h` / `--help`<br>3. `getnote update --check` 与升级引导<br>4. `--content-file` / `--stdin` 安全保存长文本 | 让独立 Skill 和 CLI 内置原子 Skills 共用同一套真实命令，降低 AI 猜参数和长内容转义失败的概率 |
 | 2026-04-23 | **v1.1.1** | 1. 笔记内链<br>2. 保存分享链接自动变笔记 | 1. 用内链串联每天的工作日志和项目笔记，实践时间日志法<br>2. 收到别人发来的分享链接直接存入笔记 |
 | 2026-04-16 | **v1.1.0** | 1. `getnote note share`：生成分享链接<br>2. `getnote kb live-follow`：订阅得到直播 | 1. 把笔记一键分享给朋友<br>2. 在知识库里订阅得到直播课，直播结束后 AI 摘要自动入库 |
 | 2026-04-03 | **v1.0.x** | 1. `getnote kb bloggers/lives`：查看博主和直播列表<br>2. `getnote update`：自动升级 | 1. 查看订阅博主的内容更新和直播摘要<br>2. 直接运行 `getnote update` 升级到最新版 |
