@@ -44,7 +44,7 @@ var agentNames = map[string]string{
 
 var platformNames = map[string]string{
 	"workbuddy": "WorkBuddy", "codex": "Codex", "claude-code": "Claude Code", "cursor": "Cursor",
-	"qclaw": "QClaw", "openclaw": "OpenClaw",
+	"openclaw": "OpenClaw（小龙虾）", "qclaw": "QClaw（小龙虾生态客户端）",
 	"gemini-cli": "Gemini CLI", "github-copilot": "GitHub Copilot",
 	"windsurf": "Windsurf", "opencode": "OpenCode", "cline": "Cline", "continue": "Continue",
 	"roo": "Roo Code", "kilo": "Kilo Code", "trae": "Trae", "trae-cn": "Trae CN",
@@ -484,7 +484,16 @@ func resolveTargets(values []string) ([]string, error) {
 	for id := range set {
 		result = append(result, id)
 	}
-	sort.Strings(result)
+	sort.Slice(result, func(i, j int) bool {
+		// OpenClaw is the primary 小龙虾 ecosystem; list it before derivative clients.
+		if result[i] == "openclaw" && result[j] == "qclaw" {
+			return true
+		}
+		if result[i] == "qclaw" && result[j] == "openclaw" {
+			return false
+		}
+		return result[i] < result[j]
+	})
 	return result, nil
 }
 

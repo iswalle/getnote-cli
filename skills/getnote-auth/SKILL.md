@@ -45,7 +45,7 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 | `getnote auth logout` | `Logged out successfully.` | 只说明本机已退出；不声称已撤销服务端授权。 |
 | `getnote doctor -o json` | `diagnostics_completed`、`local_ready`、`ready/status/summary`、`checks[]`、`issues[]`、`next_actions[]`、`update`、`integrations[]` | `ready=true,status=ready` 才表示完整可用；`degraded` 需继续处理警告。`platforms[]` 仅表示检测到应用或命令，不能证明 Skill 已安装；用 `integrations[].skill_status/ready` 判断 AI 接入状态。 |
 | `getnote capabilities -o json` | `contract_version`、`commands`、`command_aliases`、`command_results`、`guarantees` | 只在安装、升级或兼容排查时读取；这是命令和结果字段的唯一事实源。 |
-| `getnote setup -o json` | `success`、`targets[]`、`installed_cli`、`installed_skills`、`authenticated`、`platforms[]`、`next_actions[]`、`next` | `platforms[].status=installed` 表示本地安装完成；`verify_in_platform` 表示 QClaw/OpenClaw 由平台管理，只引导用户完成对应的唯一 `next_action`。没有识别到 AI 平台不影响 CLI 和账号连接。 |
+| `getnote setup -o json` | `success`、`targets[]`、`installed_cli`、`installed_skills`、`authenticated`、`platforms[]`、`next_actions[]`、`next` | `platforms[].status=installed` 表示本地安装完成；`verify_in_platform` 表示 OpenClaw（小龙虾）及 QClaw 等生态客户端由平台管理，只引导用户完成对应的唯一 `next_action`。没有识别到 AI 平台不影响 CLI 和账号连接。 |
 | `getnote quota -o json` | `data.read/write/write_note` 下的 `daily/monthly.limit/used/remaining/reset_at` | 按真实桶说明剩余额度，不自行换算或合并桶。 |
 | `getnote version` | 版本文本 | 只用于展示版本；机器契约仍以 `capabilities -o json` 为准。 |
 | `getnote update --check` | 当前/可用新版本文本 | 有新版本再运行 `getnote update`。 |

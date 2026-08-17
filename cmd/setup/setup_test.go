@@ -102,7 +102,7 @@ func TestHumanResultHidesInstallerInternals(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := output.String()
-	for _, want := range []string{"安装完成", "Codex", "QClaw", "WorkBuddy", clawHubURL, "可以开始使用"} {
+	for _, want := range []string{"安装完成", "Codex", "QClaw（小龙虾生态客户端）", "WorkBuddy", clawHubURL, "可以开始使用"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("output missing %q:\n%s", want, text)
 		}

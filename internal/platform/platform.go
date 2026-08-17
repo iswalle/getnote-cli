@@ -31,11 +31,11 @@ type definition struct {
 
 var definitions = []definition{
 	{id: "workbuddy", name: "WorkBuddy", apps: []string{"WorkBuddy.app"}},
-	{id: "qclaw", name: "QClaw", apps: []string{"QClaw.app"}},
+	{id: "openclaw", name: "OpenClaw（小龙虾）", commands: []string{"openclaw"}, apps: []string{"OpenClaw.app"}},
+	{id: "qclaw", name: "QClaw（小龙虾生态客户端）", apps: []string{"QClaw.app"}},
 	{id: "codex", name: "Codex", commands: []string{"codex"}, apps: []string{"Codex.app"}, skillDir: ".agents/skills"},
 	{id: "claude-code", name: "Claude Code", commands: []string{"claude"}, apps: []string{"Claude.app"}, skillDir: ".claude/skills"},
 	{id: "cursor", name: "Cursor", commands: []string{"cursor"}, apps: []string{"Cursor.app"}, skillDir: ".agents/skills"},
-	{id: "openclaw", name: "OpenClaw", commands: []string{"openclaw"}, apps: []string{"OpenClaw.app"}},
 	{id: "gemini-cli", name: "Gemini CLI", commands: []string{"gemini"}, paths: []string{".gemini"}, skillDir: ".agents/skills"},
 	{id: "github-copilot", name: "GitHub Copilot", commands: []string{"copilot"}, paths: []string{".copilot"}, skillDir: ".agents/skills"},
 	{id: "windsurf", name: "Windsurf", commands: []string{"windsurf"}, apps: []string{"Windsurf.app"}, paths: []string{".codeium/windsurf"}, skillDir: ".codeium/windsurf/skills"},

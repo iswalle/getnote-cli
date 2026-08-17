@@ -10,13 +10,13 @@
 
 ### 让本地 AI 自动完成安装（推荐）
 
-适用于 WorkBuddy、Codex、Claude Code、Cursor、Gemini CLI、GitHub Copilot、Windsurf、OpenCode、Cline、Continue、Roo Code、Kilo Code、Trae、Qoder、Qwen Code、Kimi Code CLI、Goose、Zed、Warp、Amp、Augment、Droid，以及 QClaw/OpenClaw 小龙虾生态：
+适用于 OpenClaw（小龙虾）及 QClaw 等小龙虾生态客户端，也适用于 WorkBuddy、Codex、Claude Code、Cursor、Gemini CLI、GitHub Copilot、Windsurf、OpenCode、Cline、Continue、Roo Code、Kilo Code、Trae、Qoder、Qwen Code、Kimi Code CLI、Goose、Zed、Warp、Amp、Augment、Droid：
 
 ```bash
 npx -y @getnote/cli@latest setup
 ```
 
-这条命令会把 CLI 安装到稳定的全局路径、自动识别本机平台、安装五个 Skills，并引导完成一次得到大脑授权。安装时保留醒目的 `SKILLS` 开场，最终只显示每个平台是否安装成功，以及唯一需要用户完成的下一步，不再展示 `universal`、`symlink`、`overwrites` 等内部安装细节。WorkBuddy 安装后需要重启；QClaw/OpenClaw 的 Skill 由平台管理，命令会给出对应的 ClawHub 确认入口。
+这条命令会把 CLI 安装到稳定的全局路径、自动识别本机平台、安装五个 Skills，并引导完成一次得到大脑授权。安装时保留醒目的 `SKILLS` 开场，最终只显示每个平台是否安装成功，以及唯一需要用户完成的下一步，不再展示 `universal`、`symlink`、`overwrites` 等内部安装细节。WorkBuddy 安装后需要重启；OpenClaw（小龙虾）及 QClaw 等生态客户端的 Skill 由平台管理，命令会给出对应的 ClawHub 确认入口。
 
 安装后运行：
 
@@ -179,7 +179,7 @@ npx skills add iswalle/getnote-cli -y -g
 
 安装后在 Claude Code / Cursor 里说「帮我搜一下关于 RAG 的笔记」即可直接调用。
 
-独立的聚合 Skill 面向 WorkBuddy、QClaw 和 OpenClaw 生态，只负责意图理解，底层仍调用同一个 CLI，不再维护第二套 OpenAPI 请求实现。
+独立的聚合 Skill 面向 OpenClaw（小龙虾）及 QClaw 等生态客户端和 WorkBuddy，只负责意图理解，底层仍调用同一个 CLI，不再维护第二套 OpenAPI 请求实现。
 
 ---
 
