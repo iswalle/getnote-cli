@@ -31,6 +31,14 @@ var marketplaceTargets = map[string]bool{"qclaw": true, "openclaw": true}
 
 const clawHubURL = "https://clawhub.ai/iswalle/getnote"
 
+const setupBanner = `
+ ███████╗██╗  ██╗██╗██╗     ██╗     ███████╗
+ ██╔════╝██║ ██╔╝██║██║     ██║     ██╔════╝
+ ███████╗█████╔╝ ██║██║     ██║     ███████╗
+ ╚════██║██╔═██╗ ██║██║     ██║     ╚════██║
+ ███████║██║  ██╗██║███████╗███████╗███████║
+ ╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚══════╝`
+
 const defaultCLIPackage = "@getnote/cli@latest"
 
 var workBuddySkillNames = []string{
@@ -130,7 +138,8 @@ func NewSetupCmd() *cobra.Command {
 					Next:          setupPlan(resolved, scope),
 				})
 			}
-			writeProgress(cmd, out, "正在安装得到大脑，请稍候…")
+			writeProgress(cmd, out, setupBanner)
+			writeProgress(cmd, out, "\n正在安装得到大脑，请稍候…")
 
 			// `npx @getnote/cli setup` runs from a disposable npm cache. Install the
 			// real package first so getnote/gnote both resolve from a stable path.

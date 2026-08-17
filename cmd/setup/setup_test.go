@@ -102,6 +102,17 @@ func TestHumanResultHidesInstallerInternals(t *testing.T) {
 	}
 }
 
+func TestSetupBannerKeepsBrandVisualWithoutInstallerDetails(t *testing.T) {
+	if !strings.Contains(setupBanner, "███████╗") {
+		t.Fatalf("setup banner is missing the SKILLS visual: %q", setupBanner)
+	}
+	for _, internal := range []string{"universal:", "symlink", "overwrites:"} {
+		if strings.Contains(setupBanner, internal) {
+			t.Fatalf("setup banner exposes installer detail %q", internal)
+		}
+	}
+}
+
 func TestResolveTargetsSupportsWorkBuddy(t *testing.T) {
 	got, err := resolveTargets([]string{"workbuddy,codex"})
 	if err != nil {
