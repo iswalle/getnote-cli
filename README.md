@@ -93,6 +93,14 @@ getnote notes
 
 ## 检查和升级
 
+`doctor` 会同时检查 CLI 路径、npm 安装一致性、账号授权、OpenAPI 连通性、版本更新和已检测 AI 平台的 Skill 状态：
+
+```bash
+getnote doctor -o json
+```
+
+机器或 AI 应同时读取 `ready` 和 `status`：`ready=true,status=ready` 表示完整可用；`ready=true,status=degraded` 表示核心 API 可用但仍有非阻断问题；`ready=false` 表示存在阻断问题。`issues` 提供稳定问题码、严重级别和是否阻断，`next_actions` 给出修复动作与是否需要用户确认；`integrations` 区分“检测到 AI 应用”和“对应 Skill 已安装”。`--offline` 只检查本地环境，此时 `local_ready` 表示本地结果、`ready=null,status=partial` 表示远端状态未知。默认只返回检测到的平台，需要排查全部平台时加 `--all-platforms`。
+
 ```bash
 # 查看当前版本并检查是否有新版
 getnote version --check-update
@@ -103,6 +111,8 @@ getnote update --check
 # 升级到最新 GitHub Release
 getnote update
 ```
+
+独立二进制升级会校验 GitHub Release 的 SHA-256；npm 安装会升级整个 `@getnote/cli` 包，使二进制、元数据和内置 Skills 保持一致。
 
 如果通过 npm 安装，也可以完整更新 npm 包和可执行程序：
 
@@ -387,6 +397,7 @@ $ getnote search "工作日志" --limit 7 -o json
 
 | 日期 | 版本 | 新能力 | 适合怎么用 |
 |------|------|--------|------------|
+| 2026-08-17 | **v1.5.3** | 1. `doctor` 新增稳定问题码、阻断级别、修复动作、平台 Skill 状态和在线/离线就绪语义<br>2. 诊断失败提供可靠退出码，JSON 保持单一、可解析<br>3. npm 与独立二进制采用匹配的升级路径，Release 下载增加 SHA-256 校验<br>4. WorkBuddy Skills 整套预检并支持失败回滚<br>5. 严格校验输出格式与多余参数 | 让技术用户和 AI 都能准确判断环境是否真正可用，并根据结构化结果完成修复；同时避免版本分裂、半安装和未校验更新包 |
 | 2026-08-14 | **v1.5.2** | 1. 补齐团队知识库、订阅知识库与文件夹操作的执行边界<br>2. 明确目录、资源及笔记 ID 的结构化结果字段，避免 AI 猜字段<br>3. 搜索结果按字符串 `note_id` 去重，不把同一笔记的多个命中片段重复展示<br>4. 完善“这条笔记”、录音分享与权限失败的安全处理 | 提升 CLI 内置 Skills 在知识库整理、搜索和笔记管理场景中的理解与执行准确度；本次不改变既有 CLI 命令和授权凭证 |
 | 2026-08-13 | **v1.5.1** | 1. 修复通过 `npx setup` 安装后命令指向临时 npm 缓存的问题<br>2. 同时提供稳定的 `getnote` / `gnote` 双命令<br>3. 自动把五个领域 Skill 安装到 WorkBuddy<br>4. 重复安装保留已有授权凭证 | 在 WorkBuddy、Codex、Claude Code 或 Cursor 中重复执行同一条安装命令即可修复或升级，不需要重新授权 |
 | 2026-08-13 | **v1.5.0** | 1. 支持浏览、创建、移动和删除知识库目录<br>2. 笔记可直接加入指定目录，支持已有团队知识库 `TEAMSPACE` 的成员读取与管理员维护<br>3. 支持订阅抖音博主并读取博主内容<br>4. 新增录音原文、链接原文、附件、时间线、快捷笔记和会议待办等一级命令<br>5. 完善结构化结果、错误原因、短命令、`doctor` 和升级检查 | 让人和 AI 用同一套命令完成知识库整理、资料归档和深层笔记读取；失败时能识别原因，不再猜参数或把未完成任务当成成功 |

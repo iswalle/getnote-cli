@@ -15,6 +15,7 @@ func NewKbsSubCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "kbs-sub",
+		Args:    cobra.NoArgs,
 		Aliases: []string{"subscribed-kbs"},
 		Short:   "列出订阅的知识库 / List subscribed knowledge bases",
 		Example: `  getnote kbs-sub

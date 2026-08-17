@@ -6,7 +6,9 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const https = require('https');
+const crypto = require('crypto');
+const { spawnSync } = require('child_process');
 
 const pkg = require('../package.json');
 const VERSION = pkg.version;
@@ -46,7 +48,9 @@ async function main() {
   // Skip download if binary already matches current version
   if (fs.existsSync(binaryPath)) {
     try {
-      const out = execSync(`"${binaryPath}" version 2>/dev/null || "${binaryPath}" --version 2>/dev/null`, { encoding: 'utf8' }).trim();
+      const result = spawnSync(binaryPath, ['version'], { encoding: 'utf8' });
+      const fallback = result.status === 0 ? result : spawnSync(binaryPath, ['--version'], { encoding: 'utf8' });
+      const out = (fallback.stdout || '').trim();
       if (out.includes(VERSION)) {
         console.log(`getnote v${VERSION} already installed, skipping download.`);
         return;
@@ -60,16 +64,12 @@ async function main() {
   fs.mkdirSync(binDir, { recursive: true });
 
   try {
-    // Use curl (available on macOS/Linux) or PowerShell (Windows) for reliable redirect handling
+    await download(url, tmpFile);
+    await verifyChecksum(url, path.basename(url), tmpFile);
     if (platform.platform === 'windows') {
-      execSync(
-        `powershell -Command "Invoke-WebRequest -Uri '${url}' -OutFile '${tmpFile}'"`,
-        { stdio: 'inherit' }
-      );
-      execSync(`powershell -Command "Expand-Archive -Path '${tmpFile}' -DestinationPath '${binDir}' -Force"`, { stdio: 'inherit' });
+      run('powershell', ['-NoProfile', '-Command', 'Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force', tmpFile, binDir]);
     } else {
-      execSync(`curl -fsSL "${url}" -o "${tmpFile}"`, { stdio: 'inherit' });
-      execSync(`tar -xzf "${tmpFile}" -C "${binDir}" "${binaryName}"`, { stdio: 'inherit' });
+      run('tar', ['-xzf', tmpFile, '-C', binDir, binaryName]);
     }
 
     fs.chmodSync(binaryPath, 0o755);
@@ -83,4 +83,52 @@ async function main() {
   }
 }
 
-main();
+function run(command, args) {
+  const result = spawnSync(command, args, { stdio: 'inherit' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`${command} exited with status ${result.status}`);
+}
+
+function download(url, destination, redirects = 0) {
+  if (redirects > 5) return Promise.reject(new Error('Too many redirects'));
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, { headers: { 'User-Agent': '@getnote/cli installer' } }, response => {
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        response.resume();
+        return resolve(download(new URL(response.headers.location, url).toString(), destination, redirects + 1));
+      }
+      if (response.statusCode !== 200) {
+        response.resume();
+        return reject(new Error(`HTTP ${response.statusCode}: ${url}`));
+      }
+      const output = fs.createWriteStream(destination, { mode: 0o600 });
+      response.pipe(output);
+      output.on('finish', () => output.close(resolve));
+      output.on('error', reject);
+    });
+    request.on('error', reject);
+  });
+}
+
+async function verifyChecksum(assetURL, assetName, archivePath) {
+  const checksumPath = `${archivePath}.checksums`;
+  try {
+    await download(new URL('checksums.txt', assetURL).toString(), checksumPath);
+    const line = fs.readFileSync(checksumPath, 'utf8').split(/\r?\n/).find(value => {
+      const fields = value.trim().split(/\s+/);
+      return fields.length === 2 && fields[1].replace(/^\*/, '') === assetName;
+    });
+    if (!line) throw new Error(`Checksum for ${assetName} is missing`);
+    const expected = line.trim().split(/\s+/)[0].toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(expected)) throw new Error(`Checksum for ${assetName} is invalid`);
+    const actual = crypto.createHash('sha256').update(fs.readFileSync(archivePath)).digest('hex');
+    if (actual !== expected) throw new Error(`Checksum mismatch for ${assetName}`);
+  } finally {
+    try { fs.unlinkSync(checksumPath); } catch (_) {}
+  }
+}
+
+main().catch(err => {
+  console.error('Failed to install getnote:', err.message);
+  process.exit(1);
+});

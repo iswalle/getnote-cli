@@ -63,6 +63,7 @@ func NewSetupCmd() *cobra.Command {
   getnote setup --target workbuddy
   getnote setup --target codex --target claude-code
   getnote setup --dry-run -o json`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scope != "global" && scope != "project" {
 				return fmt.Errorf("不支持的安装范围: %s", scope)
@@ -221,33 +222,59 @@ func installWorkBuddySkills(sourceRoot, targetRoot string) error {
 	if err := os.MkdirAll(targetRoot, 0o755); err != nil {
 		return err
 	}
+	stagingRoot, err := os.MkdirTemp(targetRoot, ".getnote-skills-install-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(stagingRoot)
+
 	for _, name := range workBuddySkillNames {
 		source := filepath.Join(sourceRoot, name)
 		if _, err := os.Stat(filepath.Join(source, "SKILL.md")); err != nil {
 			return fmt.Errorf("%s 缺少 SKILL.md", source)
 		}
-		target := filepath.Join(targetRoot, name)
-		staging, err := os.MkdirTemp(targetRoot, "."+name+"-install-")
-		if err != nil {
+		if err := copyDir(source, filepath.Join(stagingRoot, name)); err != nil {
 			return err
 		}
-		if err := copyDir(source, staging); err != nil {
-			_ = os.RemoveAll(staging)
-			return err
-		}
-		backup := target + ".previous"
-		_ = os.RemoveAll(backup)
-		if _, err := os.Stat(target); err == nil {
-			if err := os.Rename(target, backup); err != nil {
-				_ = os.RemoveAll(staging)
-				return err
+	}
+
+	backupRoot, err := os.MkdirTemp(targetRoot, ".getnote-skills-backup-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(backupRoot)
+	committed := []string{}
+	rollback := func() {
+		for index := len(committed) - 1; index >= 0; index-- {
+			name := committed[index]
+			target := filepath.Join(targetRoot, name)
+			_ = os.RemoveAll(target)
+			backup := filepath.Join(backupRoot, name)
+			if _, err := os.Stat(backup); err == nil {
+				_ = os.Rename(backup, target)
 			}
 		}
-		if err := os.Rename(staging, target); err != nil {
-			_ = os.Rename(backup, target)
+	}
+	for _, name := range workBuddySkillNames {
+		target := filepath.Join(targetRoot, name)
+		backup := filepath.Join(backupRoot, name)
+		if _, err := os.Stat(target); err == nil {
+			if err := os.Rename(target, backup); err != nil {
+				rollback()
+				return err
+			}
+		} else if !os.IsNotExist(err) {
+			rollback()
 			return err
 		}
-		_ = os.RemoveAll(backup)
+		if err := os.Rename(filepath.Join(stagingRoot, name), target); err != nil {
+			if _, backupErr := os.Stat(backup); backupErr == nil {
+				_ = os.Rename(backup, target)
+			}
+			rollback()
+			return err
+		}
+		committed = append(committed, name)
 	}
 	return nil
 }

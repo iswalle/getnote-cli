@@ -59,6 +59,10 @@ func Execute() {
 }
 
 func writeError(w io.Writer, err error, format string) {
+	var rendered interface{ Rendered() bool }
+	if errors.As(err, &rendered) && rendered.Rendered() {
+		return
+	}
 	var requestErr *client.RequestError
 	if format == "json" {
 		apiErr := client.APIError{
@@ -104,6 +108,12 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "", "API key (overrides config and GETNOTE_API_KEY env var)")
 	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "输出格式 / Output format: table or json")
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if output != "table" && output != "json" {
+			return fmt.Errorf("不支持的输出格式 %q；可用值: table, json", output)
+		}
+		return nil
+	}
 
 	rootCmd.AddCommand(auth.NewAuthCmd())
 	rootCmd.AddCommand(capabilities.NewCapabilitiesCmd())

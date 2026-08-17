@@ -12,6 +12,7 @@ func newVersionCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "version",
+		Args:    cobra.NoArgs,
 		Aliases: []string{"v"},
 		Short:   "显示版本信息 / Show version information",
 		Example: `  getnote version

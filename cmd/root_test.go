@@ -91,3 +91,16 @@ func TestRootSilencesCobraDuplicateErrors(t *testing.T) {
 		t.Fatal("root command must let writeError own the final error output")
 	}
 }
+
+func TestWriteErrorSkipsAlreadyRenderedErrors(t *testing.T) {
+	var output bytes.Buffer
+	writeError(&output, renderedTestError{}, "json")
+	if output.Len() != 0 {
+		t.Fatalf("already rendered error produced duplicate output: %s", output.String())
+	}
+}
+
+type renderedTestError struct{}
+
+func (renderedTestError) Error() string  { return "already rendered" }
+func (renderedTestError) Rendered() bool { return true }

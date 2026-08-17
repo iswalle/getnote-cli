@@ -28,6 +28,7 @@ func NewNotesCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "notes",
+		Args:  cobra.NoArgs,
 		Short: "列出最近笔记 / List recent notes",
 		Example: `  getnote notes
   getnote notes --limit 5

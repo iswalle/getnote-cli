@@ -14,6 +14,7 @@ func NewKbsCmd() *cobra.Command {
 	var page int
 	cmd := &cobra.Command{
 		Use:   "kbs",
+		Args:  cobra.NoArgs,
 		Short: "列出所有知识库 / List all knowledge bases",
 		Example: `  getnote kbs
   getnote kbs --page 2`,
@@ -54,4 +55,3 @@ func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
 }
-
