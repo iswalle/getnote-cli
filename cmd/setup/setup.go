@@ -54,6 +54,18 @@ var platformNames = map[string]string{
 
 var marketplaceTargets = map[string]bool{"qclaw": true, "openclaw": true}
 
+// platformPriority keeps human-facing output in a recognizable popularity order.
+// OpenClaw leads because it is the primary 小龙虾 ecosystem; QClaw is a derivative client.
+var platformPriority = map[string]int{
+	"openclaw": 0, "claude-code": 1, "codex": 2, "cursor": 3,
+	"github-copilot": 4, "gemini-cli": 5, "opencode": 6, "windsurf": 7,
+	"cline": 8, "roo": 9, "kilo": 10, "continue": 11,
+	"qclaw": 12, "trae": 13, "trae-cn": 14, "qwen-code": 15,
+	"qoder": 16, "qoder-cn": 17, "kimi-code-cli": 18, "zed": 19,
+	"warp": 20, "goose": 21, "amp": 22, "augment": 23,
+	"droid": 24, "workbuddy": 25,
+}
+
 const clawHubURL = "https://clawhub.ai/iswalle/getnote"
 
 const setupBanner = `
@@ -485,12 +497,13 @@ func resolveTargets(values []string) ([]string, error) {
 		result = append(result, id)
 	}
 	sort.Slice(result, func(i, j int) bool {
-		// OpenClaw is the primary 小龙虾 ecosystem; list it before derivative clients.
-		if result[i] == "openclaw" && result[j] == "qclaw" {
-			return true
+		left, leftOK := platformPriority[result[i]]
+		right, rightOK := platformPriority[result[j]]
+		if leftOK && rightOK && left != right {
+			return left < right
 		}
-		if result[i] == "qclaw" && result[j] == "openclaw" {
-			return false
+		if leftOK != rightOK {
+			return leftOK
 		}
 		return result[i] < result[j]
 	})

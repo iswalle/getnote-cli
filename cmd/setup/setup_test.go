@@ -56,6 +56,17 @@ func TestResolveTargetsIncludesMarketplaceManagedHosts(t *testing.T) {
 	}
 }
 
+func TestResolveTargetsUsesPopularityOrder(t *testing.T) {
+	got, err := resolveTargets([]string{"workbuddy,roo,gemini-cli,openclaw,codex,qclaw,claude-code"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"openclaw", "claude-code", "codex", "gemini-cli", "roo", "qclaw", "workbuddy"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("resolveTargets() = %v, want popularity order %v", got, want)
+	}
+}
+
 func TestEveryDetectedPlatformHasAnInstallStrategy(t *testing.T) {
 	for _, item := range platform.Detect() {
 		if platformNames[item.ID] == "" {
