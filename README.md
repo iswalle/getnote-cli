@@ -10,7 +10,7 @@
 
 ### 让本地 AI 自动完成安装（推荐）
 
-支持的 AI Agent 按主流程度排列：OpenClaw（小龙虾）、Claude Code、Codex、Cursor、GitHub Copilot、Gemini CLI、OpenCode、Windsurf、Cline、Roo Code、Kilo Code、Continue、QClaw（小龙虾生态客户端）、Trae、Qwen Code、Qoder、Kimi Code CLI、Zed、Warp、Goose、Amp、Augment、Droid 和 WorkBuddy：
+适用于 OpenClaw（小龙虾）生态，以及 Claude Code、Codex、Cursor、GitHub Copilot、Gemini CLI、OpenCode、Windsurf、Cline、Roo Code、Kilo Code、Continue、Trae、Qwen Code、Qoder、Kimi Code CLI、Zed、Warp、Goose、Amp、Augment、Droid 和 WorkBuddy。QClaw 作为小龙虾生态客户端同样支持：
 
 ```bash
 npx -y @getnote/cli@latest setup
