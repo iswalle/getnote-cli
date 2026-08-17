@@ -15,7 +15,7 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 2. 若当前环境只有 CLI 内置 Skill、没有上述安装器，则用 `command -v getnote` 检查 CLI；缺失时检查 `node --version` 和 `npm --version`，再自动执行 `npm install -g @getnote/cli@latest`。这是 Agent 的工作，不要求用户手工复制命令；只有系统弹出安装授权时才请用户确认。
 3. 执行 `getnote version`，必须能够正常启动。
 4. 执行 `getnote auth status`。未登录时运行 `getnote auth login`，让用户只在浏览器中确认，不索要 API Key、Cookie 或 Authorization。
-5. 执行 `getnote doctor -o json`。只有 `success=true`，且 `checks` 中 `cli`、`auth`、`api` 均为 `ok=true`，才能宣布连接完成。
+5. 执行 `getnote doctor -o json`。只有 `diagnostics_completed=true`、`ready=true` 且 `status=ready`，才能宣布连接完成；`success` 和旧 `checks` 字段仅用于兼容。若未就绪，先处理 `issues[].blocking=true`，再按 `next_actions[]` 修复。需要确认的动作不得静默执行。
 6. 在 Codex、Claude Code 或 Cursor 等本地 Agent 中，执行 `getnote setup` 同步 5 个领域 Skill；如果当前平台已经由独立 Skill 包携带这些领域 Skill，或 CLI 明确提示未检测到受支持平台，不把这一步失败误报成账号连接失败。
 7. 先用 `getnote notes --limit 1 -o json` 做无写入验收。只有用户同意创建测试内容时，才保存测试笔记。
 
@@ -43,7 +43,7 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 | `getnote auth login` | 浏览器已确认，凭证已写入本机 | 再运行 `doctor -o json`；不在聊天中展示凭证。 |
 | `getnote auth status` | `Authenticated` / `Not authenticated` 或环境变量登录状态 | 未登录才启动 `auth login`；状态里只能出现掩码。 |
 | `getnote auth logout` | `Logged out successfully.` | 只说明本机已退出；不声称已撤销服务端授权。 |
-| `getnote doctor -o json` | `success`、`cli_version`、`checks[].name/ok/message`、`platforms[]` | 只有 `cli`、`auth`、`api` 均为 `ok=true` 才宣布可用。 |
+| `getnote doctor -o json` | `diagnostics_completed`、`ready/status/summary`、`checks[]`、`issues[]`、`next_actions[]`、`update`、`integrations[]` | 只有 `ready=true` 才宣布可用；先修复阻断问题。`platforms[]` 仅表示检测到应用或命令，不能证明 Skill 已安装；用 `integrations[].skill_status/ready` 判断 AI 接入状态。 |
 | `getnote capabilities -o json` | `contract_version`、`commands`、`command_aliases`、`command_results`、`guarantees` | 只在安装、升级或兼容排查时读取；这是命令和结果字段的唯一事实源。 |
 | `getnote setup -o json` | `success`、`targets[]`、`installed_skills`、`authenticated`、`next` | 仅同步本机 Agent 的领域 Skill；没有可识别目标不等于账号失败。 |
 | `getnote quota -o json` | `data.read/write/write_note` 下的 `daily/monthly.limit/used/remaining/reset_at` | 按真实桶说明剩余额度，不自行换算或合并桶。 |
@@ -52,6 +52,16 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 | `getnote update` | 更新完成文本 | 必须再运行 `version` 和 `doctor -o json`，通过后才能说升级完成。 |
 
 所有命令以退出码为第一判断：退出码非 0 即失败。使用 `-o json` 的 API 与本地错误均返回 `success=false`、`data=null`、`error.code/message/reason/retryable` 和可选 `request_id`；不能把 HTTP 200 或“命令运行过”当成成功。
+
+### Doctor 机器决策规则
+
+1. `diagnostics_completed=false` 或命令退出非 0：诊断本身失败，不能根据残缺输出操作。
+2. `ready=true`：CLI、账号授权和 OpenAPI 连通性均可用。
+3. `status=partial`：通常是 `--offline` 跳过远端检查，只能说明本地环境，不得声称已连接。
+4. `issues[].blocking=true`：按顺序优先处理；保留 `code`、`details.request_id` 和错误字段。
+5. `next_actions[]`：`requires_confirmation=true` 时先向用户确认，再执行精确 `command`；执行后重新运行 doctor 验证。
+6. `integrations[].detected=true` 只表示发现宿主；只有 `skill_status=installed` 且 `ready=true` 才能确认 CLI 可验证的 Skill 已齐全。`unverified` 表示安装状态由平台管理，应让用户在平台内确认，不能猜测成功。
+7. `update.update_available=true` 是非阻断警告；用户明确要求升级后才执行升级动作。
 
 ## 更新闭环
 

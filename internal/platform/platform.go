@@ -29,7 +29,7 @@ type definition struct {
 var definitions = []definition{
 	{id: "workbuddy", name: "WorkBuddy", apps: []string{"WorkBuddy.app"}},
 	{id: "qclaw", name: "QClaw", apps: []string{"QClaw.app"}},
-	{id: "codex", name: "Codex", commands: []string{"codex"}, apps: []string{"Codex.app", "ChatGPT.app"}},
+	{id: "codex", name: "Codex", commands: []string{"codex"}, apps: []string{"Codex.app"}},
 	{id: "claude-code", name: "Claude Code", commands: []string{"claude"}, apps: []string{"Claude.app"}},
 	{id: "cursor", name: "Cursor", commands: []string{"cursor"}, apps: []string{"Cursor.app"}},
 	{id: "openclaw", name: "OpenClaw", commands: []string{"openclaw"}, apps: []string{"OpenClaw.app"}},

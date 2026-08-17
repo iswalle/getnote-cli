@@ -93,6 +93,14 @@ getnote notes
 
 ## 检查和升级
 
+`doctor` 会同时检查 CLI 路径、npm 安装一致性、账号授权、OpenAPI 连通性、版本更新和已检测 AI 平台的 Skill 状态：
+
+```bash
+getnote doctor -o json
+```
+
+机器或 AI 应以 `ready=true` 作为“得到大脑已可用”的唯一结论。`issues` 提供稳定问题码、严重级别和是否阻断，`next_actions` 给出修复动作与是否需要用户确认；`integrations` 区分“检测到 AI 应用”和“对应 Skill 已安装”。`--offline` 只检查本地环境，结果为 `partial`，不能证明 OpenAPI 可用。默认只返回检测到的平台，需要排查全部平台时加 `--all-platforms`。
+
 ```bash
 # 查看当前版本并检查是否有新版
 getnote version --check-update

@@ -66,8 +66,8 @@ func commandResults() map[string]commandResult {
 			Notes:         "Local-only action. It does not revoke server-side grants.",
 		},
 		"doctor": {
-			SuccessFields: []string{"success", "cli_version", "checks[].name", "checks[].ok", "checks[].message", "platforms[]"},
-			Notes:         "Connection is usable only when success=true and cli, auth and api checks are ok.",
+			SuccessFields: []string{"success", "diagnostics_completed=true", "ready", "status", "summary", "schema_version", "mode", "cli_version", "checks[].name", "checks[].ok", "checks[].code", "checks[].required", "checks[].severity", "issues[]", "next_actions[]", "update", "integrations[]", "platforms[]"},
+			Notes:         "Use ready=true as the connection readiness decision. diagnostics_completed only means the diagnostic run finished. Follow blocking issues first, then execute next_actions only with the required user confirmation. platforms[] is legacy detection-only data; integrations[] reports Skill state.",
 		},
 		"capabilities": {
 			SuccessFields: []string{"success=true", "contract_version", "commands", "command_aliases", "command_results", "guarantees"},
