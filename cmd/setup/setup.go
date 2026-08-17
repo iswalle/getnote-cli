@@ -17,14 +17,39 @@ import (
 )
 
 var agentNames = map[string]string{
-	"codex":       "codex",
-	"claude-code": "claude-code",
-	"cursor":      "cursor",
+	"codex":          "codex",
+	"claude-code":    "claude-code",
+	"cursor":         "cursor",
+	"gemini-cli":     "gemini-cli",
+	"github-copilot": "github-copilot",
+	"windsurf":       "windsurf",
+	"opencode":       "opencode",
+	"cline":          "cline",
+	"continue":       "continue",
+	"roo":            "roo",
+	"kilo":           "kilo",
+	"trae":           "trae",
+	"trae-cn":        "trae-cn",
+	"qoder":          "qoder",
+	"qoder-cn":       "qoder-cn",
+	"qwen-code":      "qwen-code",
+	"kimi-code-cli":  "kimi-code-cli",
+	"goose":          "goose",
+	"zed":            "zed",
+	"warp":           "warp",
+	"amp":            "amp",
+	"augment":        "augment",
+	"droid":          "droid",
 }
 
 var platformNames = map[string]string{
 	"workbuddy": "WorkBuddy", "codex": "Codex", "claude-code": "Claude Code", "cursor": "Cursor",
 	"qclaw": "QClaw", "openclaw": "OpenClaw",
+	"gemini-cli": "Gemini CLI", "github-copilot": "GitHub Copilot",
+	"windsurf": "Windsurf", "opencode": "OpenCode", "cline": "Cline", "continue": "Continue",
+	"roo": "Roo Code", "kilo": "Kilo Code", "trae": "Trae", "trae-cn": "Trae CN",
+	"qoder": "Qoder", "qoder-cn": "Qoder CN", "qwen-code": "Qwen Code", "kimi-code-cli": "Kimi Code CLI",
+	"goose": "Goose", "zed": "Zed", "warp": "Warp", "amp": "Amp", "augment": "Augment", "droid": "Droid",
 }
 
 var marketplaceTargets = map[string]bool{"qclaw": true, "openclaw": true}
@@ -161,7 +186,7 @@ func NewSetupCmd() *cobra.Command {
 
 			agentTargets := standardAgentTargets(resolved)
 			if len(agentTargets) > 0 {
-				writeProgress(cmd, out, "正在为 Codex、Cursor、Claude Code 安装 5 个 Skills…")
+				writeProgress(cmd, out, "正在为 "+displayNames(resolved, false)+" 安装 5 个 Skills…")
 				installArgs := []string{"-y", "skills", "add", source, "-y"}
 				if scope == "global" {
 					installArgs = append(installArgs, "-g")
@@ -204,7 +229,7 @@ func NewSetupCmd() *cobra.Command {
 			return writeResult(cmd, out, result{Success: true, Targets: resolved, InstalledCLI: true, InstalledSkills: len(localTargets) > 0, RestartRequired: restartRequired, Authenticated: authed, Platforms: platforms, NextActions: actions, Next: next})
 		},
 	}
-	cmd.Flags().StringSliceVar(&targets, "target", nil, "通常无需填写；需要指定时可用: workbuddy,codex,claude-code,cursor,qclaw,openclaw")
+	cmd.Flags().StringSliceVar(&targets, "target", nil, "通常无需填写；仅用于调试时指定平台 ID，可重复或用逗号分隔")
 	cmd.Flags().StringVar(&scope, "scope", "global", "Skill 安装范围: global 或 project")
 	cmd.Flags().StringVar(&source, "skill-source", "", "Skill 来源；默认使用刚安装的全局 CLI 内置 Skills，本地验收可传仓库目录")
 	cmd.Flags().BoolVar(&skipAuth, "skip-auth", false, "跳过首次授权")
@@ -288,6 +313,17 @@ func standardAgentTargets(targets []string) []string {
 		}
 	}
 	return result
+}
+
+func displayNames(targets []string, includeMarketplace bool) string {
+	names := []string{}
+	for _, target := range targets {
+		if target == "workbuddy" || (!includeMarketplace && marketplaceTargets[target]) {
+			continue
+		}
+		names = append(names, platformNames[target])
+	}
+	return strings.Join(names, "、")
 }
 
 func contains(values []string, expected string) bool {

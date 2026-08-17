@@ -341,18 +341,18 @@ func diagnoseIntegrations(raw []platform.Info, includeAll bool) []integration {
 			result = append(result, entry)
 			continue
 		}
-		switch item.ID {
-		case "workbuddy":
+		switch {
+		case item.ID == "workbuddy":
 			entry = applySkillDirectoryState(entry, filepath.Join(home, ".workbuddy", "skills"))
 			if entry.SkillStatus == "missing" {
 				entry.Fix = setupAction(item.ID)
 			}
-		case "codex", "claude-code", "cursor":
-			entry = applySkillDirectoryState(entry, filepath.Join(home, ".agents", "skills"))
+		case item.SkillPath != "":
+			entry = applySkillDirectoryState(entry, item.SkillPath)
 			if entry.SkillStatus == "missing" {
 				entry.Fix = setupAction(item.ID)
 			}
-		case "qclaw", "openclaw":
+		case item.ID == "qclaw" || item.ID == "openclaw":
 			entry.SkillStatus = "unverified"
 			entry.Message = "Platform detected, but this CLI cannot safely inspect its platform-managed Skill registry; verify the GetNote Skill inside the platform"
 			entry.Fix = &action{ID: "verify_platform_skill_" + item.ID, Description: "Open the platform Skill manager and verify that GetNote is installed and enabled", RequiresConfirmation: false}

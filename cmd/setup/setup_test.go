@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iswalle/getnote-cli/internal/platform"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,17 @@ func TestResolveTargetsIncludesMarketplaceManagedHosts(t *testing.T) {
 	want := []string{"openclaw", "qclaw"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("resolveTargets() = %v, want %v", got, want)
+	}
+}
+
+func TestEveryDetectedPlatformHasAnInstallStrategy(t *testing.T) {
+	for _, item := range platform.Detect() {
+		if platformNames[item.ID] == "" {
+			t.Errorf("%s is missing a display name", item.ID)
+		}
+		if item.ID != "workbuddy" && !marketplaceTargets[item.ID] && agentNames[item.ID] == "" {
+			t.Errorf("%s is missing an upstream skills agent mapping", item.ID)
+		}
 	}
 }
 

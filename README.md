@@ -10,7 +10,7 @@
 
 ### 让本地 AI 自动完成安装（推荐）
 
-适用于 WorkBuddy、Codex、Claude Code、Cursor，以及 QClaw/OpenClaw 小龙虾生态：
+适用于 WorkBuddy、Codex、Claude Code、Cursor、Gemini CLI、GitHub Copilot、Windsurf、OpenCode、Cline、Continue、Roo Code、Kilo Code、Trae、Qoder、Qwen Code、Kimi Code CLI、Goose、Zed、Warp、Amp、Augment、Droid，以及 QClaw/OpenClaw 小龙虾生态：
 
 ```bash
 npx -y @getnote/cli@latest setup
