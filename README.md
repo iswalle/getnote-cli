@@ -99,7 +99,7 @@ getnote notes
 getnote doctor -o json
 ```
 
-机器或 AI 应以 `ready=true` 作为“得到大脑已可用”的唯一结论。`issues` 提供稳定问题码、严重级别和是否阻断，`next_actions` 给出修复动作与是否需要用户确认；`integrations` 区分“检测到 AI 应用”和“对应 Skill 已安装”。`--offline` 只检查本地环境，结果为 `partial`，不能证明 OpenAPI 可用。默认只返回检测到的平台，需要排查全部平台时加 `--all-platforms`。
+机器或 AI 应同时读取 `ready` 和 `status`：`ready=true,status=ready` 表示完整可用；`ready=true,status=degraded` 表示核心 API 可用但仍有非阻断问题；`ready=false` 表示存在阻断问题。`issues` 提供稳定问题码、严重级别和是否阻断，`next_actions` 给出修复动作与是否需要用户确认；`integrations` 区分“检测到 AI 应用”和“对应 Skill 已安装”。`--offline` 只检查本地环境，此时 `local_ready` 表示本地结果、`ready=null,status=partial` 表示远端状态未知。默认只返回检测到的平台，需要排查全部平台时加 `--all-platforms`。
 
 ```bash
 # 查看当前版本并检查是否有新版
@@ -111,6 +111,8 @@ getnote update --check
 # 升级到最新 GitHub Release
 getnote update
 ```
+
+独立二进制升级会校验 GitHub Release 的 SHA-256；npm 安装会升级整个 `@getnote/cli` 包，使二进制、元数据和内置 Skills 保持一致。
 
 如果通过 npm 安装，也可以完整更新 npm 包和可执行程序：
 

@@ -77,7 +77,12 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Create Release
+      - name: Generate SHA-256 checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*

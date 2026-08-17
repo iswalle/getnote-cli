@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/iswalle/getnote-cli/internal/platform"
+	"github.com/iswalle/getnote-cli/internal/version"
 )
 
 func TestTemporaryNpxPath(t *testing.T) {
@@ -92,8 +93,8 @@ func TestIsNewerVersion(t *testing.T) {
 		{"v2.0.0", "1.99.99", true},
 	}
 	for _, test := range tests {
-		if got := isNewerVersion(test.candidate, test.current); got != test.want {
-			t.Fatalf("isNewerVersion(%q, %q) = %v, want %v", test.candidate, test.current, got, test.want)
+		if got := version.Compare(test.candidate, test.current) > 0; got != test.want {
+			t.Fatalf("version.Compare(%q, %q) > 0 = %v, want %v", test.candidate, test.current, got, test.want)
 		}
 	}
 }
@@ -106,8 +107,9 @@ func TestOfflineSummaryNeverClaimsRemoteReadiness(t *testing.T) {
 }
 
 func TestResponseJSONPreservesLegacyAndMachineFields(t *testing.T) {
+	ready := true
 	payload, err := json.Marshal(response{
-		Success: true, DiagnosticsCompleted: true, Ready: true, Status: "ready", Summary: "ready",
+		Success: true, DiagnosticsCompleted: true, Ready: &ready, LocalReady: true, Status: "ready", Summary: "ready",
 		SchemaVersion: diagnosticSchemaVersion, CLIVersion: "1.5.2", Checks: []check{}, Platforms: []platform.Info{},
 	})
 	if err != nil {
@@ -117,9 +119,23 @@ func TestResponseJSONPreservesLegacyAndMachineFields(t *testing.T) {
 	if err := json.Unmarshal(payload, &decoded); err != nil {
 		t.Fatal(err)
 	}
-	for _, field := range []string{"success", "cli_version", "checks", "platforms", "diagnostics_completed", "ready", "status", "summary", "schema_version", "issues", "next_actions", "integrations", "update"} {
+	for _, field := range []string{"success", "cli_version", "checks", "platforms", "diagnostics_completed", "ready", "local_ready", "status", "summary", "schema_version", "issues", "next_actions", "integrations", "update"} {
 		if _, ok := decoded[field]; !ok {
 			t.Fatalf("doctor JSON is missing %q: %s", field, payload)
 		}
+	}
+}
+
+func TestReadinessSummaryReportsDegradedForWarnings(t *testing.T) {
+	status, _ := readinessSummary(true, false, []issue{{Code: "integration.skills_missing.codex", Severity: "warning"}})
+	if status != "degraded" {
+		t.Fatalf("status = %q, want degraded", status)
+	}
+}
+
+func TestStatusCheckUsesFailureCode(t *testing.T) {
+	got := statusCheck("auth", "connection", true, false, "auth.connected", "auth.not_connected", "missing", &action{ID: "login"})
+	if got.Code != "auth.not_connected" {
+		t.Fatalf("code = %q", got.Code)
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -80,7 +79,8 @@ type integration struct {
 type response struct {
 	Success              bool            `json:"success"`
 	DiagnosticsCompleted bool            `json:"diagnostics_completed"`
-	Ready                bool            `json:"ready"`
+	Ready                *bool           `json:"ready"`
+	LocalReady           bool            `json:"local_ready"`
 	Status               string          `json:"status"`
 	Summary              string          `json:"summary"`
 	SchemaVersion        string          `json:"schema_version"`
@@ -107,16 +107,23 @@ func NewDoctorCmd() *cobra.Command {
   getnote doctor --offline
   getnote doctor --all-platforms -o json
   getnote doctor -o json`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			data := collectDiagnostics(offline, skipUpdate || offline, allPlatforms)
 			out, _ := cmd.Root().PersistentFlags().GetString("output")
 			if out == "json" {
 				encoder := json.NewEncoder(cmd.OutOrStdout())
 				encoder.SetIndent("", "  ")
-				return encoder.Encode(data)
+				if err := encoder.Encode(data); err != nil {
+					return err
+				}
+				if data.Ready != nil && !*data.Ready {
+					return doctorExitError{}
+				}
+				return nil
 			}
 			writeHuman(cmd, data)
-			if !data.Ready && !offline {
+			if data.Ready != nil && !*data.Ready {
 				return fmt.Errorf("environment is not ready; follow the remediation steps above")
 			}
 			return nil
@@ -128,6 +135,11 @@ func NewDoctorCmd() *cobra.Command {
 	return cmd
 }
 
+type doctorExitError struct{}
+
+func (doctorExitError) Error() string  { return "environment is not ready" }
+func (doctorExitError) Rendered() bool { return true }
+
 func collectDiagnostics(offline, skipUpdate, allPlatforms bool) response {
 	cfg := config.Get()
 	checks := []check{
@@ -137,7 +149,7 @@ func collectDiagnostics(offline, skipUpdate, allPlatforms bool) response {
 		npmPackageVersionCheck(),
 		commandAvailabilityCheck("node", "Node.js is available for dependency installation"),
 		commandAvailabilityCheck("npx", "npx is available for one-command setup"),
-		baseCheck("auth", "connection", true, cfg.IsLoggedIn(), "auth.connected", authMessage(cfg.IsLoggedIn()), &action{ID: "login", Description: "Open the browser and authorize this GetNote account", Command: "getnote auth login", RequiresConfirmation: true}),
+		statusCheck("auth", "connection", true, cfg.IsLoggedIn(), "auth.connected", "auth.not_connected", authMessage(cfg.IsLoggedIn()), &action{ID: "login", Description: "Open the browser and authorize this GetNote account", Command: "getnote auth login", RequiresConfirmation: true}),
 	}
 	if offline {
 		checks = append(checks, check{Name: "api", OK: false, Message: "Skipped by --offline; remote readiness is unknown", Category: "connection", Severity: "warning", Required: true, Code: "api.skipped"})
@@ -158,8 +170,8 @@ func collectDiagnostics(offline, skipUpdate, allPlatforms bool) response {
 		checks = append(checks, check{Name: "api", OK: false, Message: "Not checked because no GetNote account is connected", Category: "connection", Severity: "error", Required: true, Code: "api.blocked_by_auth", Fix: &action{ID: "login", Description: "Authorize before checking the API", Command: "getnote auth login", RequiresConfirmation: true}})
 	}
 
-	ready := requiredChecksReady(checks) && !offline
-	status, summary := readinessSummary(ready, offline, checks)
+	localReady := requiredChecksReadyExcept(checks, "api")
+	remoteReady := requiredChecksReady(checks) && !offline
 	issues, actions := issuesAndActions(checks)
 	update := collectUpdate(skipUpdate)
 	if update.UpdateAvailable != nil && *update.UpdateAvailable {
@@ -172,17 +184,34 @@ func collectDiagnostics(offline, skipUpdate, allPlatforms bool) response {
 		if item.Detected && item.SkillStatus == "missing" {
 			issues = append(issues, issue{Code: "integration.skills_missing." + item.ID, Severity: "warning", Blocking: false, Message: item.Message, Fix: item.Fix})
 			actions = appendUniqueAction(actions, item.Fix)
+		} else if item.Detected && item.SkillStatus == "unverified" {
+			issues = append(issues, issue{Code: "integration.skills_unverified." + item.ID, Severity: "warning", Blocking: false, Message: item.Message, Fix: item.Fix})
+			actions = appendUniqueAction(actions, item.Fix)
 		}
 	}
+	status, summary := readinessSummary(remoteReady, offline, issues)
 	mode := "online"
 	if offline {
 		mode = "offline"
 	}
-	return response{
-		Success: ready, DiagnosticsCompleted: true, Ready: ready, Status: status, Summary: summary,
+	responseValue := response{
+		Success: localReady && (offline || remoteReady), DiagnosticsCompleted: true, LocalReady: localReady, Status: status, Summary: summary,
 		SchemaVersion: diagnosticSchemaVersion, Mode: mode, CLIVersion: version.String(), OS: runtime.GOOS, Arch: runtime.GOARCH,
 		Checks: checks, Issues: issues, NextActions: actions, Update: update, Integrations: integrations, Platforms: rawPlatforms,
 	}
+	if !offline {
+		result := remoteReady
+		responseValue.Ready = &result
+	}
+	return responseValue
+}
+
+func statusCheck(name, category string, required, ok bool, successCode, failureCode, message string, fix *action) check {
+	code := successCode
+	if !ok {
+		code = failureCode
+	}
+	return baseCheck(name, category, required, ok, code, message, fix)
 }
 
 func baseCheck(name, category string, required, ok bool, code, message string, fix *action) check {
@@ -215,19 +244,31 @@ func requiredChecksReady(checks []check) bool {
 	return true
 }
 
-func readinessSummary(ready, offline bool, checks []check) (string, string) {
+func requiredChecksReadyExcept(checks []check, excludedName string) bool {
+	for _, item := range checks {
+		if item.Name != excludedName && item.Required && !item.OK {
+			return false
+		}
+	}
+	return true
+}
+
+func readinessSummary(ready, offline bool, issues []issue) (string, string) {
 	if offline {
 		return "partial", "Local diagnostics completed, but API connectivity was skipped; remote readiness is unknown"
 	}
-	if ready {
-		return "ready", "GetNote CLI, account authorization and OpenAPI connectivity are ready"
-	}
-	for _, item := range checks {
-		if item.Required && !item.OK {
-			return "not_ready", "GetNote is not ready: " + item.Message
+	if !ready {
+		for _, item := range issues {
+			if item.Blocking {
+				return "not_ready", "GetNote is not ready: " + item.Message
+			}
 		}
+		return "not_ready", "GetNote is not ready"
 	}
-	return "degraded", "Diagnostics completed with non-blocking warnings"
+	if len(issues) > 0 {
+		return "degraded", "Core GetNote access is ready, with non-blocking issues that should be repaired"
+	}
+	return "ready", "GetNote CLI, account authorization, OpenAPI connectivity and detected integrations are ready"
 }
 
 func issuesAndActions(checks []check) ([]issue, []action) {
@@ -269,7 +310,7 @@ func collectUpdate(skip bool) updateInfo {
 	}
 	latest = strings.TrimPrefix(latest, "v")
 	result.Latest = latest
-	available := isNewerVersion(latest, version.String())
+	available := version.Compare(latest, version.String()) > 0
 	result.UpdateAvailable = &available
 	if available {
 		result.Message = fmt.Sprintf("CLI update available: %s -> %s", version.String(), latest)
@@ -351,48 +392,6 @@ func setupAction(target string) *action {
 	return &action{ID: "setup_" + target, Description: "Install or repair the CLI and GetNote Skills, then restart the AI host", Command: "npx -y @getnote/cli@latest setup", RequiresConfirmation: true}
 }
 
-func isNewerVersion(candidate, current string) bool {
-	parse := func(raw string) ([]int, bool) {
-		raw = strings.TrimPrefix(strings.TrimSpace(raw), "v")
-		raw = strings.SplitN(raw, "-", 2)[0]
-		parts := strings.Split(raw, ".")
-		if len(parts) == 0 {
-			return nil, false
-		}
-		values := make([]int, len(parts))
-		for index, part := range parts {
-			value, err := strconv.Atoi(part)
-			if err != nil {
-				return nil, false
-			}
-			values[index] = value
-		}
-		return values, true
-	}
-	left, leftOK := parse(candidate)
-	right, rightOK := parse(current)
-	if !leftOK || !rightOK {
-		return strings.TrimPrefix(candidate, "v") != strings.TrimPrefix(current, "v")
-	}
-	length := len(left)
-	if len(right) > length {
-		length = len(right)
-	}
-	for index := 0; index < length; index++ {
-		var candidatePart, currentPart int
-		if index < len(left) {
-			candidatePart = left[index]
-		}
-		if index < len(right) {
-			currentPart = right[index]
-		}
-		if candidatePart != currentPart {
-			return candidatePart > currentPart
-		}
-	}
-	return false
-}
-
 func writeHuman(cmd *cobra.Command, data response) {
 	fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", strings.ToUpper(data.Status), data.Summary)
 	for _, item := range data.Checks {
@@ -456,11 +455,6 @@ func npmGlobalPackageDir() string {
 		return ""
 	}
 	return filepath.Join(strings.TrimSpace(string(out)), "@getnote", "cli")
-}
-
-func npmGlobalPackageInstalled() bool {
-	_, err := os.Stat(filepath.Join(npmGlobalPackageDir(), "package.json"))
-	return err == nil
 }
 
 func npmPackageVersionCheck() check {

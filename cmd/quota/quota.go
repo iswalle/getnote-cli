@@ -14,6 +14,7 @@ import (
 func NewQuotaCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "quota",
+		Args:  cobra.NoArgs,
 		Short: "查看 API 配额用量 / Show API quota usage",
 		Example: `  getnote quota
   getnote quota -o json`,

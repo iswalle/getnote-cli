@@ -75,6 +75,7 @@ func newLoginCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "login",
+		Args:  cobra.NoArgs,
 		Short: "登录 Get笔记 / Authenticate with Get笔记",
 		Long: `推荐使用 OAuth Device Flow 在浏览器完成授权；也支持直接保存已有的 API Key。
 API Key 登录时建议同时提供所属 Client ID。`,
@@ -212,6 +213,7 @@ func runDeviceFlow(out io.Writer) error {
 func newLogoutCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "logout",
+		Args:    cobra.NoArgs,
 		Short:   "退出登录 / Remove the saved API key",
 		Example: `  getnote auth logout`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -228,6 +230,7 @@ func newLogoutCmd() *cobra.Command {
 func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "status",
+		Args:    cobra.NoArgs,
 		Short:   "查看认证状态 / Show the current authentication status",
 		Example: `  getnote auth status`,
 		Run: func(cmd *cobra.Command, args []string) {

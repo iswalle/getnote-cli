@@ -130,3 +130,35 @@ func TestWorkBuddyInstallDoesNotTouchCredentials(t *testing.T) {
 		t.Fatalf("credential permissions changed: %o", info.Mode().Perm())
 	}
 }
+
+func TestWorkBuddyInstallValidatesWholeBundleBeforeChangingTargets(t *testing.T) {
+	source := t.TempDir()
+	target := t.TempDir()
+	for _, name := range workBuddySkillNames[:len(workBuddySkillNames)-1] {
+		dir := filepath.Join(source, name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("new"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range workBuddySkillNames {
+		dir := filepath.Join(target, name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("old"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := installWorkBuddySkills(source, target); err == nil {
+		t.Fatal("incomplete source must fail")
+	}
+	for _, name := range workBuddySkillNames {
+		raw, err := os.ReadFile(filepath.Join(target, name, "SKILL.md"))
+		if err != nil || string(raw) != "old" {
+			t.Fatalf("%s changed after failed install: %q %v", name, raw, err)
+		}
+	}
+}

@@ -66,8 +66,8 @@ func commandResults() map[string]commandResult {
 			Notes:         "Local-only action. It does not revoke server-side grants.",
 		},
 		"doctor": {
-			SuccessFields: []string{"success", "diagnostics_completed=true", "ready", "status", "summary", "schema_version", "mode", "cli_version", "checks[].name", "checks[].ok", "checks[].code", "checks[].required", "checks[].severity", "issues[]", "next_actions[]", "update", "integrations[]", "platforms[]"},
-			Notes:         "Use ready=true as the connection readiness decision. diagnostics_completed only means the diagnostic run finished. Follow blocking issues first, then execute next_actions only with the required user confirmation. platforms[] is legacy detection-only data; integrations[] reports Skill state.",
+			SuccessFields: []string{"success", "diagnostics_completed=true", "local_ready", "ready", "status", "summary", "schema_version", "mode", "cli_version", "checks[].name", "checks[].ok", "checks[].code", "checks[].required", "checks[].severity", "issues[]", "next_actions[]", "update", "integrations[]", "platforms[]"},
+			Notes:         "Use ready=true,status=ready for complete readiness; degraded means core access works with warnings. In offline mode ready is null and local_ready reports only local health. diagnostics_completed only means the run finished. Follow blocking issues first, then next_actions with required confirmation. platforms[] is legacy detection-only data; integrations[] reports Skill state.",
 		},
 		"capabilities": {
 			SuccessFields: []string{"success=true", "contract_version", "commands", "command_aliases", "command_results", "guarantees"},
@@ -285,6 +285,7 @@ func currentResponse() response {
 func NewCapabilitiesCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "capabilities",
+		Args:  cobra.NoArgs,
 		Short: "查看 CLI 能力与可接入平台 / Show CLI capabilities",
 		Example: `  getnote capabilities
   getnote capabilities -o json`,

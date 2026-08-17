@@ -4,10 +4,12 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -32,6 +34,7 @@ func NewUpdateCmd() *cobra.Command {
 		Example: `  getnote update
   getnote update --check
   getnote update --force`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
 
@@ -43,18 +46,43 @@ func NewUpdateCmd() *cobra.Command {
 			}
 
 			current := version.Version
-			if !force && current != "dev" && current == latest {
-				fmt.Fprintf(out, "Already up to date (%s).\n", current)
-				return nil
-			}
+			comparison := version.Compare(latest, current)
 			if check {
+				if current != "dev" && comparison <= 0 {
+					fmt.Fprintf(out, "Already up to date (%s).\n", current)
+					return nil
+				}
 				fmt.Fprintf(out, "Update available: %s → %s\n", current, latest)
 				fmt.Fprintln(out, "Run: getnote update")
 				fmt.Fprintln(out, "Or:  npm install -g @getnote/cli@latest")
 				return nil
 			}
+			if !force && current != "dev" && comparison <= 0 {
+				fmt.Fprintf(out, "Already up to date (%s).\n", current)
+				return nil
+			}
 
 			fmt.Fprintf(out, "Updating %s → %s\n", current, latest)
+			selfPath, err := os.Executable()
+			if err != nil {
+				return fmt.Errorf("finding current binary: %w", err)
+			}
+			selfPath, err = filepath.EvalSymlinks(selfPath)
+			if err != nil {
+				return fmt.Errorf("resolving symlink: %w", err)
+			}
+			if isNPMManagedBinary(selfPath) {
+				fmt.Fprintln(out, "Detected npm-managed installation; updating the package and bundled Skills together...")
+				install := exec.Command("npm", "install", "-g", "@getnote/cli@latest")
+				install.Stdin = cmd.InOrStdin()
+				install.Stdout = out
+				install.Stderr = cmd.ErrOrStderr()
+				if err := install.Run(); err != nil {
+					return fmt.Errorf("updating npm package: %w", err)
+				}
+				fmt.Fprintf(out, "✓ Updated npm package to %s\n", latest)
+				return nil
+			}
 
 			// 2. 确定当前平台
 			platform, arch, ext, err := getPlatform()
@@ -88,13 +116,8 @@ func NewUpdateCmd() *cobra.Command {
 				binaryName = "getnote.exe"
 			}
 
-			selfPath, err := os.Executable()
-			if err != nil {
-				return fmt.Errorf("finding current binary: %w", err)
-			}
-			selfPath, err = filepath.EvalSymlinks(selfPath)
-			if err != nil {
-				return fmt.Errorf("resolving symlink: %w", err)
+			if err := verifyReleaseChecksum(url, assetName, tmpPath); err != nil {
+				return fmt.Errorf("verifying release checksum: %w", err)
 			}
 
 			newBinary, err := extractBinary(tmpPath, binaryName, ext)
@@ -125,6 +148,53 @@ func NewUpdateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "强制重新下载，即使已是最新版 / Force re-download even if already up to date")
 	cmd.Flags().BoolVar(&check, "check", false, "只检查是否有新版本，不执行升级 / Check only without installing")
 	return cmd
+}
+
+func isNPMManagedBinary(path string) bool {
+	normalized := filepath.ToSlash(path)
+	return strings.Contains(normalized, "/node_modules/@getnote/cli/bin/")
+}
+
+func verifyReleaseChecksum(assetURL, assetName, archivePath string) error {
+	checksumURL := assetURL[:strings.LastIndex(assetURL, "/")+1] + "checksums.txt"
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(checksumURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("checksums.txt returned HTTP %d", resp.StatusCode)
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return err
+	}
+	expected := ""
+	for _, line := range strings.Split(string(raw), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && strings.TrimPrefix(fields[1], "*") == assetName {
+			expected = strings.ToLower(fields[0])
+			break
+		}
+	}
+	if len(expected) != sha256.Size*2 {
+		return fmt.Errorf("checksum for %s is missing or invalid", assetName)
+	}
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return err
+	}
+	actual := fmt.Sprintf("%x", hash.Sum(nil))
+	if actual != expected {
+		return fmt.Errorf("checksum mismatch for %s: expected %s, got %s", assetName, expected, actual)
+	}
+	return nil
 }
 
 func getPlatform() (platform, arch, ext string, err error) {
