@@ -6,7 +6,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestResolveTargets(t *testing.T) {
@@ -36,8 +39,66 @@ func TestJSONSetupKeepsDependencyProgressOffStdout(t *testing.T) {
 }
 
 func TestResolveTargetsRejectsUnsupportedHost(t *testing.T) {
-	if _, err := resolveTargets([]string{"qclaw"}); err == nil {
+	if _, err := resolveTargets([]string{"unknown-host"}); err == nil {
 		t.Fatal("resolveTargets() should reject unsupported hosts")
+	}
+}
+
+func TestResolveTargetsIncludesMarketplaceManagedHosts(t *testing.T) {
+	got, err := resolveTargets([]string{"qclaw,openclaw"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"openclaw", "qclaw"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("resolveTargets() = %v, want %v", got, want)
+	}
+}
+
+func TestSetupPlatformResultsExplainEveryInstallMethod(t *testing.T) {
+	platforms, actions := setupPlatformResults([]string{"codex", "qclaw", "workbuddy"}, true)
+	if len(platforms) != 3 || len(actions) != 1 {
+		t.Fatalf("platforms=%+v actions=%+v", platforms, actions)
+	}
+	if platforms[0].Status != "installed" || !platforms[0].SkillsInstalled {
+		t.Fatalf("codex=%+v", platforms[0])
+	}
+	if platforms[1].Status != "verify_in_platform" || actions[0].URL != clawHubURL {
+		t.Fatalf("qclaw=%+v actions=%+v", platforms[1], actions)
+	}
+	if !platforms[2].RestartRequired {
+		t.Fatalf("workbuddy=%+v", platforms[2])
+	}
+}
+
+func TestDryRunDoesNotClaimSkillsAreInstalled(t *testing.T) {
+	platforms, _ := setupPlatformResults([]string{"codex", "workbuddy"}, false)
+	for _, item := range platforms {
+		if item.Status == "installed" || item.SkillsInstalled {
+			t.Fatalf("dry-run platform=%+v", item)
+		}
+	}
+}
+
+func TestHumanResultHidesInstallerInternals(t *testing.T) {
+	command := &cobra.Command{}
+	var output bytes.Buffer
+	command.SetOut(&output)
+	platforms, actions := setupPlatformResults([]string{"codex", "qclaw", "workbuddy"}, true)
+	err := writeResult(command, "table", result{InstalledCLI: true, Authenticated: true, Platforms: platforms, NextActions: actions, Next: "可以开始使用"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	for _, want := range []string{"安装完成", "Codex", "QClaw", "WorkBuddy", clawHubURL, "可以开始使用"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("output missing %q:\n%s", want, text)
+		}
+	}
+	for _, internal := range []string{"universal:", "symlink", "overwrites:"} {
+		if strings.Contains(text, internal) {
+			t.Fatalf("output exposes %q:\n%s", internal, text)
+		}
 	}
 }
 

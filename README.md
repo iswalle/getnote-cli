@@ -10,19 +10,13 @@
 
 ### 让本地 AI 自动完成安装（推荐）
 
-适用于 WorkBuddy、Codex、Claude Code 和 Cursor：
+适用于 WorkBuddy、Codex、Claude Code、Cursor，以及 QClaw/OpenClaw 小龙虾生态：
 
 ```bash
 npx -y @getnote/cli@latest setup
 ```
 
-这条命令会把 CLI 安装到稳定的全局路径、识别本机支持的平台、安装五个原子 Skill，并引导完成一次得到大脑授权。检测到 WorkBuddy 时，会把 Skills 安装到 `~/.workbuddy/skills/`；安装完成后需要完全退出并重新打开 WorkBuddy。
-
-如果只想安装到 WorkBuddy，可明确指定：
-
-```bash
-npx -y @getnote/cli@latest setup --target workbuddy
-```
+这条命令会把 CLI 安装到稳定的全局路径、自动识别本机平台、安装五个 Skills，并引导完成一次得到大脑授权。最终只显示每个平台是否安装成功，以及唯一需要用户完成的下一步，不再展示 `universal`、`symlink`、`overwrites` 等内部安装细节。WorkBuddy 安装后需要重启；QClaw/OpenClaw 的 Skill 由平台管理，命令会给出对应的 ClawHub 确认入口。
 
 安装后运行：
 

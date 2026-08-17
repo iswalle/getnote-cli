@@ -74,8 +74,8 @@ func commandResults() map[string]commandResult {
 			Notes:         "This is the authoritative command and result contract for agents.",
 		},
 		"setup": {
-			SuccessFields: []string{"success=true", "targets[]", "installed_skills", "authenticated", "next"},
-			Notes:         "A missing supported target is not an account-authentication failure.",
+			SuccessFields: []string{"success=true", "targets[]", "installed_cli", "installed_skills", "authenticated", "platforms[].id", "platforms[].status", "platforms[].skills_installed", "platforms[].restart_required", "next_actions[]", "next"},
+			Notes:         "Platform status installed means local Skills were installed. verify_in_platform means QClaw/OpenClaw manages the Skill and the user must complete the single next_action in that platform. No detected target does not block CLI installation or account authentication.",
 		},
 		"version": {
 			SuccessFields: []string{"version text"},
