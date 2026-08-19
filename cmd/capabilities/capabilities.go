@@ -75,7 +75,7 @@ func commandResults() map[string]commandResult {
 		},
 		"setup": {
 			SuccessFields: []string{"success=true", "targets[]", "installed_cli", "installed_skills", "authenticated", "platforms[].id", "platforms[].status", "platforms[].skills_installed", "platforms[].restart_required", "next_actions[]", "next"},
-			Notes:         "Platform status installed means local Skills were installed. verify_in_platform means OpenClaw (the primary 小龙虾 ecosystem) or a derivative client such as QClaw manages the Skill, and the user must complete the single next_action in that platform. No detected target does not block CLI installation or account authentication.",
+			Notes:         "Platform status installed means local Skills were installed. verify_in_platform means OpenClaw (the 小龙虾 ecosystem) or QClaw manages the Skill, and the user must complete the single next_action in that platform. No detected target does not block CLI installation or account authentication.",
 		},
 		"version": {
 			SuccessFields: []string{"version text"},

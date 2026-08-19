@@ -25,45 +25,23 @@ var agentNames = map[string]string{
 	"windsurf":       "windsurf",
 	"opencode":       "opencode",
 	"cline":          "cline",
-	"continue":       "continue",
-	"roo":            "roo",
-	"kilo":           "kilo",
-	"trae":           "trae",
-	"trae-cn":        "trae-cn",
-	"qoder":          "qoder",
-	"qoder-cn":       "qoder-cn",
-	"qwen-code":      "qwen-code",
-	"kimi-code-cli":  "kimi-code-cli",
-	"goose":          "goose",
-	"zed":            "zed",
-	"warp":           "warp",
-	"amp":            "amp",
-	"augment":        "augment",
-	"droid":          "droid",
 }
 
 var platformNames = map[string]string{
 	"workbuddy": "WorkBuddy", "codex": "Codex", "claude-code": "Claude Code", "cursor": "Cursor",
-	"openclaw": "OpenClaw（小龙虾）", "qclaw": "QClaw（小龙虾生态客户端）",
+	"openclaw": "OpenClaw（小龙虾）", "qclaw": "QClaw",
 	"gemini-cli": "Gemini CLI", "github-copilot": "GitHub Copilot",
-	"windsurf": "Windsurf", "opencode": "OpenCode", "cline": "Cline", "continue": "Continue",
-	"roo": "Roo Code", "kilo": "Kilo Code", "trae": "Trae", "trae-cn": "Trae CN",
-	"qoder": "Qoder", "qoder-cn": "Qoder CN", "qwen-code": "Qwen Code", "kimi-code-cli": "Kimi Code CLI",
-	"goose": "Goose", "zed": "Zed", "warp": "Warp", "amp": "Amp", "augment": "Augment", "droid": "Droid",
+	"windsurf": "Windsurf", "opencode": "OpenCode", "cline": "Cline",
 }
 
 var marketplaceTargets = map[string]bool{"qclaw": true, "openclaw": true}
 
 // platformPriority keeps human-facing output in a recognizable popularity order.
-// OpenClaw leads because it is the primary 小龙虾 ecosystem; QClaw is a derivative client.
+// OpenClaw leads the 小龙虾 ecosystem, followed by mainstream supported AI agents.
 var platformPriority = map[string]int{
 	"openclaw": 0, "claude-code": 1, "codex": 2, "cursor": 3,
 	"github-copilot": 4, "gemini-cli": 5, "opencode": 6, "windsurf": 7,
-	"cline": 8, "roo": 9, "kilo": 10, "continue": 11,
-	"qclaw": 12, "trae": 13, "trae-cn": 14, "qwen-code": 15,
-	"qoder": 16, "qoder-cn": 17, "kimi-code-cli": 18, "zed": 19,
-	"warp": 20, "goose": 21, "amp": 22, "augment": 23,
-	"droid": 24, "workbuddy": 25,
+	"cline": 8, "qclaw": 9, "workbuddy": 10,
 }
 
 const clawHubURL = "https://clawhub.ai/iswalle/getnote"

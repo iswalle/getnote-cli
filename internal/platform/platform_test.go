@@ -12,9 +12,7 @@ func TestDetectReturnsStablePlatformIDs(t *testing.T) {
 		"cursor":      false,
 		"openclaw":    false,
 		"gemini-cli":  false, "github-copilot": false, "windsurf": false, "opencode": false,
-		"cline": false, "continue": false, "roo": false, "kilo": false, "trae": false, "trae-cn": false,
-		"qoder": false, "qoder-cn": false, "qwen-code": false, "kimi-code-cli": false,
-		"goose": false, "zed": false, "warp": false, "amp": false, "augment": false, "droid": false,
+		"cline": false,
 	}
 	for _, item := range got {
 		if _, ok := want[item.ID]; !ok {

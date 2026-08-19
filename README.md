@@ -10,13 +10,13 @@
 
 ### 让本地 AI 自动完成安装（推荐）
 
-适用于 OpenClaw（小龙虾）生态，以及 Claude Code、Codex、Cursor、GitHub Copilot、Gemini CLI、OpenCode、Windsurf、Cline、Roo Code、Kilo Code、Continue、Trae、Qwen Code、Qoder、Kimi Code CLI、Zed、Warp、Goose、Amp、Augment、Droid 和 WorkBuddy。QClaw 作为小龙虾生态客户端同样支持：
+适用于 OpenClaw（小龙虾）、QClaw、Claude Code、Codex、GitHub Copilot、Cursor、Gemini CLI、Windsurf、OpenCode、Cline 和 WorkBuddy：
 
 ```bash
 npx -y @getnote/cli@latest setup
 ```
 
-这条命令会把 CLI 安装到稳定的全局路径、自动识别本机平台、安装五个 Skills，并引导完成一次得到大脑授权。安装时保留醒目的 `SKILLS` 开场，最终只显示每个平台是否安装成功，以及唯一需要用户完成的下一步，不再展示 `universal`、`symlink`、`overwrites` 等内部安装细节。WorkBuddy 安装后需要重启；OpenClaw（小龙虾）及 QClaw 等生态客户端的 Skill 由平台管理，命令会给出对应的 ClawHub 确认入口。
+这条命令会把 CLI 安装到稳定的全局路径、自动识别本机平台、安装五个 Skills，并引导完成一次得到大脑授权。安装时保留醒目的 `SKILLS` 开场，最终只显示每个平台是否安装成功，以及唯一需要用户完成的下一步，不再展示 `universal`、`symlink`、`overwrites` 等内部安装细节。WorkBuddy 安装后需要重启；OpenClaw（小龙虾）和 QClaw 的 Skill 由平台管理，命令会给出对应的 ClawHub 确认入口。
 
 安装后运行：
 
