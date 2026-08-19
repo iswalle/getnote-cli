@@ -10,19 +10,13 @@
 
 ### 让本地 AI 自动完成安装（推荐）
 
-适用于 WorkBuddy、Codex、Claude Code 和 Cursor：
+适用于 OpenClaw（小龙虾）、QClaw、Claude Code、Codex、GitHub Copilot、Cursor、Gemini CLI、Windsurf、OpenCode、Cline 和 WorkBuddy：
 
 ```bash
 npx -y @getnote/cli@latest setup
 ```
 
-这条命令会把 CLI 安装到稳定的全局路径、识别本机支持的平台、安装五个原子 Skill，并引导完成一次得到大脑授权。检测到 WorkBuddy 时，会把 Skills 安装到 `~/.workbuddy/skills/`；安装完成后需要完全退出并重新打开 WorkBuddy。
-
-如果只想安装到 WorkBuddy，可明确指定：
-
-```bash
-npx -y @getnote/cli@latest setup --target workbuddy
-```
+这条命令会把 CLI 安装到稳定的全局路径、自动识别本机平台、安装五个 Skills，并引导完成一次得到大脑授权。安装时保留醒目的 `SKILLS` 开场，最终只显示每个平台是否安装成功，以及唯一需要用户完成的下一步，不再展示 `universal`、`symlink`、`overwrites` 等内部安装细节。WorkBuddy 安装后需要重启；OpenClaw（小龙虾）和 QClaw 的 Skill 由平台管理，命令会给出对应的 ClawHub 确认入口。
 
 安装后运行：
 
@@ -185,7 +179,7 @@ npx skills add iswalle/getnote-cli -y -g
 
 安装后在 Claude Code / Cursor 里说「帮我搜一下关于 RAG 的笔记」即可直接调用。
 
-独立的聚合 Skill 面向 WorkBuddy、QClaw 和 OpenClaw 生态，只负责意图理解，底层仍调用同一个 CLI，不再维护第二套 OpenAPI 请求实现。
+独立的聚合 Skill 面向 OpenClaw（小龙虾）及 QClaw 等生态客户端和 WorkBuddy，只负责意图理解，底层仍调用同一个 CLI，不再维护第二套 OpenAPI 请求实现。
 
 ---
 
@@ -397,6 +391,7 @@ $ getnote search "工作日志" --limit 7 -o json
 
 | 日期 | 版本 | 新能力 | 适合怎么用 |
 |------|------|--------|------------|
+| 2026-08-19 | **v1.5.5** | 1. 一键安装自动识别本机 AI Agent，并按平台显示安装结果<br>2. 新增 GitHub Copilot、Gemini CLI、Windsurf、OpenCode 和 Cline 自动安装<br>3. OpenClaw（小龙虾）和 QClaw 仅在检测到时提供 ClawHub 确认入口<br>4. 保留 `SKILLS` 品牌开场，隐藏底层安装术语<br>5. `doctor` 按平台真实目录检查 Skill 状态 | 用户只需运行一次安装命令；AI 能根据结构化结果判断安装状态并给出明确修复动作 |
 | 2026-08-17 | **v1.5.3** | 1. `doctor` 新增稳定问题码、阻断级别、修复动作、平台 Skill 状态和在线/离线就绪语义<br>2. 诊断失败提供可靠退出码，JSON 保持单一、可解析<br>3. npm 与独立二进制采用匹配的升级路径，Release 下载增加 SHA-256 校验<br>4. WorkBuddy Skills 整套预检并支持失败回滚<br>5. 严格校验输出格式与多余参数 | 让技术用户和 AI 都能准确判断环境是否真正可用，并根据结构化结果完成修复；同时避免版本分裂、半安装和未校验更新包 |
 | 2026-08-14 | **v1.5.2** | 1. 补齐团队知识库、订阅知识库与文件夹操作的执行边界<br>2. 明确目录、资源及笔记 ID 的结构化结果字段，避免 AI 猜字段<br>3. 搜索结果按字符串 `note_id` 去重，不把同一笔记的多个命中片段重复展示<br>4. 完善“这条笔记”、录音分享与权限失败的安全处理 | 提升 CLI 内置 Skills 在知识库整理、搜索和笔记管理场景中的理解与执行准确度；本次不改变既有 CLI 命令和授权凭证 |
 | 2026-08-13 | **v1.5.1** | 1. 修复通过 `npx setup` 安装后命令指向临时 npm 缓存的问题<br>2. 同时提供稳定的 `getnote` / `gnote` 双命令<br>3. 自动把五个领域 Skill 安装到 WorkBuddy<br>4. 重复安装保留已有授权凭证 | 在 WorkBuddy、Codex、Claude Code 或 Cursor 中重复执行同一条安装命令即可修复或升级，不需要重新授权 |
