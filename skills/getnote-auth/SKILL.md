@@ -11,7 +11,7 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 
 按顺序执行，已经满足的步骤直接跳过：
 
-1. 用 `command -v getnote` 检查 CLI；不要因为 Skill 已安装就假设 CLI 存在。独立的 ClawHub/OpenClaw Skill 不携带或执行 `install.sh`，CLI 依赖由平台根据 Skill 的安装声明处理。
+1. 用 `command -v getnote` 检查 CLI；不要因为 Skill 已安装就假设 CLI 存在。独立的 ClawHub/OpenClaw Skill 由平台管理 CLI 依赖，不查找或运行 `scripts/install.sh`。
 2. CLI 缺失时检查 `node --version` 和 `npm --version`，再自动执行 `npm install -g @getnote/cli@latest`。这是 Agent 的工作，不要求用户手工复制命令；只有系统弹出安装授权时才请用户确认。
 3. 执行 `getnote version`，必须能够正常启动。
 4. 执行 `getnote auth status`。未登录时运行 `getnote auth login`，让用户只在浏览器中确认，不索要 API Key、Cookie 或 Authorization。
@@ -65,10 +65,10 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 
 ## 更新闭环
 
-用户说“帮我更新得到大脑”已经构成更新授权：
+用户说“帮我更新得到大脑”已经构成完整更新授权；不要再让用户选择 CLI、领域 Skill 等内部组件：
 
 1. 执行 `getnote update --check`；有新版本或需要刷新 Skills 时执行 `getnote update`。命令会升级 CLI，再由新版 CLI 自动运行 `setup` 和 `doctor`，并同步 CLI 随附的五个领域 Skill。
-2. ClawHub/OpenClaw 托管的独立聚合 Skill 由平台更新；`getnote update` 不下载或覆盖该 Skill。平台提示存在新版时，只让用户完成唯一必要的确认操作。
+2. ClawHub/OpenClaw 托管的独立聚合 Skill 由平台更新；`getnote update` 不下载或覆盖该 Skill。若宿主支持检查 Skill 更新则继续使用宿主流程，否则只告知用户唯一必要的确认入口。
 3. 检查更新输出中的 CLI 版本、五个领域 Skill 同步结果和 doctor 结果。
 4. 用最近笔记读取做验收，再告诉用户版本、诊断结果和仍需动作。
 

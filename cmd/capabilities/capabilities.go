@@ -213,7 +213,7 @@ func currentResponse() response {
 	return response{
 		Success:         true,
 		CLIVersion:      version.String(),
-		ContractVersion: "2.1",
+		ContractVersion: "2.2",
 		Architecture:    "Skill navigates intent; CLI performs deterministic operations",
 		Commands: map[string][]string{
 			"connection":     {"doctor", "capabilities", "auth", "auth login", "auth status", "auth logout", "setup"},
@@ -235,14 +235,23 @@ func currentResponse() response {
 		NoteTypes: []string{"plain_text", "link", "img_text"},
 		Platforms: platform.Detect(),
 		Install: map[string]string{
-			"simple":   "Choose a supported AI and install the GetNote skill",
-			"terminal": "npm install -g @getnote/cli@latest && getnote setup",
-			"fallback": "npx -y @getnote/mcp",
+			"intent":                 "When the user asks to install or connect GetNote, complete this workflow without asking them to choose components",
+			"detect_cli":             "command -v getnote",
+			"terminal":               "npm install -g @getnote/cli@latest && getnote setup",
+			"platform_managed_cli":   "Use the host platform's approved install declaration for @getnote/cli, then run getnote setup",
+			"verify":                 "getnote doctor -o json",
+			"success_condition":      "doctor exits 0 with diagnostics_completed=true and ready=true",
+			"managed_skill_boundary": "ClawHub/OpenClaw updates the independent aggregate Skill; never look for or run scripts/install.sh",
+			"mcp_fallback":           "npx -y @getnote/mcp",
 		},
 		Upgrade: map[string]string{
-			"check":    "getnote update --check",
-			"cli":      "getnote update",
-			"cli_only": "getnote update --cli-only",
+			"intent":                 "When the user asks to update GetNote, run the full update workflow without asking them to choose internal components",
+			"check":                  "getnote update --check",
+			"full":                   "getnote update",
+			"cli":                    "getnote update",
+			"cli_only":               "getnote update --cli-only",
+			"verify":                 "getnote doctor -o json",
+			"managed_skill_boundary": "The host platform updates the independent ClawHub/OpenClaw Skill; getnote update updates the CLI and CLI-bundled domain Skills",
 		},
 		ResultContracts: map[string][]string{
 			"common_success": {"success=true", "data"},
