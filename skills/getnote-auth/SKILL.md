@@ -11,8 +11,8 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 
 按顺序执行，已经满足的步骤直接跳过：
 
-1. 若当前来自独立 GetNote Skill 包，先运行 `bash scripts/install.sh --ensure`。它负责检查 Node.js 20+ 并确保官方 CLI 存在；不要因为 Skill 已安装就假设 CLI 存在。
-2. 若当前环境只有 CLI 内置 Skill、没有上述安装器，则用 `command -v getnote` 检查 CLI；缺失时检查 `node --version` 和 `npm --version`，再自动执行 `npm install -g @getnote/cli@latest`。这是 Agent 的工作，不要求用户手工复制命令；只有系统弹出安装授权时才请用户确认。
+1. 用 `command -v getnote` 检查 CLI；不要因为 Skill 已安装就假设 CLI 存在。独立的 ClawHub/OpenClaw Skill 不携带或执行 `install.sh`，CLI 依赖由平台根据 Skill 的安装声明处理。
+2. CLI 缺失时检查 `node --version` 和 `npm --version`，再自动执行 `npm install -g @getnote/cli@latest`。这是 Agent 的工作，不要求用户手工复制命令；只有系统弹出安装授权时才请用户确认。
 3. 执行 `getnote version`，必须能够正常启动。
 4. 执行 `getnote auth status`。未登录时运行 `getnote auth login`，让用户只在浏览器中确认，不索要 API Key、Cookie 或 Authorization。
 5. 执行 `getnote doctor -o json`。只有 `diagnostics_completed=true`、`ready=true` 且 `status=ready`，才能宣布完整连接；`ready=true,status=degraded` 表示核心能力可用但仍应处理警告。`success` 和旧 `checks` 字段仅用于兼容。若未就绪，先处理 `issues[].blocking=true`，再按 `next_actions[]` 修复。需要确认的动作不得静默执行。
@@ -67,9 +67,9 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 
 用户说“帮我更新得到大脑”已经构成更新授权：
 
-1. 若当前来自独立 GetNote Skill 包，执行 `bash scripts/install.sh --update`。它升级 CLI，并在有新版发布包时刷新主 Skill 和五个领域 Skill。
-2. 若当前环境只有 CLI 内置 Skill，执行 `getnote update --check`；有新版本或需要刷新 Skills 时执行 `getnote update`。命令会升级 CLI，再由新版 CLI 自动运行 `setup` 和 `doctor`。
-3. 检查更新输出中的版本、Skills 同步和 doctor 结果；技能市场托管的独立 Skill 需要平台更新时，只让用户完成唯一必要的点击。
+1. 执行 `getnote update --check`；有新版本或需要刷新 Skills 时执行 `getnote update`。命令会升级 CLI，再由新版 CLI 自动运行 `setup` 和 `doctor`，并同步 CLI 随附的五个领域 Skill。
+2. ClawHub/OpenClaw 托管的独立聚合 Skill 由平台更新；`getnote update` 不下载或覆盖该 Skill。平台提示存在新版时，只让用户完成唯一必要的确认操作。
+3. 检查更新输出中的 CLI 版本、五个领域 Skill 同步结果和 doctor 结果。
 4. 用最近笔记读取做验收，再告诉用户版本、诊断结果和仍需动作。
 
 ## 安全与恢复
