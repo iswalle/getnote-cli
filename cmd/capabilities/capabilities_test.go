@@ -25,8 +25,8 @@ func TestCapabilitiesExposeSkill2ContractAndUpgrade(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &got); err != nil {
 		t.Fatalf("decode capabilities: %v\n%s", err, output.String())
 	}
-	if got.ContractVersion != "2.1" {
-		t.Fatalf("contract_version = %q, want 2.1", got.ContractVersion)
+	if got.ContractVersion != "2.2" {
+		t.Fatalf("contract_version = %q, want 2.2", got.ContractVersion)
 	}
 	if got.CommandResults["save"].SuccessFields == nil {
 		t.Fatal("capabilities must expose save result fields")
@@ -36,6 +36,14 @@ func TestCapabilitiesExposeSkill2ContractAndUpgrade(t *testing.T) {
 	}
 	if got.Upgrade["check"] != "getnote update --check" || got.Upgrade["cli"] != "getnote update" {
 		t.Fatalf("missing upgrade guidance: %#v", got.Upgrade)
+	}
+	if got.Install["detect_cli"] != "command -v getnote" ||
+		got.Install["terminal"] != "npm install -g @getnote/cli@latest && getnote setup" ||
+		got.Install["verify"] != "getnote doctor -o json" {
+		t.Fatalf("missing deterministic install workflow: %#v", got.Install)
+	}
+	if got.Upgrade["full"] != "getnote update" || got.Upgrade["verify"] != "getnote doctor -o json" {
+		t.Fatalf("missing deterministic update workflow: %#v", got.Upgrade)
 	}
 	if got.CommandAliases["gnote"] != "getnote" || got.CommandAliases["kb dir"] != "kb directories" {
 		t.Fatalf("missing compact command aliases: %#v", got.CommandAliases)
@@ -53,7 +61,7 @@ func TestCapabilitiesExposeSkill2ContractAndUpgrade(t *testing.T) {
 
 func TestContractPublishesHistoricalSafetyGuarantees(t *testing.T) {
 	data := currentResponse()
-	if data.ContractVersion != "2.1" ||
+	if data.ContractVersion != "2.2" ||
 		!data.Guarantees.IDsAsStrings ||
 		!data.Guarantees.StructuredBusinessErrors ||
 		!data.Guarantees.FinalAsyncSaveResult ||

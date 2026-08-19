@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -16,6 +17,15 @@ func TestIsNPMManagedBinary(t *testing.T) {
 	}
 	if isNPMManagedBinary("/usr/local/bin/getnote") {
 		t.Fatal("standalone path detected as npm")
+	}
+}
+
+func TestSetupArgsForUpdate(t *testing.T) {
+	if got, want := setupArgsForUpdate(true), []string{"setup", "--skip-auth", "--skip-cli-install"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("npm setup args = %v, want %v", got, want)
+	}
+	if got, want := setupArgsForUpdate(false), []string{"setup", "--skip-auth"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("standalone setup args = %v, want %v", got, want)
 	}
 }
 

@@ -125,7 +125,7 @@ func writeProgress(cmd *cobra.Command, output, message string) {
 func NewSetupCmd() *cobra.Command {
 	var targets []string
 	var scope, source string
-	var skipAuth, dryRun bool
+	var skipAuth, dryRun, skipCLIInstall bool
 
 	cmd := &cobra.Command{
 		Use:   "setup",
@@ -154,15 +154,21 @@ func NewSetupCmd() *cobra.Command {
 				})
 			}
 			writeProgress(cmd, out, setupBanner)
-			writeProgress(cmd, out, "\n正在安装得到大脑，请稍候…")
+			if skipCLIInstall {
+				writeProgress(cmd, out, "\n正在同步得到大脑 Skills，请稍候…")
+			} else {
+				writeProgress(cmd, out, "\n正在安装得到大脑，请稍候…")
+			}
 
-			// `npx @getnote/cli setup` runs from a disposable npm cache. Install the
-			// real package first so getnote/gnote both resolve from a stable path.
-			installCLI := exec.Command("npm", "install", "-g", cliPackage())
-			installCLI.Stdin = cmd.InOrStdin()
-			details, installErr := runInstaller(installCLI)
-			if installErr != nil {
-				return installerError("安装命令行工具", installErr, details)
+			// A normal setup installs the stable global package first. Update invokes
+			// this command through the newly installed CLI and skips this repeated step.
+			if !skipCLIInstall {
+				installCLI := exec.Command("npm", "install", "-g", cliPackage())
+				installCLI.Stdin = cmd.InOrStdin()
+				details, installErr := runInstaller(installCLI)
+				if installErr != nil {
+					return installerError("安装命令行工具", installErr, details)
+				}
 			}
 
 			localTargets := locallyManagedTargets(resolved)
@@ -216,7 +222,7 @@ func NewSetupCmd() *cobra.Command {
 			if !authed {
 				next = "运行 getnote auth login 完成授权"
 			}
-			return writeResult(cmd, out, result{Success: true, Targets: resolved, InstalledCLI: true, InstalledSkills: len(localTargets) > 0, RestartRequired: restartRequired, Authenticated: authed, Platforms: platforms, NextActions: actions, Next: next})
+			return writeResult(cmd, out, result{Success: true, Targets: resolved, InstalledCLI: !skipCLIInstall, InstalledSkills: len(localTargets) > 0, RestartRequired: restartRequired, Authenticated: authed, Platforms: platforms, NextActions: actions, Next: next})
 		},
 	}
 	cmd.Flags().StringSliceVar(&targets, "target", nil, "通常无需填写；仅用于调试时指定平台 ID，可重复或用逗号分隔")
@@ -224,6 +230,8 @@ func NewSetupCmd() *cobra.Command {
 	cmd.Flags().StringVar(&source, "skill-source", "", "Skill 来源；默认使用刚安装的全局 CLI 内置 Skills，本地验收可传仓库目录")
 	cmd.Flags().BoolVar(&skipAuth, "skip-auth", false, "跳过首次授权")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "仅输出将执行的操作")
+	cmd.Flags().BoolVar(&skipCLIInstall, "skip-cli-install", false, "跳过 CLI 安装，仅同步 Skills")
+	_ = cmd.Flags().MarkHidden("skip-cli-install")
 	return cmd
 }
 

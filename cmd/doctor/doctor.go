@@ -314,7 +314,7 @@ func collectUpdate(skip bool) updateInfo {
 	result.UpdateAvailable = &available
 	if available {
 		result.Message = fmt.Sprintf("CLI update available: %s -> %s", version.String(), latest)
-		result.Fix = &action{ID: "update_cli", Description: "Upgrade the CLI and rerun diagnostics", Command: "getnote update && getnote doctor -o json", RequiresConfirmation: true}
+		result.Fix = &action{ID: "update_cli", Description: "Upgrade the CLI, sync Skills, and verify the result", Command: "getnote update", RequiresConfirmation: true}
 	} else {
 		result.Message = "CLI is up to date"
 	}
@@ -389,7 +389,7 @@ func applySkillDirectoryState(entry integration, root string) integration {
 }
 
 func setupAction(target string) *action {
-	return &action{ID: "setup_" + target, Description: "Install or repair the CLI and GetNote Skills, then restart the AI host", Command: "npx -y @getnote/cli@latest setup", RequiresConfirmation: true}
+	return &action{ID: "setup_" + target, Description: "Install or repair the CLI and GetNote Skills, then restart the AI host", Command: "npm install -g @getnote/cli@latest && getnote setup", RequiresConfirmation: true}
 }
 
 func writeHuman(cmd *cobra.Command, data response) {
@@ -425,7 +425,7 @@ type npmPackage struct {
 
 func commandPathCheck(name string, required bool) check {
 	path, err := exec.LookPath(name)
-	fix := &action{ID: "repair_cli", Description: "Install or repair the stable GetNote CLI", Command: "npx -y @getnote/cli@latest setup", RequiresConfirmation: true}
+	fix := &action{ID: "repair_cli", Description: "Install or repair the stable GetNote CLI", Command: "npm install -g @getnote/cli@latest && getnote setup", RequiresConfirmation: true}
 	if err != nil {
 		if !required {
 			return baseCheck(name, "runtime", false, false, "cli.alias_missing", name+" alias is missing; use getnote or rerun setup to restore the alias", fix)
@@ -459,7 +459,7 @@ func npmGlobalPackageDir() string {
 
 func npmPackageVersionCheck() check {
 	path := filepath.Join(npmGlobalPackageDir(), "package.json")
-	fix := &action{ID: "repair_npm_package", Description: "Reinstall the matching global npm package and Skills", Command: "npx -y @getnote/cli@latest setup", RequiresConfirmation: true}
+	fix := &action{ID: "repair_npm_package", Description: "Reinstall the matching global npm package and Skills", Command: "npm install -g @getnote/cli@latest && getnote setup", RequiresConfirmation: true}
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return baseCheck("npm_package", "installation", false, true, "npm.optional", "not installed through npm (optional)", nil)
