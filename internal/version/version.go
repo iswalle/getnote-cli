@@ -51,7 +51,7 @@ func CheckUpdate() string {
 	if latest == "" || Compare(latest, Version) <= 0 {
 		return ""
 	}
-	return fmt.Sprintf("A new version is available: %s → %s\nUpgrade: npm install -g @getnote/cli\n         or download from https://github.com/iswalle/getnote-cli/releases", Version, latest)
+	return fmt.Sprintf("A new version is available: %s → %s\nUpgrade CLI and Skills: getnote update", Version, latest)
 }
 
 // Compare compares two semantic versions. It returns -1, 0 or 1. A leading v

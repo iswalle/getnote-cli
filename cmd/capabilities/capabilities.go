@@ -82,8 +82,8 @@ func commandResults() map[string]commandResult {
 			Notes:         "Human-readable version command; use capabilities for machine-readable contract discovery.",
 		},
 		"update": {
-			SuccessFields: []string{"current version", "latest version or update result"},
-			Notes:         "Interactive installer output. Run doctor after an update before claiming the CLI is ready.",
+			SuccessFields: []string{"CLI update result", "setup result", "doctor result"},
+			Notes:         "By default upgrades the CLI, relaunches the updated binary to sync Skills for all detected AI hosts, then runs doctor. Use --cli-only to skip Skill sync and diagnosis.",
 		},
 		"quota": {
 			SuccessFields: []string{"success=true", "data.read.daily", "data.read.monthly", "data.write.daily", "data.write.monthly", "data.write_note.daily", "data.write_note.monthly"},
@@ -236,13 +236,13 @@ func currentResponse() response {
 		Platforms: platform.Detect(),
 		Install: map[string]string{
 			"simple":   "Choose a supported AI and install the GetNote skill",
-			"terminal": "npx -y @getnote/cli@latest setup",
+			"terminal": "npm install -g @getnote/cli@latest && getnote setup",
 			"fallback": "npx -y @getnote/mcp",
 		},
 		Upgrade: map[string]string{
-			"check": "getnote update --check",
-			"cli":   "getnote update",
-			"npm":   "npm install -g @getnote/cli@latest",
+			"check":    "getnote update --check",
+			"cli":      "getnote update",
+			"cli_only": "getnote update --cli-only",
 		},
 		ResultContracts: map[string][]string{
 			"common_success": {"success=true", "data"},

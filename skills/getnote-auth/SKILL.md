@@ -49,7 +49,7 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 | `getnote quota -o json` | `data.read/write/write_note` 下的 `daily/monthly.limit/used/remaining/reset_at` | 按真实桶说明剩余额度，不自行换算或合并桶。 |
 | `getnote version` | 版本文本 | 只用于展示版本；机器契约仍以 `capabilities -o json` 为准。 |
 | `getnote update --check` | 当前/可用新版本文本 | 有新版本再运行 `getnote update`。 |
-| `getnote update` | 更新完成文本 | 必须再运行 `version` 和 `doctor -o json`，通过后才能说升级完成。 |
+| `getnote update` | CLI 更新、Skills 同步和 doctor 验证结果 | 默认由新版 CLI 自动完成完整更新闭环；只有全部步骤成功才能说升级完成。只升级 CLI 时使用 `--cli-only`。 |
 
 所有命令以退出码为第一判断：退出码非 0 即失败。使用 `-o json` 的 API 与本地错误均返回 `success=false`、`data=null`、`error.code/message/reason/retryable` 和可选 `request_id`；不能把 HTTP 200 或“命令运行过”当成成功。
 
@@ -68,10 +68,9 @@ description: 安装和连接得到大脑，完成浏览器授权、环境诊断�
 用户说“帮我更新得到大脑”已经构成更新授权：
 
 1. 若当前来自独立 GetNote Skill 包，执行 `bash scripts/install.sh --update`。它升级 CLI，并在有新版发布包时刷新主 Skill 和五个领域 Skill。
-2. 若当前环境只有 CLI 内置 Skill，执行 `getnote update --check`；有新版本时执行 `getnote update`，若 CLI 明确提示 npm 安装方式，则用 `npm install -g @getnote/cli@latest`。
-3. 执行 `getnote version` 和 `getnote doctor -o json`。
-4. 执行 `getnote setup` 同步内置领域 Skill；技能市场托管的独立 Skill 需要平台更新时，只让用户完成唯一必要的点击。
-5. 用最近笔记读取做验收，再告诉用户版本、诊断结果和仍需动作。
+2. 若当前环境只有 CLI 内置 Skill，执行 `getnote update --check`；有新版本或需要刷新 Skills 时执行 `getnote update`。命令会升级 CLI，再由新版 CLI 自动运行 `setup` 和 `doctor`。
+3. 检查更新输出中的版本、Skills 同步和 doctor 结果；技能市场托管的独立 Skill 需要平台更新时，只让用户完成唯一必要的点击。
+4. 用最近笔记读取做验收，再告诉用户版本、诊断结果和仍需动作。
 
 ## 安全与恢复
 

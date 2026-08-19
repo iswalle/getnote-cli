@@ -23,16 +23,17 @@ const repo = "iswalle/getnote-cli"
 
 // NewUpdateCmd returns the update command.
 func NewUpdateCmd() *cobra.Command {
-	var force, check bool
+	var force, check, cliOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "更新到最新版本 / Update to the latest version",
-		Long: `检查并升级 getnote 可执行程序。升级过程会从官方 GitHub Release 下载与当前系统匹配的文件并原子替换。
+		Long: `检查并升级 getnote 可执行程序，然后使用新版 CLI 为本机已检测到的 AI 同步最新版 Skills，并运行 doctor 验证。
 
-如果通过 npm 安装，也可以运行：npm install -g @getnote/cli@latest`,
+只需要升级 CLI、不需要同步 Skills 时使用 --cli-only。`,
 		Example: `  getnote update
   getnote update --check
+  getnote update --cli-only
   getnote update --force`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -54,12 +55,16 @@ func NewUpdateCmd() *cobra.Command {
 				}
 				fmt.Fprintf(out, "Update available: %s → %s\n", current, latest)
 				fmt.Fprintln(out, "Run: getnote update")
-				fmt.Fprintln(out, "Or:  npm install -g @getnote/cli@latest")
+				return nil
+			}
+			if !force && current != "dev" && comparison <= 0 && cliOnly {
+				fmt.Fprintf(out, "Already up to date (%s).\n", current)
 				return nil
 			}
 			if !force && current != "dev" && comparison <= 0 {
-				fmt.Fprintf(out, "Already up to date (%s).\n", current)
-				return nil
+				fmt.Fprintf(out, "CLI already up to date (%s); syncing Skills...\n", current)
+				selfPath := executableForRelaunch()
+				return syncSkillsAndDiagnose(cmd, selfPath, isNPMManagedBinary(selfPath))
 			}
 
 			fmt.Fprintf(out, "Updating %s → %s\n", current, latest)
@@ -81,7 +86,10 @@ func NewUpdateCmd() *cobra.Command {
 					return fmt.Errorf("updating npm package: %w", err)
 				}
 				fmt.Fprintf(out, "✓ Updated npm package to %s\n", latest)
-				return nil
+				if cliOnly {
+					return nil
+				}
+				return syncSkillsAndDiagnose(cmd, selfPath, true)
 			}
 
 			// 2. 确定当前平台
@@ -141,13 +149,60 @@ func NewUpdateCmd() *cobra.Command {
 			}
 
 			fmt.Fprintf(out, "✓ Updated to %s\n", latest)
-			return nil
+			if cliOnly {
+				return nil
+			}
+			return syncSkillsAndDiagnose(cmd, selfPath, false)
 		},
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "强制重新下载，即使已是最新版 / Force re-download even if already up to date")
 	cmd.Flags().BoolVar(&check, "check", false, "只检查是否有新版本，不执行升级 / Check only without installing")
+	cmd.Flags().BoolVar(&cliOnly, "cli-only", false, "只升级 CLI，不同步 Skills / Update only the CLI")
 	return cmd
+}
+
+func executableForRelaunch() string {
+	path, err := os.Executable()
+	if err != nil {
+		return "getnote"
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return path
+	}
+	return resolved
+}
+
+func setupArgsForUpdate(npmManaged bool) []string {
+	setupArgs := []string{"setup", "--skip-auth"}
+	if npmManaged {
+		setupArgs = append(setupArgs, "--skip-cli-install")
+	}
+	return setupArgs
+}
+
+func syncSkillsAndDiagnose(cmd *cobra.Command, binaryPath string, npmManaged bool) error {
+	out := cmd.OutOrStdout()
+	fmt.Fprintln(out, "Syncing Skills with the updated CLI...")
+	setupArgs := setupArgsForUpdate(npmManaged)
+	setup := exec.Command(binaryPath, setupArgs...)
+	setup.Stdin = cmd.InOrStdin()
+	setup.Stdout = out
+	setup.Stderr = cmd.ErrOrStderr()
+	if err := setup.Run(); err != nil {
+		return fmt.Errorf("syncing Skills with updated CLI: %w", err)
+	}
+
+	fmt.Fprintln(out, "Verifying the updated installation...")
+	doctor := exec.Command(binaryPath, "doctor")
+	doctor.Stdin = cmd.InOrStdin()
+	doctor.Stdout = out
+	doctor.Stderr = cmd.ErrOrStderr()
+	if err := doctor.Run(); err != nil {
+		return fmt.Errorf("verifying updated installation: %w", err)
+	}
+	return nil
 }
 
 func isNPMManagedBinary(path string) bool {
