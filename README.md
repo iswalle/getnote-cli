@@ -35,13 +35,14 @@ getnote auth login
 
 或者从 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载对应平台的二进制文件，放到 `$PATH` 里。
 
-**Windows 用户**：推荐直接从 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载 `.exe` 文件，放到 PATH 里。用 `npm install -g` 安装时，如果遇到 `Expand-Archive` 相关报错，可尝试：
+**pnpm 10+ 用户**：pnpm 默认会拦截依赖包的构建脚本。请在工作区的 `pnpm-workspace.yaml` 中允许 `@getnote/cli` 运行安装脚本：
 
-```bash
-npm install -g @getnote/cli --ignore-scripts
+```yaml
+allowBuilds:
+  '@getnote/cli': true
 ```
 
-然后手动从 Releases 下载对应平台的二进制文件。
+然后重新执行 `pnpm install`。也可以直接从 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载对应平台的二进制文件并放入 `$PATH`。
 
 ---
 

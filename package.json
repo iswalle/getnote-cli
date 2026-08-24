@@ -1,6 +1,6 @@
 {
   "name": "@getnote/cli",
-  "version": "1.5.6",
+  "version": "1.5.7",
   "description": "CLI tool for 得到大脑（Get笔记） — manage notes and knowledge bases from the terminal",
   "keywords": [
     "getnote",
@@ -19,7 +19,8 @@
     "gnote": "./bin/getnote.js"
   },
   "scripts": {
-    "postinstall": "node scripts/postinstall.js"
+    "postinstall": "node scripts/postinstall.js",
+    "test": "node --test scripts/postinstall.test.js"
   },
   "files": [
     "bin/getnote.js",
