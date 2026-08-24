@@ -37,6 +37,45 @@ function getDownloadURL(platform) {
   return `https://github.com/${REPO}/releases/download/v${VERSION}/${asset}`;
 }
 
+function getWindowsExtractArgs(archivePath, destinationPath) {
+  return [
+    '-NoProfile',
+    '-Command',
+    '& { Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force }',
+    archivePath,
+    destinationPath,
+  ];
+}
+
+async function installArchive({
+  platform,
+  binDir,
+  binaryName,
+  binaryPath,
+  url,
+  tmpFile,
+  downloadFn = download,
+  verifyChecksumFn = verifyChecksum,
+  runFn = run,
+  chmodFn = fs.chmodSync,
+  unlinkFn = fs.unlinkSync,
+}) {
+  try {
+    await downloadFn(url, tmpFile);
+    await verifyChecksumFn(url, path.basename(url), tmpFile);
+    if (platform.platform === 'windows') {
+      runFn('powershell', getWindowsExtractArgs(tmpFile, binDir));
+    } else {
+      runFn('tar', ['-xzf', tmpFile, '-C', binDir, binaryName]);
+    }
+
+    chmodFn(binaryPath, 0o755);
+    console.log(`getnote installed at ${binaryPath}`);
+  } finally {
+    try { unlinkFn(tmpFile); } catch (_) {}
+  }
+}
+
 async function main() {
   const platform = getPlatform();
   const binDir = path.join(__dirname, '..', 'bin');
@@ -63,24 +102,7 @@ async function main() {
 
   fs.mkdirSync(binDir, { recursive: true });
 
-  try {
-    await download(url, tmpFile);
-    await verifyChecksum(url, path.basename(url), tmpFile);
-    if (platform.platform === 'windows') {
-      run('powershell', ['-NoProfile', '-Command', 'Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force', tmpFile, binDir]);
-    } else {
-      run('tar', ['-xzf', tmpFile, '-C', binDir, binaryName]);
-    }
-
-    fs.chmodSync(binaryPath, 0o755);
-    console.log(`getnote installed at ${binaryPath}`);
-
-  } catch (err) {
-    console.error('Failed to install getnote:', err.message);
-    process.exit(1);
-  } finally {
-    try { fs.unlinkSync(tmpFile); } catch (_) {}
-  }
+  await installArchive({ platform, binDir, binaryName, binaryPath, url, tmpFile });
 }
 
 function run(command, args) {
@@ -128,7 +150,11 @@ async function verifyChecksum(assetURL, assetName, archivePath) {
   }
 }
 
-main().catch(err => {
-  console.error('Failed to install getnote:', err.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(err => {
+    console.error('Failed to install getnote:', err.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { getWindowsExtractArgs, installArchive };
