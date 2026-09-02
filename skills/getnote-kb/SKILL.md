@@ -13,8 +13,8 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 
 | 意图 | 命令入口 |
 |---|---|
-| 自有/可管理知识库 | `getnote kbs` |
-| 我订阅的知识库 | `getnote kbs-sub` |
+| 自有/可管理知识库 | `getnote kbs --scope <scope>` |
+| 我订阅的知识库 | `getnote kbs-sub --scope <scope>` |
 | 知识库笔记 | `getnote kb <topic_id>` |
 | 新建个人知识库 | `getnote kb create` |
 | 加入笔记 | `getnote kb add` |
@@ -35,8 +35,8 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 
 ## 选择知识库和权限
 
-1. 用户问“我管理的/我的知识库”时执行 `getnote kbs -o json`；问“所有能访问的知识库”时还要执行 `getnote kbs-sub -o json`，分别标明自有/可管理与已订阅，按各自 `has_more` 翻完页，不能混成同一种权限。
-2. `getnote kbs` 必须保留接口实际返回的全部 Scope，例如 `DEFAULT`、`BOOKSPACE`、`CUSTOMER`、`TEAMSPACE`，不能只返回默认知识库，也不能虚构未返回的 Scope。
+1. `getnote kbs` 和 `getnote kbs-sub` 默认只查询 `DEFAULT`。用户明确要书籍、客户档案或团队知识库时，分别传 `--scope BOOKSPACE`、`--scope CUSTOMER`、`--scope TEAMSPACE`；不能把多个 Scope 混在同一分页结果里。
+2. 用户问“我管理的/我的知识库”时执行 `getnote kbs --scope <scope> -o json`；问“我订阅的知识库”时执行 `getnote kbs-sub --scope <scope> -o json`。订阅列表只包含他人创建且当前账号真实订阅的知识库，分别按 `has_more` 翻完页。
 3. 按名称和 `scope` 匹配；同名或用户意图不明确时让用户选择，不猜 `topic_id`。目标名称既可能是知识库也可能是文件夹时，先问清楚。
 4. 订阅知识库通常只读。若列表结果明确返回角色或可写标记，按真实字段判断；当前 CLI 契约未保证权限字段时，不得声称已经预检为 owner/admin，可在用户明确授权后尝试写入，并忠实处理权限失败。
 5. 普通成员写入失败时明确说明权限不足，不尝试绕过。当前不代替用户新建团队知识库。
@@ -59,8 +59,8 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 
 | 命令 | 成功结果必须包含 | 回复规则 |
 |---|---|---|
-| `getnote kbs -o json` | `success=true`、`data.topics[].topic_id/name/scope/stats`、`has_more/total` | 展示全部真实 Scope，不只展示默认知识库。 |
-| `getnote kbs-sub -o json` | `success=true`、`data.topics[].topic_id/name`、`has_more/total` | 订阅知识库通常只读，不能把它当作可写知识库。 |
+| `getnote kbs --scope <scope> -o json` | `success=true`、`data.topics[].topic_id/name/scope/stats`、`has_more/total` | 默认 scope 为 `DEFAULT`；特殊类型必须显式传 scope。 |
+| `getnote kbs-sub --scope <scope> -o json` | `success=true`、`data.topics[].topic_id/name/scope`、`has_more/total` | 只返回该 scope 下真实订阅的他人知识库，通常只读。 |
 | `getnote kb <topic_id> -o json` | `success=true`、`data.notes[].note_id/title/note_type`、`has_more/total` | 返回知识库内真实笔记；需要链接时再用 `note` 读取详情。 |
 | `getnote kb create <name> -o json` | `success=true`、`data?` | 仅创建个人知识库；不得在没有返回 ID 时虚构 `topic_id`。 |
 | `getnote kb add <topic_id> <note_id…> -o json` | `success=true`、`data?` | 最多 20 条；需要确认最终目录归属时重新读取目录。 |

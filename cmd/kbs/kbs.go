@@ -12,15 +12,17 @@ import (
 // NewKbsCmd returns the top-level kbs (list) command.
 func NewKbsCmd() *cobra.Command {
 	var page int
+	var scope string
 	cmd := &cobra.Command{
 		Use:   "kbs",
 		Args:  cobra.NoArgs,
 		Short: "列出所有知识库 / List all knowledge bases",
 		Example: `  getnote kbs
-  getnote kbs --page 2`,
+  getnote kbs --scope BOOKSPACE
+  getnote kbs --scope DEFAULT --page 2`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
-			resp, err := c.KBList(page)
+			resp, err := c.KBList(page, scope)
 			if err != nil {
 				return err
 			}
@@ -48,6 +50,7 @@ func NewKbsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&page, "page", 1, "页码 / Page number")
+	cmd.Flags().StringVar(&scope, "scope", "DEFAULT", "知识库类型 / Scope: DEFAULT, CUSTOMER, BOOKSPACE, TEAMSPACE")
 	return cmd
 }
 

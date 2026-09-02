@@ -138,6 +138,34 @@ func TestNormalizeAPIHost(t *testing.T) {
 	}
 }
 
+func TestKnowledgeListsSendPageAndScope(t *testing.T) {
+	requests := make(chan *http.Request, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- r.Clone(r.Context())
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{"topics":[],"has_more":false,"total":0}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("GETNOTE_API_URL", server.URL)
+	c := New("")
+	if _, err := c.KBList(0, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.KBSubscribedList(2, " bookspace "); err != nil {
+		t.Fatal(err)
+	}
+
+	first := <-requests
+	if first.URL.Path != "/open/api/v1/resource/knowledge/list" || first.URL.Query().Get("page") != "1" || first.URL.Query().Get("scope") != "DEFAULT" {
+		t.Fatalf("first request = %s", first.URL.String())
+	}
+	second := <-requests
+	if second.URL.Path != "/open/api/v1/resource/knowledge/subscribe/list" || second.URL.Query().Get("page") != "2" || second.URL.Query().Get("scope") != "BOOKSPACE" {
+		t.Fatalf("second request = %s", second.URL.String())
+	}
+}
+
 func TestNoteURLUsesMatchingWebEnvironment(t *testing.T) {
 	tests := []struct {
 		name   string

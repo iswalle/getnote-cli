@@ -141,9 +141,11 @@ func commandResults() map[string]commandResult {
 		},
 		"kbs": {
 			SuccessFields: []string{"success=true", "data.topics[].topic_id", "data.topics[].name", "data.topics[].scope", "data.topics[].stats", "data.has_more", "data.total"},
+			Notes:         "Defaults to --scope DEFAULT. Use CUSTOMER, BOOKSPACE or TEAMSPACE explicitly for other knowledge-base types.",
 		},
 		"kbs-sub": {
-			SuccessFields: []string{"success=true", "data.topics[].topic_id", "data.topics[].name", "data.has_more", "data.total"},
+			SuccessFields: []string{"success=true", "data.topics[].topic_id", "data.topics[].name", "data.topics[].scope", "data.has_more", "data.total"},
+			Notes:         "Defaults to --scope DEFAULT and contains only knowledge bases created by others that the user actually subscribed to.",
 		},
 		"kb": {
 			SuccessFields: []string{"success=true", "data.notes[].note_id", "data.notes[].title", "data.notes[].note_type", "data.has_more", "data.total"},

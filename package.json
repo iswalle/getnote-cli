@@ -1,6 +1,6 @@
 {
   "name": "@getnote/cli",
-  "version": "1.5.7",
+  "version": "1.5.8",
   "description": "CLI tool for 得到大脑（Get笔记） — manage notes and knowledge bases from the terminal",
   "keywords": [
     "getnote",
