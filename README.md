@@ -138,8 +138,9 @@ getnote search "产品设计" --kb vnrOAaGY
 
 **场景 3：管理知识库**
 ```bash
-# 列出所有知识库
+# 列出默认知识库；特殊类型使用 --scope
 getnote kbs
+getnote kbs --scope BOOKSPACE
 
 # 查看某个知识库的笔记
 getnote kb vnrOAaGY --all
@@ -280,7 +281,8 @@ getnote tag list <note_id>           查看笔记的所有标签
 ### 知识库
 
 ```
-getnote kbs                          列出所有可访问知识库（DEFAULT / BOOKSPACE / CUSTOMER / TEAMSPACE）
+getnote kbs                          列出 DEFAULT 知识库
+  --scope <scope>                    指定 DEFAULT / BOOKSPACE / CUSTOMER / TEAMSPACE
 
 getnote kb <topic_id>                知识库内的笔记
   --limit <n>
@@ -300,7 +302,9 @@ getnote kb directory-delete <topic_id> <id> --yes    删除空文件夹
 getnote kb blogger-follow <topic_id> <抖音链接>      订阅抖音博主
 getnote kb live-follow <topic_id> <url>              订阅得到直播课，直播结束后 AI 摘要自动入库
 
-getnote kbs-sub                                      获取我订阅的知识库列表
+getnote kbs [--scope DEFAULT]                        获取我创建/管理的知识库，默认只返回 DEFAULT
+getnote kbs-sub [--scope DEFAULT]                    获取我订阅的知识库，默认只返回 DEFAULT
+# --scope 可选：DEFAULT、CUSTOMER、BOOKSPACE、TEAMSPACE
 ```
 
 常用目录命令提供短别名，旧命令继续兼容：
@@ -392,6 +396,7 @@ $ getnote search "工作日志" --limit 7 -o json
 
 | 日期 | 版本 | 新能力 | 适合怎么用 |
 |------|------|--------|------------|
+| 2026-09-02 | **v1.5.8** | 1. `kbs` 与 `kbs-sub` 默认只返回 `DEFAULT` 知识库<br>2. 新增 `--scope`，可按 `CUSTOMER`、`BOOKSPACE`、`TEAMSPACE` 精确读取<br>3. 订阅列表不再混入自己创建的知识库 | 避免书籍库和自有库挤占订阅列表分页；需要特殊知识库时显式选择 scope |
 | 2026-08-19 | **v1.5.6** | 1. `getnote update` 默认升级 CLI、同步五个领域 Skill 并运行诊断<br>2. capabilities 2.2 提供机器可读的安装、更新、验证与平台托管边界<br>3. 移除失效的 `install.sh` 引导 | 用户只说“安装”或“更新”即可，AI Agent 无需让用户选择内部组件，并能按统一成功条件完成验收 |
 | 2026-08-19 | **v1.5.5** | 1. 一键安装自动识别本机 AI Agent，并按平台显示安装结果<br>2. 新增 GitHub Copilot、Gemini CLI、Windsurf、OpenCode 和 Cline 自动安装<br>3. OpenClaw（小龙虾）和 QClaw 仅在检测到时提供 ClawHub 确认入口<br>4. 保留 `SKILLS` 品牌开场，隐藏底层安装术语<br>5. `doctor` 按平台真实目录检查 Skill 状态 | 用户只需运行一次安装命令；AI 能根据结构化结果判断安装状态并给出明确修复动作 |
 | 2026-08-17 | **v1.5.3** | 1. `doctor` 新增稳定问题码、阻断级别、修复动作、平台 Skill 状态和在线/离线就绪语义<br>2. 诊断失败提供可靠退出码，JSON 保持单一、可解析<br>3. npm 与独立二进制采用匹配的升级路径，Release 下载增加 SHA-256 校验<br>4. WorkBuddy Skills 整套预检并支持失败回滚<br>5. 严格校验输出格式与多余参数 | 让技术用户和 AI 都能准确判断环境是否真正可用，并根据结构化结果完成修复；同时避免版本分裂、半安装和未校验更新包 |

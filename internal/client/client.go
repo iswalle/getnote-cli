@@ -513,19 +513,36 @@ type KBListResponse struct {
 	Data    KBListData `json:"data"`
 }
 
-// KBList fetches knowledge bases for the given page (1-based).
+// KBList fetches knowledge bases for the given page (1-based) and scope.
 // GET /open/api/v1/resource/knowledge/list
-func (c *Client) KBList(page int) (*KBListResponse, error) {
+func (c *Client) KBList(page int, scope string) (*KBListResponse, error) {
 	if page < 1 {
 		page = 1
 	}
-	return doGet[KBListResponse](c, "/open/api/v1/resource/knowledge/list", url.Values{"page": {fmt.Sprintf("%d", page)}})
+	return doGet[KBListResponse](c, "/open/api/v1/resource/knowledge/list", knowledgeListValues(page, scope))
 }
 
-// KBSubscribedList fetches knowledge bases the user has subscribed to.
+// KBSubscribedList fetches knowledge bases the user has subscribed to for the given scope.
 // GET /open/api/v1/resource/knowledge/subscribe/list
-func (c *Client) KBSubscribedList(page int) (*KBListResponse, error) {
-	return doGet[KBListResponse](c, "/open/api/v1/resource/knowledge/subscribe/list", url.Values{"page": {fmt.Sprintf("%d", page)}})
+func (c *Client) KBSubscribedList(page int, scope string) (*KBListResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	return doGet[KBListResponse](c, "/open/api/v1/resource/knowledge/subscribe/list", knowledgeListValues(page, scope))
+}
+
+func knowledgeListValues(page int, scope string) url.Values {
+	if page < 1 {
+		page = 1
+	}
+	scope = strings.ToUpper(strings.TrimSpace(scope))
+	if scope == "" {
+		scope = "DEFAULT"
+	}
+	return url.Values{
+		"page":  {fmt.Sprintf("%d", page)},
+		"scope": {scope},
+	}
 }
 
 // KBCreateRequest is the request body for creating a knowledge base.
