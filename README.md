@@ -46,7 +46,7 @@ allowBuilds:
 
 ### 安装机制说明
 
-从 v1.5.9 起，npm 包**内置所有平台的二进制文件**（macOS/Linux/Windows，x64/ARM64），安装时**不再依赖 GitHub**。
+从 v1.5.10 起，npm 包**内置所有平台的二进制文件**（macOS/Linux/Windows，x64/ARM64），安装时**不再依赖 GitHub**。
 
 安装时由 postinstall 从 npm 包内的 prebuilt/ 目录复制当前平台二进制，不会访问 GitHub。
 
