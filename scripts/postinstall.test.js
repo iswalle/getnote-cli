@@ -1,37 +1,15 @@
 'use strict';
-
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const { getPlatform, getBinaryName, getPrebuiltPath } = require('./postinstall');
 
-const { getWindowsExtractArgs, installArchive } = require('./postinstall');
-
-test('Windows extraction invokes Expand-Archive inside a script block', () => {
-  assert.deepEqual(getWindowsExtractArgs('C:\\Temp\\getnote.zip', 'C:\\Program Files\\getnote'), [
-    '-NoProfile',
-    '-Command',
-    '& { Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force }',
-    'C:\\Temp\\getnote.zip',
-    'C:\\Program Files\\getnote',
-  ]);
+test('maps Windows architectures to bundled executable paths', () => {
+  assert.deepEqual(getPlatform('win32', 'x64'), { platform: 'windows', arch: 'amd64' });
+  assert.deepEqual(getPlatform('win32', 'arm64'), { platform: 'windows', arch: 'arm64' });
+  assert.equal(getBinaryName({ platform: 'windows' }), 'getnote.exe');
+  assert.match(getPrebuiltPath({ platform: 'windows', arch: 'amd64' }), /prebuilt[\\/]windows-amd64[\\/]getnote\.exe$/);
 });
 
-test('temporary archive is removed when installation fails', async () => {
-  const removed = [];
-  await assert.rejects(
-    installArchive({
-      platform: { platform: 'windows', arch: 'amd64' },
-      binDir: 'C:\\getnote\\bin',
-      binaryName: 'getnote.exe',
-      binaryPath: 'C:\\getnote\\bin\\getnote.exe',
-      url: 'https://example.invalid/getnote.zip',
-      tmpFile: 'C:\\Temp\\getnote-download.zip',
-      downloadFn: async () => { throw new Error('download failed'); },
-      verifyChecksumFn: async () => {},
-      runFn: () => {},
-      chmodFn: () => {},
-      unlinkFn: file => removed.push(file),
-    }),
-    /download failed/,
-  );
-  assert.deepEqual(removed, ['C:\\Temp\\getnote-download.zip']);
+test('uses a package-local binary path', () => {
+  assert.doesNotMatch(getPrebuiltPath({ platform: 'windows', arch: 'amd64' }), /^https?:/);
 });

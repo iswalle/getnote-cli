@@ -1,6 +1,6 @@
 {
   "name": "@getnote/cli",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "description": "CLI tool for 得到大脑（Get笔记） — manage notes and knowledge bases from the terminal",
   "keywords": [
     "getnote",
@@ -11,21 +11,24 @@
   "homepage": "https://github.com/iswalle/getnote-cli",
   "repository": {
     "type": "git",
-    "url": "https://github.com/iswalle/getnote-cli.git"
+    "url": "git+https://github.com/iswalle/getnote-cli.git"
   },
   "license": "MIT",
   "bin": {
-    "getnote": "./bin/getnote.js",
-    "gnote": "./bin/getnote.js"
+    "getnote": "bin/getnote.js",
+    "gnote": "bin/getnote.js"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
-    "test": "node --test scripts/postinstall.test.js"
+    "test": "node --test scripts/postinstall.test.js",
+    "prepare-package": "bash scripts/prepare-package.sh",
+    "prepack": "bash scripts/prepare-package.sh"
   },
   "files": [
     "bin/getnote.js",
     "scripts/",
     "skills/",
+    "prebuilt/",
     "README.md"
   ]
 }

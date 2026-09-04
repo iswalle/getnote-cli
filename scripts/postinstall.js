@@ -1,160 +1,60 @@
 #!/usr/bin/env node
-// postinstall.js — downloads the getnote binary for the current platform.
-
+// Install the platform binary bundled in this npm package.
+// Installation is local-only; no network request is made here.
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const https = require('https');
-const crypto = require('crypto');
-const { spawnSync } = require('child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+const { version } = require('../package.json');
 
-const pkg = require('../package.json');
-const VERSION = pkg.version;
-const REPO = 'iswalle/getnote-cli';
+const platformNames = { darwin: 'darwin', linux: 'linux', win32: 'windows' };
+const archNames = { x64: 'amd64', arm64: 'arm64' };
 
-function getPlatform() {
-  const platform = os.platform();
-  const arch = os.arch();
-
-  const platformMap = { darwin: 'darwin', linux: 'linux', win32: 'windows' };
-  const archMap = { x64: 'amd64', arm64: 'arm64' };
-
-  const p = platformMap[platform];
-  const a = archMap[arch];
-  if (!p || !a) throw new Error(`Unsupported platform: ${platform}/${arch}`);
-  return { platform: p, arch: a };
+function getPlatform(platform = os.platform(), arch = os.arch()) {
+  const name = platformNames[platform];
+  const cpu = archNames[arch];
+  if (!name || !cpu) throw new Error(`Unsupported platform: ${platform}/${arch}`);
+  return { platform: name, arch: cpu };
 }
 
 function getBinaryName(platform) {
   return platform.platform === 'windows' ? 'getnote.exe' : 'getnote';
 }
 
-function getDownloadURL(platform) {
-  const ext = platform.platform === 'windows' ? '.zip' : '.tar.gz';
-  const asset = `getnote-cli_${VERSION}_${platform.platform}_${platform.arch}${ext}`;
-  return `https://github.com/${REPO}/releases/download/v${VERSION}/${asset}`;
+function getPrebuiltPath(platform) {
+  return path.join(__dirname, '..', 'prebuilt', `${platform.platform}-${platform.arch}`, getBinaryName(platform));
 }
 
-function getWindowsExtractArgs(archivePath, destinationPath) {
-  return [
-    '-NoProfile',
-    '-Command',
-    '& { Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force }',
-    archivePath,
-    destinationPath,
-  ];
-}
-
-async function installArchive({
-  platform,
-  binDir,
-  binaryName,
-  binaryPath,
-  url,
-  tmpFile,
-  downloadFn = download,
-  verifyChecksumFn = verifyChecksum,
-  runFn = run,
-  chmodFn = fs.chmodSync,
-  unlinkFn = fs.unlinkSync,
-}) {
-  try {
-    await downloadFn(url, tmpFile);
-    await verifyChecksumFn(url, path.basename(url), tmpFile);
-    if (platform.platform === 'windows') {
-      runFn('powershell', getWindowsExtractArgs(tmpFile, binDir));
-    } else {
-      runFn('tar', ['-xzf', tmpFile, '-C', binDir, binaryName]);
-    }
-
-    chmodFn(binaryPath, 0o755);
-    console.log(`getnote installed at ${binaryPath}`);
-  } finally {
-    try { unlinkFn(tmpFile); } catch (_) {}
+function installFromPrebuilt(platform, binDir) {
+  const source = getPrebuiltPath(platform);
+  const destination = path.join(binDir, getBinaryName(platform));
+  if (!fs.existsSync(source)) {
+    throw new Error(`Bundled binary is missing: ${path.relative(path.join(__dirname, '..'), source)}. Install a newer @getnote/cli package.`);
   }
+  fs.mkdirSync(binDir, { recursive: true });
+  fs.copyFileSync(source, destination);
+  if (platform.platform !== 'windows') fs.chmodSync(destination, 0o755);
+  console.log(`getnote v${version} installed from the npm package`);
 }
 
-async function main() {
+function main() {
   const platform = getPlatform();
   const binDir = path.join(__dirname, '..', 'bin');
-  const binaryName = getBinaryName(platform);
-  const binaryPath = path.join(binDir, binaryName);
-  const url = getDownloadURL(platform);
-  const tmpFile = path.join(os.tmpdir(), `getnote-download-${Date.now()}`);
-
-  // Skip download if binary already matches current version
+  const binaryPath = path.join(binDir, getBinaryName(platform));
   if (fs.existsSync(binaryPath)) {
-    try {
-      const result = spawnSync(binaryPath, ['version'], { encoding: 'utf8' });
-      const fallback = result.status === 0 ? result : spawnSync(binaryPath, ['--version'], { encoding: 'utf8' });
-      const out = (fallback.stdout || '').trim();
-      if (out.includes(VERSION)) {
-        console.log(`getnote v${VERSION} already installed, skipping download.`);
-        return;
-      }
-    } catch (_) { /* binary exists but can't run (wrong arch etc.), re-download */ }
+    const result = spawnSync(binaryPath, ['version'], { encoding: 'utf8' });
+    if (result.status === 0 && (result.stdout || '').includes(version)) return;
   }
-
-  console.log(`Downloading getnote v${VERSION} for ${platform.platform}/${platform.arch}...`);
-  console.log(`URL: ${url}`);
-
-  fs.mkdirSync(binDir, { recursive: true });
-
-  await installArchive({ platform, binDir, binaryName, binaryPath, url, tmpFile });
-}
-
-function run(command, args) {
-  const result = spawnSync(command, args, { stdio: 'inherit' });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`${command} exited with status ${result.status}`);
-}
-
-function download(url, destination, redirects = 0) {
-  if (redirects > 5) return Promise.reject(new Error('Too many redirects'));
-  return new Promise((resolve, reject) => {
-    const request = https.get(url, { headers: { 'User-Agent': '@getnote/cli installer' } }, response => {
-      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        response.resume();
-        return resolve(download(new URL(response.headers.location, url).toString(), destination, redirects + 1));
-      }
-      if (response.statusCode !== 200) {
-        response.resume();
-        return reject(new Error(`HTTP ${response.statusCode}: ${url}`));
-      }
-      const output = fs.createWriteStream(destination, { mode: 0o600 });
-      response.pipe(output);
-      output.on('finish', () => output.close(resolve));
-      output.on('error', reject);
-    });
-    request.on('error', reject);
-  });
-}
-
-async function verifyChecksum(assetURL, assetName, archivePath) {
-  const checksumPath = `${archivePath}.checksums`;
-  try {
-    await download(new URL('checksums.txt', assetURL).toString(), checksumPath);
-    const line = fs.readFileSync(checksumPath, 'utf8').split(/\r?\n/).find(value => {
-      const fields = value.trim().split(/\s+/);
-      return fields.length === 2 && fields[1].replace(/^\*/, '') === assetName;
-    });
-    if (!line) throw new Error(`Checksum for ${assetName} is missing`);
-    const expected = line.trim().split(/\s+/)[0].toLowerCase();
-    if (!/^[a-f0-9]{64}$/.test(expected)) throw new Error(`Checksum for ${assetName} is invalid`);
-    const actual = crypto.createHash('sha256').update(fs.readFileSync(archivePath)).digest('hex');
-    if (actual !== expected) throw new Error(`Checksum mismatch for ${assetName}`);
-  } finally {
-    try { fs.unlinkSync(checksumPath); } catch (_) {}
-  }
+  installFromPrebuilt(platform, binDir);
 }
 
 if (require.main === module) {
-  main().catch(err => {
-    console.error('Failed to install getnote:', err.message);
+  try { main(); } catch (error) {
+    console.error(`Failed to install getnote: ${error.message}`);
     process.exitCode = 1;
-  });
+  }
 }
 
-module.exports = { getWindowsExtractArgs, installArchive };
+module.exports = { getPlatform, getBinaryName, getPrebuiltPath, installFromPrebuilt };

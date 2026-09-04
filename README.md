@@ -44,6 +44,16 @@ allowBuilds:
 
 然后重新执行 `pnpm install`。也可以直接从 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载对应平台的二进制文件并放入 `$PATH`。
 
+### 安装机制说明
+
+从 v1.5.9 起，npm 包**内置所有平台的二进制文件**（macOS/Linux/Windows，x64/ARM64），安装时**不再依赖 GitHub**。
+
+安装时由 postinstall 从 npm 包内的 prebuilt/ 目录复制当前平台二进制，不会访问 GitHub。
+
+**中国大陆用户**：只需配置 npm Registry 镜像（例如 npmmirror），即可获取完整 npm 包；不需要额外配置二进制下载地址。
+
+**包大小**：压缩后 ~22MB，解压后 ~55MB（包含 6 个平台二进制）。
+
 ---
 
 ## 使用要求

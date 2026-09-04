@@ -3,3 +3,5 @@ getnote-cli.exe
 dist/
 *.test
 *.out
+build/
+*.tgz
