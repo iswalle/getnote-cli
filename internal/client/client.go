@@ -198,7 +198,11 @@ type Note struct {
 		Content string `json:"content"` // 链接笔记原文全文
 	} `json:"web_page,omitempty"`
 	Audio *struct {
-		Original string `json:"original"` // 录音转写原文
+		Original   string          `json:"original"` // 录音转写原文
+		PlayURL    string          `json:"play_url,omitempty"`
+		Duration   int64           `json:"duration,omitempty"`
+		Transcript string          `json:"transcript,omitempty"`
+		Sentences  json.RawMessage `json:"sentences,omitempty"`
 	} `json:"audio,omitempty"`
 	QuickNote     string            `json:"quick_note,omitempty"`
 	Timeline      *NoteTimeline     `json:"timeline,omitempty"`
@@ -227,15 +231,22 @@ type NoteMeetingTodo struct {
 }
 
 type NoteTimeline struct {
-	Version   int64                  `json:"version"`
-	Moments   []NoteTimelineMoment   `json:"moments"`
-	Resources []NoteOriginalResource `json:"resources"`
+	SchemaVersion int                    `json:"schema_version"`
+	Version       int64                  `json:"version"`
+	Moments       []NoteTimelineMoment   `json:"moments"`
+	Resources     []NoteOriginalResource `json:"resources"`
 }
 
 type NoteTimelineMoment struct {
-	StartMs int64  `json:"start_ms"`
-	EndMs   int64  `json:"end_ms"`
-	Text    string `json:"text"`
+	Content    string          `json:"content,omitempty"`
+	ID         string          `json:"id,omitempty"`
+	Type       string          `json:"type,omitempty"`
+	ActionTime int64           `json:"action_time"`
+	Summary    string          `json:"summary,omitempty"`
+	Files      json.RawMessage `json:"files,omitempty"`
+	StartMs    int64           `json:"start_ms"`
+	EndMs      int64           `json:"end_ms"`
+	Text       string          `json:"text"`
 }
 
 type NoteOriginalResource struct {
@@ -645,6 +656,9 @@ type KBDirectory struct {
 }
 
 type KBResource struct {
+	OriginalURL string `json:"original_url,omitempty"`
+	PreviewURL  string `json:"preview_url,omitempty"`
+	FailReason  string `json:"fail_reason,omitempty"`
 	ID          string `json:"id"`
 	DirectoryID string `json:"directory_id"`
 	NoteID      string `json:"note_id,omitempty"`

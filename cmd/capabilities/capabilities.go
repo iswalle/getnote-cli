@@ -53,6 +53,16 @@ type guarantees struct {
 
 func commandResults() map[string]commandResult {
 	return map[string]commandResult{
+		"marks":             {SuccessFields: []string{"success=true", "data.note_id", "data.marks[]"}, Notes: "Independent from timeline moments."},
+		"sprouts":           {SuccessFields: []string{"success=true", "data.tasks[]"}},
+		"sprout":            {SuccessFields: []string{"success=true", "data.has_sprout", "data.sprout"}},
+		"file-capabilities": {SuccessFields: []string{"success=true", "data.formats[]", "data.daily_upload_limit"}},
+		"file-token":        {SuccessFields: []string{"success=true", "data.put_sign_url", "data.get_url"}, Notes: "Sensitive temporary credentials; send only to the local upload process."},
+		"file-add":          {SuccessFields: []string{"success=true", "data.id", "data.status"}, PendingFields: []string{"data.status=UPLOADING|CONVERT|ANALYZING"}, Notes: "Query the same resource with kb directories until SUCCESS or FAIL; submission is not ingestion completion."},
+		"upload": {
+			SuccessFields: []string{"stage=oss_uploaded", "file_name", "file_type", "size_bytes", "md5", "url"},
+			Notes:         "No CLI authentication. Receives a short-lived OSS token via stdin or --token-file. Only transfers bytes to OSS; the authorized MCP must submit Knowledge ingestion and check its final status. Never print the token or signed URL in chat.",
+		},
 		"auth login": {
 			SuccessFields: []string{"browser authorization completed", "local credential saved"},
 			Notes:         "Interactive command. It succeeds only after the browser authorization is confirmed; never expose the credential.",
@@ -218,6 +228,8 @@ func currentResponse() response {
 		ContractVersion: "2.2",
 		Architecture:    "Skill navigates intent; CLI performs deterministic operations",
 		Commands: map[string][]string{
+			"file_transfer":  {"upload", "file-capabilities", "file-token", "file-add"},
+			"reports":        {"marks", "sprouts", "sprout"},
 			"connection":     {"doctor", "capabilities", "auth", "auth login", "auth status", "auth logout", "setup"},
 			"notes":          {"save", "task", "notes", "note", "note original", "note transcript", "note attachments", "note timeline", "note quick-note", "note todos", "note update", "note delete", "note share"},
 			"search":         {"search"},

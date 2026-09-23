@@ -33,6 +33,9 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 | 录音、会议或课堂转写 | `getnote note transcript` |
 | 图片、音频和文件附件 | `getnote note attachments` |
 | 录音或会议时间线 | `getnote note timeline` |
+| 录音笔记标记（独立数据） | `getnote marks <note_id>` |
+| 按月列出发芽报告 | `getnote sprouts <YYYY-MM>` |
+| 读取发芽报告原文 | `getnote sprout <id>` |
 | 录音快捷笔记 | `gnote note quick`，旧版回退 `getnote note quick-note` |
 | 会议总结中的派生待办 | `getnote note todos` |
 | 修改笔记 | `getnote note update` |
@@ -81,6 +84,7 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
    - 用户现场快捷记录：`quick-note`；
    - 会议待办：`todos`，必须保留 `source`，不得把规则解析结果说成上游原生待办。
 5. 不拿 `content` 中的 AI 摘要冒充原文。
+6. 标记从 `getnote marks` 的 `data.marks[]` 读取，不使用 Timeline 的条数或内容替代。发芽从 `getnote sprouts` 列出报告，再用 `getnote sprout` 读取正文；`has_sprout=false` 如实表示没有可读报告，不把标记或笔记总结当作发芽。
 
 ## 修改、删除和分享
 

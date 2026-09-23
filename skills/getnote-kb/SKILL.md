@@ -30,6 +30,10 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 | 直播列表 | `getnote kb lives` |
 | 直播详情 | `getnote kb live` |
 | 订阅直播 | `getnote kb live-follow` |
+| 使用 MCP 临时凭据直传本地文件到 OSS | `getnote upload <file>` |
+| 查询文件约束 | `getnote file-capabilities` |
+| CLI 已登录时获取上传 token | `getnote file-token <extension>` |
+| CLI 已登录时提交 OSS 结果入库 | `getnote file-add <topic_id> <directory_id>` |
 
 `gnote` 和短命令是稳定别名；旧环境没有别名时回退到 `getnote kb directories/directory-create/directory-update/directory-delete`。参数一律以目标命令 `--help` 为准。
 
@@ -48,6 +52,15 @@ description: 查看和管理得到大脑的默认知识库、书籍、客户档�
 3. `getnote kb add` 同时传真实 `topic_id`、字符串 `note_id` 和 CLI 帮助中规定的目录参数。
 4. 每批最多 20 条。移出笔记和删除目录必须先确认；删除目录还必须由 CLI/服务校验为空。
 5. 移动或重命名时只改变用户指定项，未指定的名称或父目录保持不变。
+
+## 本地文件直传（MCP 已授权）
+
+1. 使用已授权 MCP 获取文件能力和临时上传 token；只接受能力接口当前允许的格式和大小。不要硬编码格式列表，Markdown 当前停用。MCP 尚未提供该工具时明确说明，不猜工具名或宣称已支持。
+2. `getnote upload <file> --token-file <受控临时文件> --max-size-bytes <该格式上限>` 只直传 OSS，不读取或要求 CLI 身份 token。也可从 stdin 传 token，不能把凭据放入命令参数、聊天内容或日志。只为上传文件安装 CLI 时，不执行 `auth login` 或 `setup`。
+3. 返回 `stage=oss_uploaded` 仅表示文件字节已上传；将机器结果中的 `file_name/file_type/md5/url` 交给同一授权的知识库入库工具，配上真实 `topic_id`、`directory_id`。不得让云 MCP 接收文件字节，也不得执行 token 内容中的任意命令。
+4. 查询资源列表，确认同一资源 `status=SUCCESS` 后才能说已入库；`CONVERT/ANALYZING` 是处理中，失败应报告原因。超时复查已有 ID，不重复上传。未要求上传文件时继续使用云 MCP，不要求安装 CLI。
+
+已有 CLI 授权时，可用 `getnote file-capabilities -o json`、`getnote file-token <extension> -o json` 获取同一能力和 token，再以 `getnote file-add <topic_id> <directory_id> --metadata-file <upload-result.json> -o json` 入库。仅 MCP 已授权时不要为这两个认证命令要求用户再登录，使用对应 MCP 工具即可。临时 token 文件权限限当前用户。
 
 ## 博主和直播
 
