@@ -1,13 +1,17 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/url"
+	"os"
+	"regexp"
+
 	"github.com/iswalle/getnote-cli/internal/client"
 	oss "github.com/iswalle/getnote-cli/internal/upload"
 	"github.com/spf13/cobra"
-	"io"
-	"os"
 )
 
 func addFileAndReportCommands() {
@@ -58,12 +62,9 @@ func addFileAndReportCommands() {
 			defer f.Close()
 			r = f
 		}
-		var metadata oss.Result
-		if err := json.NewDecoder(io.LimitReader(r, 65536)).Decode(&metadata); err != nil {
-			return errors.New("invalid OSS result JSON")
-		}
-		if metadata.Stage != "oss_uploaded" || metadata.URL == "" || metadata.MD5 == "" {
-			return errors.New("expected successful getnote upload result")
+		metadata, err := readUploadMetadata(r)
+		if err != nil {
+			return err
 		}
 		result, err := client.New("").FileAdd(map[string]string{"topic_id": args[0], "directory_id": args[1], "file_name": metadata.FileName, "file_type": metadata.FileType, "md5": metadata.MD5, "url": metadata.URL})
 		if err != nil {
@@ -73,4 +74,27 @@ func addFileAndReportCommands() {
 	}}
 	cmd.Flags().StringVar(&metadataFile, "metadata-file", "-", "getnote upload 的JSON输出文件，-从stdin读取")
 	rootCmd.AddCommand(cmd)
+}
+
+// Accept exactly one bounded metadata object, never file bytes or trailing JSON.
+func readUploadMetadata(r io.Reader) (oss.Result, error) {
+	var result oss.Result
+	b, err := io.ReadAll(io.LimitReader(r, 65537))
+	if err != nil || len(b) > 65536 {
+		return result, errors.New("OSS result must be at most 65536 bytes")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&result); err != nil {
+		return result, errors.New("invalid OSS result JSON")
+	}
+	var trailing any
+	if decoder.Decode(&trailing) != io.EOF {
+		return result, errors.New("expected exactly one OSS result")
+	}
+	u, err := url.Parse(result.URL)
+	if result.Stage != "oss_uploaded" || result.FileName == "" || result.FileType == "" || result.Size <= 0 || !regexp.MustCompile(`^[a-fA-F0-9]{32}$`).MatchString(result.MD5) || err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
+		return result, errors.New("expected successful getnote upload result")
+	}
+	return result, nil
 }

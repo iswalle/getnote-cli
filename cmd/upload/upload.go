@@ -16,7 +16,7 @@ func NewUploadCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "upload <file>",
 		Short:   "仅直传本地文件到 OSS，无需 CLI 登录；入库仍由已授权 MCP 完成",
-		Example: "  getnote upload ./report.html --token-file ./upload-token.json --max-size-bytes 10485760\n  getnote upload ./report.html --max-size-bytes 10485760 < ./upload-token.json",
+		Example: "  getnote upload ./report.txt --token-file ./upload-token.json --max-size-bytes 10485760\n  getnote upload ./report.txt --max-size-bytes 10485760 < ./upload-token.json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var r io.Reader = cmd.InOrStdin()
