@@ -204,20 +204,21 @@ type Note struct {
 		Transcript string          `json:"transcript,omitempty"`
 		Sentences  json.RawMessage `json:"sentences,omitempty"`
 	} `json:"audio,omitempty"`
-	QuickNote     string            `json:"quick_note,omitempty"`
-	Timeline      *NoteTimeline     `json:"timeline,omitempty"`
-	MeetingTodos  NoteMeetingTodos  `json:"meeting_todos"`
-	RefContent    string            `json:"ref_content"`
-	Source        string            `json:"source"`
-	EntryType     string            `json:"entry_type"`
-	ChildrenCount int               `json:"children_count"`
-	ChildrenIDs   []string          `json:"children_ids"`
-	Topics        []json.RawMessage `json:"topics"`
-	IsChildNote   bool              `json:"is_child_note"`
-	ParentID      StringID          `json:"parent_id,omitempty"`
-	ParentNoteID  string            `json:"parent_note_id,omitempty"`
-	Attachments   []json.RawMessage `json:"attachments"`
-	Version       int               `json:"version"`
+	QuickNote       string            `json:"quick_note,omitempty"`
+	Timeline        *NoteTimeline     `json:"timeline,omitempty"`
+	ChapterTimeline json.RawMessage   `json:"chapter_timeline,omitempty"`
+	MeetingTodos    NoteMeetingTodos  `json:"meeting_todos"`
+	RefContent      string            `json:"ref_content"`
+	Source          string            `json:"source"`
+	EntryType       string            `json:"entry_type"`
+	ChildrenCount   int               `json:"children_count"`
+	ChildrenIDs     []string          `json:"children_ids"`
+	Topics          []json.RawMessage `json:"topics"`
+	IsChildNote     bool              `json:"is_child_note"`
+	ParentID        StringID          `json:"parent_id,omitempty"`
+	ParentNoteID    string            `json:"parent_note_id,omitempty"`
+	Attachments     []json.RawMessage `json:"attachments"`
+	Version         int               `json:"version"`
 }
 
 type NoteMeetingTodos struct {

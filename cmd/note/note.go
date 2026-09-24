@@ -84,9 +84,26 @@ func NewNoteCmd() *cobra.Command {
 	cmd.AddCommand(newTranscriptCmd())
 	cmd.AddCommand(newAttachmentsCmd())
 	cmd.AddCommand(newTimelineCmd())
+	cmd.AddCommand(newChaptersCmd())
 	cmd.AddCommand(newQuickNoteCmd())
 	cmd.AddCommand(newTodosCmd())
 	return cmd
+}
+
+func newChaptersCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "chapters <id>",
+		Example: "  getnote note chapters 1920778814729839136 -o json",
+		Short:   "读取章节时间线；与录音 moments、标记独立",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := client.New("").NoteGet(args[0])
+			if err != nil {
+				return err
+			}
+			return writeDetailResult(cmd, resp.Data.Note, "chapter_timeline", resp.Data.Note.ChapterTimeline)
+		},
+	}
 }
 
 func newTodosCmd() *cobra.Command {

@@ -1,5 +1,15 @@
 # 得到大脑（Get笔记） CLI
 
+## v1.6：文件上传与独立报告
+
+- `getnote note chapters <id> -o json` 读取章节；`note timeline` 保留录音 moments，`marks <note_id>` 独立读取标记。
+- `sprouts <YYYY-MM>` 列表从 `data.tasks[].sprouts[]` 取真实报告 id，再运行 `sprout <id>`；不要将 task_id 当报告 id。
+- `file-capabilities` 查询当前格式、大小及页数限制，不在 Agent 中写死限制。
+
+云 MCP 已授权时，无需再登录 CLI：MCP 获取临时上传 token，将 JSON 经受控文件或 stdin 交给 `getnote upload <file> --max-size-bytes <能力接口上限>`。此命令不读取 CLI 身份凭证，只向 OSS 上传，返回 `stage=oss_uploaded` 和文件元数据。随后由同一个已授权 MCP 提交知识库入库并查询最终 `SUCCESS`；上传成功不等于入库完成。不要将 token 放入命令参数、聊天或日志。
+
+CLI 已登录时也可使用 `file-token <extension>` 获取 token、`upload` 直传，再用 `file-add <topic_id> <directory_id> --metadata-file <上传结果文件>` 提交。临时 token 不提供通用 OpenAPI 权限。
+
 得到大脑（Get笔记）的命令行工具，让你在终端和 AI Agent 里直接管理笔记和知识库。
 
 存链接、记文字、搜笔记、管知识库——一条命令搞定，支持脚本和 AI Agent 调用。
@@ -243,6 +253,7 @@ getnote note original <id>           按笔记类型直接输出真实原文
 getnote note transcript <id>         直接输出录音、会议或课堂转写原文
 getnote note attachments <id>        列出图片、音频和文件附件
 getnote note timeline <id>           读取录音或会议时间线
+getnote note chapters <id>           读取独立章节时间线，不等同于标记
 getnote note quick-note <id>         读取录音快捷笔记
 getnote note todos <id>              读取会议总结中明确章节解析出的待办
 

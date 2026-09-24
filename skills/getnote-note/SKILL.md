@@ -33,6 +33,7 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 | 录音、会议或课堂转写 | `getnote note transcript` |
 | 图片、音频和文件附件 | `getnote note attachments` |
 | 录音或会议时间线 | `getnote note timeline` |
+| 总结中的章节时间线 | `getnote note chapters` |
 | 录音笔记标记（独立数据） | `getnote marks <note_id>` |
 | 按月列出发芽报告 | `getnote sprouts <YYYY-MM>` |
 | 读取发芽报告原文 | `getnote sprout <id>` |
@@ -80,7 +81,7 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
    - 链接/文字原文：`original`；
    - 录音、会议、课堂逐字稿：`transcript`；
    - 图片、音频、文件：`attachments`；
-   - 时间点与会议过程：`timeline`；
+   - 章节时间点与会议过程：`chapters`，读取 `chapter_timeline.items`，保留规则解析来源 `source`；录音 moments 使用 `timeline`，两者不是同一份数据；
    - 用户现场快捷记录：`quick-note`；
    - 会议待办：`todos`，必须保留 `source`，不得把规则解析结果说成上游原生待办。
 5. 不拿 `content` 中的 AI 摘要冒充原文。
@@ -106,6 +107,7 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 | `getnote note transcript <id> -o json` | `data.note_id/title/transcript` | 仅录音类笔记可用；不可用时如实说明。 |
 | `getnote note attachments <id> -o json` | `data.note_id/title/attachments[]` | 列出真实附件，不把笔记封面冒充附件。 |
 | `getnote note timeline <id> -o json` | `data.note_id/title/timeline` | 仅在存在录音/会议时间线时展示。 |
+| `getnote note chapters <id> -o json` | `data.note_id/title/chapter_timeline` | `items[].start_ms` 为毫秒；空数组表示无可解析章节，不拿标记补齐。 |
 | `gnote note quick <id> -o json` | `data.note_id/title/quick_note` | 返回现场快捷笔记；旧环境回退 `getnote note quick-note`。 |
 | `getnote note todos <id> -o json` | `data.note_id/title/meeting_todos[]` | 保留每项 `source`；这是从明确会议总结章节按规则解析，不说成上游原生待办。 |
 | `getnote note update <id> … -o json` | `success=true`、`data?` | 修改正文或全量标签前必须 `--yes`；需要展示最终内容时再读一次 `note`。 |
