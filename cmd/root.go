@@ -22,6 +22,7 @@ import (
 	"github.com/iswalle/getnote-cli/cmd/tag"
 	"github.com/iswalle/getnote-cli/cmd/task"
 	"github.com/iswalle/getnote-cli/cmd/update"
+	"github.com/iswalle/getnote-cli/cmd/upload"
 	"github.com/iswalle/getnote-cli/internal/client"
 	"github.com/iswalle/getnote-cli/internal/config"
 	"github.com/iswalle/getnote-cli/internal/version"
@@ -104,13 +105,15 @@ func writeError(w io.Writer, err error, format string) {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
 	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "", "API key (overrides config and GETNOTE_API_KEY env var)")
 	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "输出格式 / Output format: table or json")
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if output != "table" && output != "json" {
 			return fmt.Errorf("不支持的输出格式 %q；可用值: table, json", output)
+		}
+		// Standalone OSS transfer must not load or depend on CLI credentials.
+		if cmd.Name() != "upload" {
+			initConfig()
 		}
 		return nil
 	}
@@ -131,6 +134,8 @@ func init() {
 	rootCmd.AddCommand(quota.NewQuotaCmd())
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(update.NewUpdateCmd())
+	rootCmd.AddCommand(upload.NewUploadCmd())
+	addFileAndReportCommands()
 }
 
 func initConfig() {

@@ -30,6 +30,7 @@ func TestDetailViewsHaveStableJSONEnvelope(t *testing.T) {
 				"quick_note":"快捷笔记",
 				"attachments":[{"type":"image","url":"https://example.com/a.png"}],
 				"timeline":{"items":[]},
+				"chapter_timeline":{"source":"summary_markdown_rules","items":[{"start_ms":1000,"title":"第一章"}]},
 				"meeting_todos":{"source":"summary_section","items":[]}
 			}}
 		}`)
@@ -42,6 +43,7 @@ func TestDetailViewsHaveStableJSONEnvelope(t *testing.T) {
 		"transcript":  "transcript",
 		"attachments": "attachments",
 		"timeline":    "timeline",
+		"chapters":    "chapter_timeline",
 		"quick-note":  "quick_note",
 		"todos":       "meeting_todos",
 	}
@@ -66,6 +68,13 @@ func TestDetailViewsHaveStableJSONEnvelope(t *testing.T) {
 			}
 			if !got.Success || got.Data["note_id"] != "1917808813705036914" || got.Data["title"] != "会议记录" || got.Data[field] == nil {
 				t.Fatalf("unexpected output: %#v", got)
+			}
+			if command == "chapters" {
+				chapter := got.Data[field].(map[string]interface{})
+				items := chapter["items"].([]interface{})
+				if len(items) != 1 || items[0].(map[string]interface{})["start_ms"] != float64(1000) {
+					t.Fatal("chapter data lost")
+				}
 			}
 		})
 	}
