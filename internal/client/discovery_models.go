@@ -19,6 +19,7 @@ type Pagination struct {
 }
 
 type DiscoveryListFields struct {
+	TotalScope     string            `json:"total_scope,omitempty"`
 	Pagination     *Pagination       `json:"pagination,omitempty"`
 	AppliedFilters map[string]string `json:"applied_filters,omitempty"`
 	Warnings       []json.RawMessage `json:"warnings,omitempty"`
@@ -27,9 +28,11 @@ type DiscoveryListFields struct {
 
 // Traversal describes this walk; it never claims snapshot or global totals.
 type Traversal struct {
-	Completed     bool `json:"completed"`
-	Pages         int  `json:"pages"`
-	ReturnedCount int  `json:"returned_count"`
+	TotalCount         *int64 `json:"total_count"`
+	PaginationVerified bool   `json:"pagination_verified"`
+	Completed          bool   `json:"completed"`
+	Pages              int    `json:"pages"`
+	ReturnedCount      int    `json:"returned_count"`
 }
 
 type NoteReference struct {
@@ -145,4 +148,27 @@ func preserveWireFields(value any, original map[string]json.RawMessage) ([]byte,
 		}
 	}
 	return json.Marshal(merged)
+}
+
+func legacyReturnedTotal(count int) *int { return &count }
+
+// OmitContent supports the existing local --no-content operation without
+// representing unloaded content as an empty user-written string.
+func (n *KBNote) OmitContent() {
+	if n.rawFields == nil {
+		type plain KBNote
+		raw, _ := json.Marshal(plain(*n))
+		_ = json.Unmarshal(raw, &n.rawFields)
+	}
+	delete(n.rawFields, "content")
+	n.Content = ""
+	quoteState := "unavailable"
+	if _, present := n.rawFields["ref_content"]; present {
+		quoteState = "full"
+	}
+	if n.ContentState != nil {
+		quoteState = n.ContentState.RefContent
+	}
+	n.ContentState = &NoteContentState{Content: "omitted", RefContent: quoteState}
+	n.rawFields["content_state"], _ = json.Marshal(n.ContentState)
 }

@@ -62,10 +62,10 @@ func NewNoteCmd() *cobra.Command {
 			}
 			if n.NoteType == "ref" {
 				if n.ContentState == nil || n.ContentState.Content != "omitted" {
-					table.Append([]string{"Comment", ui.Truncate(n.Content, 200)})
+					table.Append([]string{"Comment", n.Content})
 				}
 				if n.ContentState == nil || n.ContentState.RefContent != "omitted" {
-					table.Append([]string{"Quote", ui.Truncate(n.RefContent, 200)})
+					table.Append([]string{"Quote", n.RefContent})
 				}
 			} else if n.Content != "" {
 				table.Append([]string{"Content", ui.Truncate(n.Content, 200)})

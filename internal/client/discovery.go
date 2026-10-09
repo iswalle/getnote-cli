@@ -21,7 +21,7 @@ type KnowledgeLookupOptions struct {
 }
 
 func (o DiscoveryOptions) Active() bool {
-	return (o.Cursor != "" && strings.Trim(o.Cursor, "0123456789") != "") || o.View != "" || o.NoteType != "" || o.Source != "" || o.ReferenceType != "" || o.ReferenceID != "" || o.ArticleURL != "" || o.TopicID != "" || o.CreatedFrom != "" || o.CreatedTo != "" || o.EditedFrom != "" || o.EditedTo != "" || o.RecordUpdatedFrom != "" || o.RecordUpdatedTo != "" || o.PageSize != 0 || o.Page != 0
+	return o.View != "" || o.NoteType != "" || o.Source != "" || o.ReferenceType != "" || o.ReferenceID != "" || o.ArticleURL != "" || o.TopicID != "" || o.CreatedFrom != "" || o.CreatedTo != "" || o.EditedFrom != "" || o.EditedTo != "" || o.RecordUpdatedFrom != "" || o.RecordUpdatedTo != "" || o.PageSize != 0 || o.Page != 0
 }
 
 func (o DiscoveryOptions) values() (url.Values, map[string]string, error) {
@@ -150,6 +150,9 @@ func validateDiscoveryPage(meta *ResponseMeta, data DiscoveryListFields, q url.V
 		caps = append(caps, "knowledge.lookup.v1")
 	} else if len(filters) > 0 {
 		caps = append(caps, "note.filters.v1")
+	}
+	if filters["reference_resource_type"] != "" || filters["reference_resource_id"] != "" || filters["reference_article_url"] != "" {
+		caps = append(caps, "note.reference.v1")
 	}
 	if q.Get("view") == "summary" {
 		caps = append(caps, "note.summary.v1", "note.reference.v1")

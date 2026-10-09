@@ -38,11 +38,17 @@ func NewKbCmd() *cobra.Command {
 				if resolved.View != "" && resolved.View != "summary" {
 					return fmt.Errorf("--no-content requires --view summary")
 				}
-				resolved.View = "summary"
+				if resolved.Active() {
+					resolved.View = "summary"
+				}
 			}
 			var resp *client.KBNotesResponse
 			if all {
-				resp, err = c.AllKBNotes(args[0], resolved)
+				if resolved.Active() {
+					resp, err = c.AllKBNotes(args[0], resolved)
+				} else {
+					resp, err = c.LegacyAllKBNotes(args[0])
+				}
 			} else if resolved.Active() {
 				resp, err = c.KBNotesWithOptions(args[0], resolved)
 			} else {
@@ -52,6 +58,11 @@ func NewKbCmd() *cobra.Command {
 				return ui.FriendlyError(err)
 			}
 
+			if noContent {
+				for i := range resp.Data.Notes {
+					resp.Data.Notes[i].OmitContent()
+				}
+			}
 			if outputFormat(cmd) == "json" {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
@@ -80,7 +91,7 @@ func NewKbCmd() *cobra.Command {
 	cmd.Flags().IntVar(&options.Page, "page", 0, "Page number (discovery default 1)")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes per page")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all notes (auto-paginate)")
-	cmd.Flags().BoolVar(&noContent, "no-content", false, "Alias for --view summary; preserves explicit omitted content states")
+	cmd.Flags().BoolVar(&noContent, "no-content", false, "Omit the body locally with an explicit content state; use --view summary for server-side light reads")
 
 	cmd.AddCommand(newCreateCmd())
 	cmd.AddCommand(newAddCmd())

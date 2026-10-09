@@ -36,7 +36,9 @@ func ResolveNotes(cmd *cobra.Command, o client.DiscoveryOptions, limit int) (cli
 		if limit < 1 || limit > 100 {
 			return o, fmt.Errorf("--limit must be 1..100")
 		}
-		o.PageSize = limit
+		if o.Active() {
+			o.PageSize = limit
+		}
 	}
 	if cmd.Flags().Changed("page") && o.Page < 1 {
 		return o, fmt.Errorf("--page must be positive")

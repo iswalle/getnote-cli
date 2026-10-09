@@ -8,7 +8,7 @@ type discoveryPage[T any] struct {
 	meta   *ResponseMeta
 }
 
-func walkDiscovery[T any](cursor string, page int, fetch func(string, int) (discoveryPage[T], error), identity func(T) string) ([]T, DiscoveryListFields, *ResponseMeta, error) {
+func walkDiscovery[T any](cursor string, page int, strict bool, fetch func(string, int) (discoveryPage[T], error), identity func(T) string) ([]T, DiscoveryListFields, *ResponseMeta, error) {
 	all := make([]T, 0)
 	seenIDs := map[string]bool{}
 	continuations := map[string]bool{}
@@ -48,8 +48,12 @@ func walkDiscovery[T any](cursor string, page int, fetch func(string, int) (disc
 				added++
 			}
 		}
+		if pages > 1 && added == 0 && (strict || p.HasMore || len(result.items) > 0) {
+			return fail(fmt.Errorf("continuation page made no progress"))
+		}
 		if !p.HasMore {
-			fields.Traversal = &Traversal{Completed: true, Pages: pages, ReturnedCount: len(all)}
+			fields.Traversal = &Traversal{Completed: true, Pages: pages, ReturnedCount: len(all), PaginationVerified: strict}
+			fields.TotalScope = "returned_in_traversal"
 			return all, fields, meta, nil
 		}
 		if added == 0 {
@@ -73,7 +77,7 @@ func walkDiscovery[T any](cursor string, page int, fetch func(string, int) (disc
 }
 
 func (c *Client) AllNotes(o DiscoveryOptions) (*NoteListResponse, error) {
-	items, fields, meta, err := walkDiscovery(o.Cursor, o.Page, func(cursor string, page int) (discoveryPage[Note], error) {
+	items, fields, meta, err := walkDiscovery(o.Cursor, o.Page, true, func(cursor string, page int) (discoveryPage[Note], error) {
 		next := o
 		next.Cursor = cursor
 		next.Page = page
@@ -86,14 +90,14 @@ func (c *Client) AllNotes(o DiscoveryOptions) (*NoteListResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &NoteListResponse{Success: true, Meta: meta, Data: NoteListData{DiscoveryListFields: fields, Notes: items, Total: len(items)}}, nil
+	return &NoteListResponse{Success: true, Meta: meta, Data: NoteListData{DiscoveryListFields: fields, Notes: items, Total: legacyReturnedTotal(len(items))}}, nil
 }
 func (c *Client) AllKBNotes(topicID string, o DiscoveryOptions) (*KBNotesResponse, error) {
 	if o.Page == 0 {
 		o.Page = 1
 	}
 	var topic []byte
-	items, fields, meta, err := walkDiscovery(o.Cursor, o.Page, func(cursor string, page int) (discoveryPage[KBNote], error) {
+	items, fields, meta, err := walkDiscovery(o.Cursor, o.Page, true, func(cursor string, page int) (discoveryPage[KBNote], error) {
 		next := o
 		next.Cursor = cursor
 		next.Page = page
@@ -107,13 +111,13 @@ func (c *Client) AllKBNotes(topicID string, o DiscoveryOptions) (*KBNotesRespons
 	if err != nil {
 		return nil, err
 	}
-	return &KBNotesResponse{Success: true, Meta: meta, Data: KBNoteListData{DiscoveryListFields: fields, Notes: items, Total: len(items), Topic: topic}}, nil
+	return &KBNotesResponse{Success: true, Meta: meta, Data: KBNoteListData{DiscoveryListFields: fields, Notes: items, Total: legacyReturnedTotal(len(items)), Topic: topic}}, nil
 }
 func (c *Client) AllKnowledge(o KnowledgeLookupOptions, subscribed bool) (*KBListResponse, error) {
 	if o.Page == 0 {
 		o.Page = 1
 	}
-	items, fields, meta, err := walkDiscovery("", o.Page, func(_ string, page int) (discoveryPage[KBTopic], error) {
+	items, fields, meta, err := walkDiscovery("", o.Page, true, func(_ string, page int) (discoveryPage[KBTopic], error) {
 		next := o
 		next.Page = page
 		r, err := c.KBListWithOptions(next, subscribed)
@@ -130,5 +134,47 @@ func (c *Client) AllKnowledge(o KnowledgeLookupOptions, subscribed bool) (*KBLis
 	if err != nil {
 		return nil, err
 	}
-	return &KBListResponse{Success: true, Meta: meta, Data: KBListData{DiscoveryListFields: fields, Topics: items, Total: len(items)}}, nil
+	return &KBListResponse{Success: true, Meta: meta, Data: KBListData{DiscoveryListFields: fields, Topics: items, Total: legacyReturnedTotal(len(items))}}, nil
+}
+
+// Legacy walks do not claim support for new pagination. They retain the old
+// response semantics and still guard cycles, duplicate pages and HTTP errors.
+func (c *Client) LegacyAllNotes(cursor string) (*NoteListResponse, error) {
+	items, fields, meta, err := walkDiscovery(cursor, 0, false, func(cur string, _ int) (discoveryPage[Note], error) {
+		r, err := c.NoteList(NoteListParams{Cursor: cur, Limit: 20})
+		if err != nil {
+			return discoveryPage[Note]{}, err
+		}
+		p := &Pagination{Mode: "cursor", HasMore: r.Data.HasMore, ReturnedCount: len(r.Data.Notes), PageSize: 20}
+		if p.HasMore {
+			next := r.Data.Cursor
+			if next == "" {
+				next = r.Data.NextCursor.String()
+			}
+			p.NextCursor = &next
+		}
+		return discoveryPage[Note]{r.Data.Notes, DiscoveryListFields{Pagination: p}, r.Meta}, nil
+	}, noteIdentity)
+	if err != nil {
+		return nil, err
+	}
+	return &NoteListResponse{Success: true, Meta: meta, Data: NoteListData{DiscoveryListFields: fields, Notes: items, Total: legacyReturnedTotal(len(items))}}, nil
+}
+func (c *Client) LegacyAllKBNotes(topicID string) (*KBNotesResponse, error) {
+	items, fields, meta, err := walkDiscovery("", 1, false, func(_ string, page int) (discoveryPage[KBNote], error) {
+		r, err := c.KBNotes(KBNotesParams{TopicID: topicID, Page: page, Limit: 20})
+		if err != nil {
+			return discoveryPage[KBNote]{}, err
+		}
+		p := &Pagination{Mode: "page", Page: &page, HasMore: r.Data.HasMore, ReturnedCount: len(r.Data.Notes), PageSize: 20}
+		if p.HasMore {
+			next := page + 1
+			p.NextPage = &next
+		}
+		return discoveryPage[KBNote]{r.Data.Notes, DiscoveryListFields{Pagination: p}, r.Meta}, nil
+	}, func(n KBNote) string { return n.NoteID })
+	if err != nil {
+		return nil, err
+	}
+	return &KBNotesResponse{Success: true, Meta: meta, Data: KBNoteListData{DiscoveryListFields: fields, Notes: items, Total: legacyReturnedTotal(len(items))}}, nil
 }

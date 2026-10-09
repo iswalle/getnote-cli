@@ -45,7 +45,11 @@ func NewNotesCmd() *cobra.Command {
 			}
 			var resp *client.NoteListResponse
 			if all {
-				resp, err = c.AllNotes(resolved)
+				if resolved.Active() {
+					resp, err = c.AllNotes(resolved)
+				} else {
+					resp, err = c.LegacyAllNotes(cursor)
+				}
 			} else if resolved.Active() {
 				resp, err = c.NoteListWithOptions(resolved)
 			} else {

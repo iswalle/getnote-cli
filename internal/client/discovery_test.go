@@ -94,6 +94,34 @@ func TestDiscoveryInvalidOptionsDoNotSendRequests(t *testing.T) {
 	}
 }
 
+func TestDiscoveryReferenceSelectorsNeedReferenceCapability(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"meta":{"capabilities":["note.filters.v1","pagination.v1"]},"data":{"notes":[],"applied_filters":{"reference_resource_type":"ebook"},"pagination":{"mode":"cursor","page_size":20,"returned_count":0,"total_count":null,"has_more":false,"next_cursor":null,"next_page":null}}}`))
+	}))
+	defer server.Close()
+	t.Setenv("GETNOTE_API_URL", server.URL)
+	if _, err := New("").NoteListWithOptions(DiscoveryOptions{ReferenceType: "ebook"}); err == nil {
+		t.Error("unverified reference capability accepted")
+	}
+}
+
+func TestDiscoveryUnknownLegacyTotalIsNotInvented(t *testing.T) {
+	var value NoteListData
+	if err := json.Unmarshal([]byte(`{"notes":[],"pagination":{"total_count":null}}`), &value); err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	_ = json.Unmarshal(data, &decoded)
+	if total, present := decoded["total"]; present && total != nil {
+		t.Errorf("invented legacy total: %s", data)
+	}
+}
+
 func TestDiscoveryNoteRoundTripPreservesMetadataAndOmission(t *testing.T) {
 	input := `{"id":"9007199254740993","note_id":"9007199254740993","title":"","display_title":"引用笔记｜测试","note_type":"ref","source":"dedao","reference":{"ptype":0,"resource_id":"9007199254740999","location":{"page":0}},"topics":[{"id":"general","name":"积累"}],"timestamps":{"created_at":"2026-10-09T11:00:00+08:00"},"preview":{"text":"测试","source":"ref_content","truncated":false},"content_state":{"content":"omitted","ref_content":"omitted"},"metadata_state":{"reference":"complete","topics":"complete"},"future_field":{"retained":true}}`
 	for _, target := range []any{&Note{}, &KBNote{}} {

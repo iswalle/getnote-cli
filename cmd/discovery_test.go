@@ -99,3 +99,49 @@ func discoveryRoot() *cobra.Command {
 	root.AddCommand(notes.NewNotesCmd(), note.NewNoteCmd(), kb.NewKbCmd(), kbs.NewKbsCmd(), kbssub.NewKbsSubCmd())
 	return root
 }
+
+func TestDiscoveryLegacyFlagsStillWorkOnOldServer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page_size") != "" {
+			t.Error("legacy request gained a new page_size")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{"notes":[{"note_id":"42","content":"legacy text"}],"has_more":false,"total":1}}`))
+	}))
+	defer server.Close()
+	t.Setenv("GETNOTE_API_URL", server.URL)
+	for _, args := range [][]string{{"notes", "--limit", "5"}, {"notes", "--cursor", "legacy-opaque"}, {"kb", "topic", "--limit", "5"}, {"notes", "--all"}, {"kb", "topic", "--all"}, {"kb", "topic", "--no-content"}} {
+		root := discoveryRoot()
+		root.SetArgs(append(args, "-o", "json"))
+		var output bytes.Buffer
+		root.SetOut(&output)
+		root.SetErr(&output)
+		if err := root.Execute(); err != nil {
+			t.Errorf("%v: %v", args, err)
+		}
+		if strings.Contains(strings.Join(args, " "), "--no-content") && strings.Contains(output.String(), `"content": "legacy text"`) {
+			t.Error("no-content retained body")
+		}
+	}
+}
+
+func TestDiscoveryFullQuoteTableDoesNotTruncate(t *testing.T) {
+	comment, quote := strings.Repeat("评", 210), strings.Repeat("引", 220)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": map[string]any{"note": map[string]any{"note_id": "42", "note_type": "ref", "content": comment, "ref_content": quote}}})
+	}))
+	defer server.Close()
+	t.Setenv("GETNOTE_API_URL", server.URL)
+	root := discoveryRoot()
+	root.SetArgs([]string{"note", "42"})
+	var output bytes.Buffer
+	root.SetOut(&output)
+	root.SetErr(&output)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), comment) || !strings.Contains(output.String(), quote) {
+		t.Error("full comment or quote truncated")
+	}
+}

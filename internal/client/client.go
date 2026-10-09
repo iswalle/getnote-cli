@@ -283,7 +283,7 @@ type NoteListData struct {
 	Notes      []Note   `json:"notes"`
 	HasMore    bool     `json:"has_more"`
 	NextCursor StringID `json:"next_cursor"`
-	Total      int      `json:"total"`
+	Total      *int     `json:"total,omitempty"`
 	Cursor     string   `json:"cursor"` // 推荐的翻页方式
 }
 
@@ -529,7 +529,7 @@ type KBListData struct {
 	DiscoveryListFields
 	Topics  []KBTopic `json:"topics"`
 	HasMore bool      `json:"has_more"`
-	Total   int       `json:"total"`
+	Total   *int      `json:"total,omitempty"`
 }
 
 // KBListResponse is the response from the knowledge base list endpoint.
@@ -626,7 +626,7 @@ type KBNoteListData struct {
 	DiscoveryListFields
 	Notes   []KBNote `json:"notes"`
 	HasMore bool     `json:"has_more"`
-	Total   int      `json:"total"`
+	Total   *int     `json:"total,omitempty"`
 }
 
 // KBNotesResponse is the response from the knowledge base notes endpoint.
@@ -955,7 +955,7 @@ type KBLive struct {
 type KBLiveListData struct {
 	Lives   []KBLive `json:"lives"`
 	HasMore bool     `json:"has_more"`
-	Total   int      `json:"total"`
+	Total   *int     `json:"total,omitempty"`
 }
 
 // KBLiveListResponse is the response from the live list endpoint.
