@@ -91,6 +91,7 @@ func TestOriginalSelectsOnlyTheTypeSpecificSource(t *testing.T) {
 		{"plain text", `{"note_type":"plain_text","content":"typed text","ref_content":"other"}`, "typed text", "content", ""},
 		{"link", `{"note_type":"link","content":"AI summary","web_page":{"content":"web article"}}`, "web article", "web_page.content", ""},
 		{"audio", `{"note_type":"audio","content":"AI summary","audio":{"original":"raw transcript"}}`, "raw transcript", "audio.original", ""},
+		{"local audio", `{"note_type":"local_audio","content":"AI summary","audio":{"original":"local transcript"}}`, "local transcript", "audio.original", ""},
 		{"unknown", `{"note_type":"unknown","content":"AI summary"}`, "", "", "unsupported"},
 	}
 	for _, tc := range cases {

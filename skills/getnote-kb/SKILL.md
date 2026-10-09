@@ -45,6 +45,27 @@ description: 查看和管理得到大脑的知识库、文件夹、书籍、客�
 4. 订阅知识库通常只读。若列表结果明确返回角色或可写标记，按真实字段判断；当前 CLI 契约未保证权限字段时，不得声称已经预检为 owner/admin，可在用户明确授权后尝试写入，并忠实处理权限失败。
 5. 普通成员写入失败时明确说明权限不足，不尝试绕过。当前不代替用户新建团队知识库。
 
+## 按书名找全部划线
+
+用户要某本书的划线或“全部笔记”时，先定位书籍知识库，不把语义搜索的 Top-K 当全量。
+
+```bash
+getnote kbs --scope BOOKSPACE --query '书名' --author '用户提供的作者' --all -o json
+# 用户明确查订阅库，或自有库无匹配时，再查询真实订阅的书籍库
+getnote kbs-sub --scope BOOKSPACE --query '书名' --all -o json
+getnote kb '<返回的 topic_id>' --note-type ref --view summary --page-size 20 --all -o json
+getnote note original '<返回的 note_id>' -o json
+```
+
+- 作者未知时省略 `--author`。先用 `name`、`scope=BOOKSPACE`、`book_info.title/author/book_id` 核对候选；同名多作者、多版本仍不唯一时请用户选择，不能用第一项代替。已有真实书 ID 可加 `--book-id`，它不是知识库 ID。
+- query/author 会做 NFKC、外围书名号/引号和大小写归一化；这只是候选定位，不证明同名书是同一本。
+- 普通知识库在笔记的 `topics[]` 中仍只有 `id/name`；书籍关联才附带 `scope/book_info`。标签、知识库名称都不能代替 `reference` 来源证据。
+- 新查询核对 `meta.capabilities`（`knowledge.lookup.v1`、`pagination.v1`；笔记筛选还需 `note.filters.v1`，summary 需 `note.summary.v1`、`note.reference.v1`）和 `applied_filters`。CLI 会拒绝不支持或未应用的条件；不得去掉条件后把未筛选结果交差。
+- 候选知识库的 `stats.note_count` 可能滞后，也不代表筛选后的划线数；回答以本次验证过的分页结果和去重 ID 为准。
+- `--all` 只有退出码为 0、`success=true`、`data.traversal.completed=true` 且 `pagination_verified=true` 才能确认完成了当前授权范围的遍历。按字符串笔记 ID 去重；`traversal.returned_count` 是本次实际取回数，`traversal.total_count=null` 仍表示服务端精确总数未知。旧 `total` 保留兼容语义，不能当新的筛选总数。
+- 手动翻页或 MCP：保持 scope、全部筛选和 page_size 不变；按 `pagination.next_page` / `next_cursor` 原样继续，直到 `has_more=false`。记录已经访问的页码/游标和笔记 ID；循环、空页仍声称有下一页、重复结果无进展或中途失败都不能声称“全部找到”。
+- `topics=[]` 不能证明没有来源或没有划线；知识库为空时先核对原文访问权限、筛选和 `metadata_state`，再按笔记/搜索参考的引用来源路线查找，不自动建库或修改归属。
+
 ## 文件夹和归档流程
 
 1. 用户要求放入文件夹时，用 `gnote kb dir <topic_id> -o json` 读取根目录或指定目录。

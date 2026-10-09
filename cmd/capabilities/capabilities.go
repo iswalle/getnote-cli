@@ -12,6 +12,7 @@ import (
 )
 
 type response struct {
+	Discovery       map[string]any           `json:"discovery"`
 	Success         bool                     `json:"success"`
 	CLIVersion      string                   `json:"cli_version"`
 	ContractVersion string                   `json:"contract_version"`
@@ -115,7 +116,7 @@ func commandResults() map[string]commandResult {
 			SuccessFields: []string{"success=true", "data.note.note_id", "data.note.title", "data.note.note_url", "data.note.note_type", "data.note.content?"},
 		},
 		"note original": {
-			SuccessFields: []string{"success=true", "data.note_id", "data.title", "data.original"},
+			SuccessFields: []string{"success=true", "data.note_id", "data.title", "data.original", "data.original_source"},
 		},
 		"note transcript": {
 			SuccessFields: []string{"success=true", "data.note_id", "data.title", "data.transcript"},
@@ -266,6 +267,16 @@ func currentResponse() response {
 			"cli_only":               "getnote update --cli-only",
 			"verify":                 "getnote doctor -o json",
 			"managed_skill_boundary": "The host platform updates the independent ClawHub/OpenClaw Skill; getnote update updates the CLI and CLI-bundled domain Skills",
+		},
+		Discovery: map[string]any{
+			"requires_server_capabilities": []string{"note.reference.v1", "note.filters.v1", "knowledge.lookup.v1", "pagination.v1", "note.summary.v1"},
+			"capability_scope":             "Client supports these contracts; verify the current endpoint's meta.capabilities and applied_filters. A client declaration is not server support.",
+			"book_lookup":                  "kbs --scope BOOKSPACE --query <title> [--author <author>] [--book-id <book_id>] --all; disambiguate before selecting topic_id",
+			"source_lookup":                "notes --source <reference.source> --note-type ref --reference-type <reference.resource_type> --reference-id <reference.resource_id> --view summary --all",
+			"all_pages":                    "Only completed=true and pagination_verified=true traversal proves the authorized filtered walk finished; deduplicate string IDs; total_count=null is unknown.",
+			"summary":                      "Omitted bodies stay absent with content_state; display_title and preview do not replace raw title or original content.",
+			"original":                     "ref=ref_content; plain_text=content; link=web_page.content; audio/local_audio=audio.original; return original_source and never substitute comments/summaries.",
+			"search":                       "Top-K is not exhaustive. Preserve actual snippet, distinguish resource_type from note.note_type, count distinct IDs and keep unknown score null.",
 		},
 		ResultContracts: map[string][]string{
 			"common_success": {"success=true", "data"},

@@ -9,9 +9,17 @@ description: 在得到大脑的全部笔记或指定知识库中按自然语言�
 
 ## 何时使用
 
-- “找找、搜一下、关于某主题、我之前记过什么”：使用 `getnote search`。
+- “关于某主题、模糊记忆”：使用 `getnote search`；明确书籍/来源或要全量时按下方路径选择。
 - “最近有哪些笔记、按保存时间列出来”：交给笔记 Skill 的 `getnote notes`，不要把列表误当语义搜索。
 - 用户选中某一条后，再交给笔记 Skill 用 `getnote note <note_id>` 读取详情；搜索阶段不自动修改、移动、分享或创建笔记。
+
+## 先选查找路径
+
+- 明确书名、作者，尤其要“全部划线”：先读知识库参考，用 `kbs --scope BOOKSPACE --query` 定位，必要时 `--author/--book-id` 消歧，再 `kb <topic_id> --note-type ref --view summary --all`。
+- 明确文章/课程：已有候选时从 `reference.source/resource_type/resource_id` 或 `reference.article.url` 进入笔记参考的精确来源筛选；`topics=[]` 不阻断这条路线。没有候选时，语义搜索只用于发现来源候选，核对引用后再查全部。
+- 只有主题或模糊记忆：语义搜索 → 按字符串笔记 ID 去重 → 对选中候选读详情/原文。Top-K（最大 10）不是完整清单；零命中也不能证明全库没有相关笔记。
+
+增强结果的 `resource_type` 描述 NOTE/FILE 等资源类型，旧顶层 `note_type` 保留兼容；真正笔记类型在 `note.note_type`。用 `note.display_title` 展示，用 `snippet`（旧接口为 `content`）解释命中，不拿详情 preview 替换搜索片段。`snippet_source=unknown` 如实保留；`score=null` 是未知，不是 0；`returned_count` 是片段数，`distinct_note_count` 是去重笔记数。FILE 等非笔记结果没有笔记 ID 时只呈现真实资源信息，不能拼笔记链接。
 
 ## 执行步骤
 
@@ -36,16 +44,16 @@ getnote search "客户反馈" --kb <topic_id> --limit 5 -o json
 |---|---|---|
 | `success` | 业务是否成功 | 只有 `true` 才继续呈现结果。 |
 | `data.results[]` | 搜索结果 | 空数组是一次成功的“未找到”，不是失败。 |
-| `data.results[].title` | 笔记标题 | 列表主标题；为空时如实显示“未命名笔记”。 |
+| `data.results[].title` | 笔记标题 | 优先用 note.display_title；旧响应再用 title，均缺失才显示未命名。 |
 | `data.results[].note_id` | 笔记雪花 ID | 始终作为字符串原样传入后续 `note` 命令。 |
 | `data.results[].note_url` | 真实笔记链接 | 只有非空时才给用户“打开笔记”。 |
 | `data.results[].content` | 命中摘要或正文片段 | 只摘取与问题相关的短片段，不能冒充全文。 |
-| `data.results[].score` | 相关性分数 | 仅用于内部排序，不向用户虚构“准确率”。 |
+| `data.results[].score` | 相关性分数，可为 null | null 表示未知；仅用于内部排序，不向用户虚构“准确率”。 |
 
 成功时按相关性给出编号列表，例如：
 
 ```text
-找到 3 条相关笔记：
+这次搜索找到 3 条不同的相关笔记：
 1. 《支付流程优化想法》——“用户等待时增加进度提示…”
    打开：<真实 note_url>
 2. 《客户支付反馈》——“…”

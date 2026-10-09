@@ -88,3 +88,24 @@ func TestContractPublishesHistoricalSafetyGuarantees(t *testing.T) {
 		}
 	}
 }
+
+func TestAgentDiscoveryContractIsConditionalOnServerSupport(t *testing.T) {
+	raw, err := json.Marshal(currentResponse())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value map[string]json.RawMessage
+	if err = json.Unmarshal(raw, &value); err != nil {
+		t.Fatal(err)
+	}
+	var discovery struct {
+		Required []string `json:"requires_server_capabilities"`
+		All      string   `json:"all_pages"`
+	}
+	if err = json.Unmarshal(value["discovery"], &discovery); err != nil {
+		t.Fatal("missing machine-readable discovery contract:", err)
+	}
+	if len(discovery.Required) != 5 || discovery.All == "" {
+		t.Fatalf("incomplete discovery declaration: %+v", discovery)
+	}
+}

@@ -29,7 +29,7 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 | 查询异步保存任务 | `getnote task` |
 | 查看最近笔记 | `getnote notes` |
 | 查看详情或字段 | `getnote note` |
-| 链接/文字原文 | `getnote note original` |
+| 引用/链接/文字原文 | `getnote note original` |
 | 录音、会议或课堂转写 | `getnote note transcript` |
 | 图片、音频和文件附件 | `getnote note attachments` |
 | 录音或会议时间线 | `getnote note timeline` |
@@ -44,6 +44,39 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 | 公开分享 | `getnote note share` |
 
 不确定参数时先运行目标命令 `--help`。
+
+## 来源筛选、轻量定位与原文
+
+先用 `summary` 列出候选，再按需读取详情。`display_title` 是展示标题，不覆盖原始 `title`；引用笔记空标题很正常。`preview` 是带来源和截断标记的定位片段，不是全文。
+
+```bash
+getnote notes --view summary --source dedao --note-type ref --page-size 20 -o json
+getnote note '<note_id>' --view full -o json
+getnote note original '<note_id>' -o json
+```
+
+| note_type | 原文字段 | content 的语义 |
+|---|---|---|
+| ref | ref_content | 用户评论，不是引用原文 |
+| plain_text | content | 用户正文 |
+| link | web_page.content | 通常是摘要 |
+| audio / local_audio | audio.original | 通常是摘要 |
+
+`original` 只按真实类型读取上述字段，并返回 `original_source`；原文缺失或类型不支持会报错，不能把评论或摘要补成原文。summary 省略 `content/ref_content` 等大字段，通过 `content_state` 表示 omitted/full/unavailable；省略不等于空正文。用 `metadata_state.reference/topics` 区分完整、部分、不可用的元数据；缺失的作者、书 ID、来源 URL 不猜测补写。
+
+文章或课程没有知识库时，先从已有详情或语义搜索候选读取真实 `reference`，再精确查找：
+
+```bash
+getnote notes --source dedao --note-type ref --reference-type course_article --reference-id '<reference.resource_id>' --view summary --all -o json
+# 缺少资源 ID，但有 reference.article.url 时，可改用精确文章 URL
+getnote notes --source dedao --note-type ref --article-url '<reference.article.url>' --view summary --all -o json
+```
+
+平台值取 `reference.source`；资源类型取 `reference.resource_type`，不要用标签或内部 ptype 猜枚举。`--reference-id` 必须同时传 `--source` 和 `--reference-type`。引用的 `resource_id`、`original_note_id`、书 ID 与笔记 ID 都是不同身份；始终按返回的字符串使用。URL 保留 query/fragment，不自行去参。同一文章可以有多个不同的 `original_note_id`，不可按文章 ID 合并成一条划线。
+
+创建、正文编辑、记录更新是三个独立时间轴。按需使用 `--created-from/to`、`--edited-from/to`、`--record-updated-from/to`，值必须为带时区 RFC3339；区间 from 包含、to 不包含。不得把 `updated_at` 当正文编辑时间。
+
+新参数需要服务端对应 `meta.capabilities` 且 `applied_filters` 与请求一致；不支持时停止该查询并说明升级服务/客户端的需要，不自动移除筛选。全量按知识库参考中的分页规则验收；只拿一页或一次语义搜索，不能说“全部找到”。
 
 ## 保存流程
 
@@ -74,11 +107,11 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 
 ## 查询和深层读取
 
-1. “最近、列表、有哪些”使用 `getnote notes`；“找、搜、关于某主题”交给搜索 Skill。
+1. “最近、列表、有哪些”使用 `getnote notes`；有明确书名或引用来源时按上面的来源/知识库路线查找，模糊主题才交给搜索 Skill。
 2. 用户给出 ID 时直接读取详情；雪花 ID 全程按字符串原样传递。“这条笔记”只复用当前会话中已经由 CLI 返回并验证过的字符串 ID。当前 CLI 若不能直接接收某种私有链接，就先请用户提供 ID，不能自行截取、猜测或转成数字。
 3. 列表先展示标题、字符串 ID 和真实 `note_url`，用户选择后再读取全文。
 4. 不确定笔记类型时先读 `getnote note <id> -o json`：
-   - 链接/文字原文：`original`；
+   - 引用/链接/文字原文：`original`；
    - 录音、会议、课堂逐字稿：`transcript`；
    - 图片、音频、文件：`attachments`；
    - 章节时间点与会议过程：`chapters`，读取 `chapter_timeline.items`，保留规则解析来源 `source`；录音 moments 使用 `timeline`，两者不是同一份数据；
@@ -103,7 +136,7 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 | `getnote task <task_id> -o json` | `data.task_id/status/note_id?/msg?/error_msg?` | 仅 `done`/`success` 且有 `note_id` 为完成；`pending`/`processing` 是处理中；`failed` 说明真实原因。 |
 | `getnote notes -o json` | `data.notes[].note_id/title/note_url`、`has_more/cursor/total` | 返回标题、字符串 ID 和真实链接；下一页只用返回的 `cursor`。 |
 | `getnote note <id> -o json` | `data.note.note_id/title/note_url/note_type`，按需读 `content` | 先给摘要和链接；私密全文只在用户明确要求时展开。 |
-| `getnote note original <id> -o json` | `data.note_id/title/original` | 只把 `original` 当原文；空字段就是该笔记没有可用原文。 |
+| `getnote note original <id> -o json` | `data.note_id/title/original/original_source` | 只把 `original` 当原文；原文不可用会失败，不能拿评论或摘要补全。 |
 | `getnote note transcript <id> -o json` | `data.note_id/title/transcript` | 仅录音类笔记可用；不可用时如实说明。 |
 | `getnote note attachments <id> -o json` | `data.note_id/title/attachments[]` | 列出真实附件，不把笔记封面冒充附件。 |
 | `getnote note timeline <id> -o json` | `data.note_id/title/timeline` | 仅在存在录音/会议时间线时展示。 |
