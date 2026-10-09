@@ -766,6 +766,7 @@ func (c *Client) KBNotesRemove(topicID string, noteIDs []string) (*KBNotesRemove
 type RecallResult struct {
 	PageNo        *int     `json:"page_no,omitempty"`
 	ResourceType  string   `json:"resource_type,omitempty"`
+	ResourceID    string   `json:"resource_id,omitempty"`
 	Note          *Note    `json:"note,omitempty"`
 	Snippet       string   `json:"snippet,omitempty"`
 	SnippetSource string   `json:"snippet_source,omitempty"`
@@ -790,11 +791,13 @@ type NoteSearchResponse struct {
 	RequestID string        `json:"request_id,omitempty"`
 	Success   bool          `json:"success"`
 	Data      struct {
-		Results           []RecallResult `json:"results"`
-		ResultMode        string         `json:"result_mode,omitempty"`
-		IsExhaustive      *bool          `json:"is_exhaustive,omitempty"`
-		ReturnedCount     *int           `json:"returned_count,omitempty"`
-		DistinctNoteCount *int           `json:"distinct_note_count,omitempty"`
+		Results           []RecallResult    `json:"results"`
+		ResultMode        string            `json:"result_mode,omitempty"`
+		IsExhaustive      *bool             `json:"is_exhaustive,omitempty"`
+		ReturnedCount     *int              `json:"returned_count,omitempty"`
+		DistinctNoteCount *int              `json:"distinct_note_count,omitempty"`
+		Partial           *bool             `json:"partial,omitempty"`
+		Warnings          []json.RawMessage `json:"warnings,omitempty"`
 	} `json:"data"`
 }
 

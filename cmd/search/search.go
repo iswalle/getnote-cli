@@ -66,8 +66,19 @@ func NewSearchCmd() *cobra.Command {
 			}
 
 			out := cmd.OutOrStdout()
+			partial := (resp.Data.Partial != nil && *resp.Data.Partial) || len(resp.Data.Warnings) > 0
+			if partial {
+				fmt.Fprintln(out, "Partial search: some results could not be verified or read.")
+				for _, warning := range resp.Data.Warnings {
+					fmt.Fprintf(out, "Warning: %s\n", warning)
+				}
+			}
 			results := resp.Data.Results
 			if len(results) == 0 {
+				if partial {
+					fmt.Fprintln(out, "No verified results available; this does not establish that no matches exist.")
+					return nil
+				}
 				fmt.Fprintln(out, "No results found.")
 				return nil
 			}

@@ -19,7 +19,7 @@ description: 在得到大脑的全部笔记或指定知识库中按自然语言�
 - 明确文章/课程：已有候选时从 `reference.source/resource_type/resource_id` 或 `reference.article.url` 进入笔记参考的精确来源筛选；`topics=[]` 不阻断这条路线。没有候选时，语义搜索只用于发现来源候选，核对引用后再查全部。
 - 只有主题或模糊记忆：语义搜索 → 按字符串笔记 ID 去重 → 对选中候选读详情/原文。Top-K（最大 10）不是完整清单；零命中也不能证明全库没有相关笔记。
 
-增强结果的 `resource_type` 描述 NOTE/FILE 等资源类型，旧顶层 `note_type` 保留兼容；真正笔记类型在 `note.note_type`。用 `note.display_title` 展示，用 `snippet`（旧接口为 `content`）解释命中，不拿详情 preview 替换搜索片段。`snippet_source=unknown` 如实保留；`score=null` 是未知，不是 0；`returned_count` 是片段数，`distinct_note_count` 是去重笔记数。FILE 等非笔记结果没有笔记 ID 时只呈现真实资源信息，不能拼笔记链接。
+增强结果的 `resource_type` 使用小写 note/file 等资源类型，旧顶层 `note_type` 保留大写 NOTE/FILE 兼容值；真正笔记类型在 `note.note_type`。用 `note.display_title` 展示，用 `snippet`（旧接口为 `content`）解释命中，不拿详情 preview 替换搜索片段。`snippet_source=unknown` 如实保留；`score=null` 是未知，不是 0；`returned_count` 是片段数，`distinct_note_count` 是去重笔记数。FILE 等非笔记结果没有笔记 ID 时只呈现真实资源信息，不能拼笔记链接。
 
 ## 执行步骤
 
@@ -61,7 +61,7 @@ getnote search "客户反馈" --kb <topic_id> --limit 5 -o json
 你想看哪一条的详情或原文？
 ```
 
-若 `data.results=[]`，回复“没有找到相关笔记；可以换关键词、时间范围或指定知识库再试”，不要说“接口失败”，也不要自动扩大检索范围、创建笔记或调用模型编造结果。
+若 `data.partial=true` 或存在 `data.warnings`，先说明检索有部分结果未能完成权限验证或读取，并按 warnings 解释原因；空结果也不能表述为完整检索后无命中。仅当没有部分失败时，若 `data.results=[]`，回复“没有找到相关笔记；可以换关键词、时间范围或指定知识库再试”，不要说“接口失败”，也不要自动扩大检索范围、创建笔记或调用模型编造结果。
 
 ## 失败、隐私与后续动作
 

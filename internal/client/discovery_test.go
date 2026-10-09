@@ -160,7 +160,7 @@ func TestDiscoveryNoteRoundTripPreservesMetadataAndOmission(t *testing.T) {
 func TestDiscoverySearchUnknownScoreAndFileIdentity(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"success":true,"meta":{"capabilities":["note.reference.v1"]},"data":{"result_mode":"top_k","is_exhaustive":false,"returned_count":1,"distinct_note_count":0,"results":[{"resource_type":"file","note_type":"FILE","content":"片段","score":null,"snippet_source":"unknown"}]}}`))
+		_, _ = w.Write([]byte(`{"success":true,"meta":{"capabilities":["note.reference.v1"]},"data":{"result_mode":"top_k","is_exhaustive":false,"returned_count":1,"distinct_note_count":0,"partial":true,"warnings":[{"code":"resource_authorization_unavailable","resource_type":"file","count":2}],"results":[{"resource_type":"file","resource_id":"9007199254740999","note_type":"FILE","content":"片段","score":null,"snippet_source":"unknown"}]}}`))
 	}))
 	defer server.Close()
 	t.Setenv("GETNOTE_API_URL", server.URL)
@@ -183,6 +183,13 @@ func TestDiscoverySearchUnknownScoreAndFileIdentity(t *testing.T) {
 	}
 	if hit["resource_type"] != "file" || d["result_mode"] != "top_k" {
 		t.Errorf("search contract lost: %s", b)
+	}
+	if hit["resource_id"] != "9007199254740999" || d["partial"] != true {
+		t.Errorf("file identity or partial result status lost: %s", b)
+	}
+	warnings, ok := d["warnings"].([]any)
+	if !ok || len(warnings) != 1 || warnings[0].(map[string]any)["count"] != float64(2) {
+		t.Errorf("partial search warnings lost: %s", b)
 	}
 	if u, ok := hit["note_url"]; ok && u != "" {
 		t.Errorf("file became a note: %s", b)
