@@ -14,7 +14,6 @@ import (
 // NewNoteCmd returns the note command (detail + update + delete).
 func NewNoteCmd() *cobra.Command {
 	var field string
-	var view string
 
 	cmd := &cobra.Command{
 		Use:   "note <id>",
@@ -25,7 +24,7 @@ func NewNoteCmd() *cobra.Command {
   getnote note 1234567890 --field url`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
-			resp, err := c.NoteGetWithOptions(args[0], view)
+			resp, err := c.NoteGet(args[0])
 			if err != nil {
 				return err
 			}
@@ -90,7 +89,6 @@ func NewNoteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&view, "view", "", "Content view: summary or full")
 	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, note_url, title, display_title, content, ref_content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags)")
 	cmd.AddCommand(newUpdateCmd())
 	cmd.AddCommand(newDeleteCmd())
@@ -295,12 +293,12 @@ func printField(n client.Note, field string) error {
 		val = n.DisplayName()
 	case "ref_content":
 		if n.ContentState != nil && n.ContentState.RefContent != "full" {
-			return fmt.Errorf("ref_content is %s; request --view full", n.ContentState.RefContent)
+			return fmt.Errorf("ref_content is %s; read the note detail", n.ContentState.RefContent)
 		}
 		val = n.RefContent
 	case "content":
 		if n.ContentState != nil && n.ContentState.Content != "full" {
-			return fmt.Errorf("content is %s; request --view full", n.ContentState.Content)
+			return fmt.Errorf("content is %s; read the note detail", n.ContentState.Content)
 		}
 		val = n.Content
 	case "type":

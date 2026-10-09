@@ -15,7 +15,7 @@ description: 在得到大脑的全部笔记或指定知识库中按自然语言�
 
 ## 先选查找路径
 
-- 明确书名、作者，尤其要“全部划线”：先读知识库参考，用 `kbs --scope BOOKSPACE --query` 定位，必要时 `--author/--book-id` 消歧，再 `kb <topic_id> --note-type ref --view summary --all`。
+- 明确书名、作者，尤其要“全部划线”：先读知识库参考，用 `kbs --scope BOOKSPACE --query` 定位，必要时 `--author/--book-id` 消歧，再 `kb <topic_id> --note-type ref --all` 定位笔记，需要全文时按 ID 调用 `note`。
 - 明确文章/课程：已有候选时从 `reference.source/resource_type/resource_id` 或 `reference.article.url` 进入笔记参考的精确来源筛选；`topics=[]` 不阻断这条路线。没有候选时，语义搜索只用于发现来源候选，核对引用后再查全部。
 - 只有主题或模糊记忆：语义搜索 → 按字符串笔记 ID 去重 → 对选中候选读详情/原文。Top-K（最大 10）不是完整清单；零命中也不能证明全库没有相关笔记。
 

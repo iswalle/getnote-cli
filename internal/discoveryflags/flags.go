@@ -8,7 +8,6 @@ import (
 
 func BindNotes(cmd *cobra.Command, o *client.DiscoveryOptions, topic bool) {
 	f := cmd.Flags()
-	f.StringVar(&o.View, "view", "", "Content view: summary or full (default preserves existing full response)")
 	f.StringVar(&o.NoteType, "note-type", "", "Exact note type, e.g. ref")
 	f.StringVar(&o.Source, "source", "", "Exact source, e.g. dedao")
 	f.StringVar(&o.ReferenceType, "reference-type", "", "Reference resource type: ebook, course_article, audio_book, unknown")
@@ -42,9 +41,6 @@ func ResolveNotes(cmd *cobra.Command, o client.DiscoveryOptions, limit int) (cli
 	}
 	if cmd.Flags().Changed("page") && o.Page < 1 {
 		return o, fmt.Errorf("--page must be positive")
-	}
-	if cmd.Flags().Changed("view") && o.View == "" {
-		return o, fmt.Errorf("--view must be summary or full")
 	}
 	return o, nil
 }

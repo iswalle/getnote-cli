@@ -79,7 +79,7 @@ func TestContractPublishesHistoricalSafetyGuarantees(t *testing.T) {
 	if strings.Join(data.Guarantees.KnowledgeFeatures, ",") != "directories,add_to_directory,douyin_blogger_subscription" {
 		t.Fatalf("knowledge features = %v", data.Guarantees.KnowledgeFeatures)
 	}
-	if strings.Join(data.Guarantees.NoteDetailViews, ",") != "summary,original,transcript,attachments,timeline,quick_note,meeting_todos" {
+	if strings.Join(data.Guarantees.NoteDetailViews, ",") != "original,transcript,attachments,timeline,quick_note,meeting_todos" {
 		t.Fatalf("note detail views = %v", data.Guarantees.NoteDetailViews)
 	}
 	for _, command := range []string{"note update content_or_tags", "note delete", "note share", "kb remove", "kb directory-delete"} {
@@ -105,7 +105,7 @@ func TestAgentDiscoveryContractIsConditionalOnServerSupport(t *testing.T) {
 	if err = json.Unmarshal(value["discovery"], &discovery); err != nil {
 		t.Fatal("missing machine-readable discovery contract:", err)
 	}
-	if len(discovery.Required) != 5 || discovery.All == "" {
+	if len(discovery.Required) != 4 || discovery.All == "" {
 		t.Fatalf("incomplete discovery declaration: %+v", discovery)
 	}
 }

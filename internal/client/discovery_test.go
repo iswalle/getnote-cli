@@ -27,11 +27,11 @@ func TestDiscoveryRequestsAndCapabilityProof(t *testing.T) {
 							}
 						}
 					} else if kind == "detail" {
-						if q.Get("view") != "summary" || q.Get("id") != "9007199254740993" {
+						if q.Has("view") || q.Get("id") != "9007199254740993" {
 							t.Errorf("detail query: %v", q)
 						}
 					} else {
-						for k, v := range map[string]string{"source": "dedao", "note_type": "ref", "reference_resource_type": "course_article", "reference_resource_id": "9007199254740993", "reference_article_url": "https://example.invalid/a?x=1#p", "created_from": "2026-10-09T03:00:00Z", "edited_to": "2026-10-10T03:00:00Z", "record_updated_from": "2026-10-08T03:00:00Z", "page_size": "7", "view": "summary"} {
+						for k, v := range map[string]string{"source": "dedao", "note_type": "ref", "reference_resource_type": "course_article", "reference_resource_id": "9007199254740993", "reference_article_url": "https://example.invalid/a?x=1#p", "created_from": "2026-10-09T03:00:00Z", "edited_to": "2026-10-10T03:00:00Z", "record_updated_from": "2026-10-08T03:00:00Z", "page_size": "7"} {
 							if q.Get(k) != v {
 								t.Errorf("query %s=%q want %q", k, q.Get(k), v)
 							}
@@ -43,7 +43,7 @@ func TestDiscoveryRequestsAndCapabilityProof(t *testing.T) {
 					if mode == "ignored" {
 						applied = map[string]string{}
 					}
-					caps := []string{"note.filters.v1", "note.summary.v1", "note.reference.v1", "pagination.v1", "knowledge.lookup.v1", "note.timestamps.v1"}
+					caps := []string{"note.filters.v1", "note.reference.v1", "pagination.v1", "knowledge.lookup.v1", "note.timestamps.v1"}
 					if mode == "old" {
 						caps = nil
 					}
@@ -59,7 +59,7 @@ func TestDiscoveryRequestsAndCapabilityProof(t *testing.T) {
 				t.Setenv("GETNOTE_API_URL", server.URL)
 				c := New("")
 				var err error
-				o := DiscoveryOptions{Source: "dedao", NoteType: "ref", ReferenceType: "course_article", ReferenceID: "9007199254740993", ArticleURL: "https://example.invalid/a?x=1#p", CreatedFrom: "2026-10-09T11:00:00+08:00", EditedTo: "2026-10-10T11:00:00+08:00", RecordUpdatedFrom: "2026-10-08T11:00:00+08:00", PageSize: 7, View: "summary"}
+				o := DiscoveryOptions{Source: "dedao", NoteType: "ref", ReferenceType: "course_article", ReferenceID: "9007199254740993", ArticleURL: "https://example.invalid/a?x=1#p", CreatedFrom: "2026-10-09T11:00:00+08:00", EditedTo: "2026-10-10T11:00:00+08:00", RecordUpdatedFrom: "2026-10-08T11:00:00+08:00", PageSize: 7}
 				switch kind {
 				case "notes":
 					_, err = c.NoteListWithOptions(o)
@@ -69,9 +69,9 @@ func TestDiscoveryRequestsAndCapabilityProof(t *testing.T) {
 				case "lookup", "subscribed":
 					_, err = c.KBListWithOptions(KnowledgeLookupOptions{Scope: "BOOKSPACE", Query: "  《书名》  ", Author: "作者", BookID: "book-x", Page: 2, PageSize: 7}, kind == "subscribed")
 				case "detail":
-					_, err = c.NoteGetWithOptions("9007199254740993", "summary")
+					_, err = c.NoteGet("9007199254740993")
 				}
-				wantError := mode == "old" || (mode == "ignored" && kind != "detail")
+				wantError := kind != "detail" && (mode == "old" || mode == "ignored")
 				if (err != nil) != wantError {
 					t.Errorf("error=%v wantError=%v", err, wantError)
 				}
@@ -87,7 +87,7 @@ func TestDiscoveryInvalidOptionsDoNotSendRequests(t *testing.T) {
 	}))
 	defer server.Close()
 	t.Setenv("GETNOTE_API_URL", server.URL)
-	for _, o := range []DiscoveryOptions{{PageSize: 101}, {PageSize: -1}, {View: "bad"}, {ReferenceID: "42"}, {CreatedFrom: "yesterday"}, {TopicID: "x", Page: 1, Cursor: "c"}} {
+	for _, o := range []DiscoveryOptions{{PageSize: 101}, {PageSize: -1}, {ReferenceID: "42"}, {CreatedFrom: "yesterday"}, {TopicID: "x", Page: 1, Cursor: "c"}} {
 		if _, err := New("").NoteListWithOptions(o); err == nil {
 			t.Errorf("accepted %+v", o)
 		}

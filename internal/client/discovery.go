@@ -10,7 +10,7 @@ import (
 )
 
 type DiscoveryOptions struct {
-	View, NoteType, Source, ReferenceType, ReferenceID, ArticleURL, TopicID          string
+	NoteType, Source, ReferenceType, ReferenceID, ArticleURL, TopicID                string
 	CreatedFrom, CreatedTo, EditedFrom, EditedTo, RecordUpdatedFrom, RecordUpdatedTo string
 	Cursor                                                                           string
 	Page, PageSize                                                                   int
@@ -21,15 +21,12 @@ type KnowledgeLookupOptions struct {
 }
 
 func (o DiscoveryOptions) Active() bool {
-	return o.View != "" || o.NoteType != "" || o.Source != "" || o.ReferenceType != "" || o.ReferenceID != "" || o.ArticleURL != "" || o.TopicID != "" || o.CreatedFrom != "" || o.CreatedTo != "" || o.EditedFrom != "" || o.EditedTo != "" || o.RecordUpdatedFrom != "" || o.RecordUpdatedTo != "" || o.PageSize != 0 || o.Page != 0
+	return o.NoteType != "" || o.Source != "" || o.ReferenceType != "" || o.ReferenceID != "" || o.ArticleURL != "" || o.TopicID != "" || o.CreatedFrom != "" || o.CreatedTo != "" || o.EditedFrom != "" || o.EditedTo != "" || o.RecordUpdatedFrom != "" || o.RecordUpdatedTo != "" || o.PageSize != 0 || o.Page != 0
 }
 
 func (o DiscoveryOptions) values() (url.Values, map[string]string, error) {
 	q := url.Values{}
 	filters := map[string]string{}
-	if o.View != "" && o.View != "summary" && o.View != "full" {
-		return nil, nil, fmt.Errorf("view must be summary or full")
-	}
 	if o.PageSize == 0 {
 		o.PageSize = 20
 	}
@@ -87,9 +84,6 @@ func (o DiscoveryOptions) values() (url.Values, map[string]string, error) {
 	}
 	if o.Page > 0 {
 		q.Set("page", strconv.Itoa(o.Page))
-	}
-	if o.View != "" {
-		q.Set("view", o.View)
 	}
 	return q, filters, nil
 }
@@ -154,9 +148,6 @@ func validateDiscoveryPage(meta *ResponseMeta, data DiscoveryListFields, q url.V
 	if filters["reference_resource_type"] != "" || filters["reference_resource_id"] != "" || filters["reference_article_url"] != "" {
 		caps = append(caps, "note.reference.v1")
 	}
-	if q.Get("view") == "summary" {
-		caps = append(caps, "note.summary.v1", "note.reference.v1")
-	}
 	if err := requireCapabilities(meta, caps...); err != nil {
 		return err
 	}
@@ -215,29 +206,6 @@ func (c *Client) KBNotesWithOptions(topicID string, o DiscoveryOptions) (*KBNote
 		return nil, err
 	}
 	resp.Data.HasMore = resp.Data.Pagination.HasMore
-	return resp, nil
-}
-func (c *Client) NoteGetWithOptions(id, view string) (*NoteGetResponse, error) {
-	if view == "" {
-		return c.NoteGet(id)
-	}
-	if view != "full" && view != "summary" {
-		return nil, fmt.Errorf("view must be summary or full")
-	}
-	resp, err := doGet[NoteGetResponse](c, "/open/api/v1/resource/note/detail", url.Values{"id": {id}, "view": {view}})
-	if err != nil {
-		return nil, err
-	}
-	caps := []string{"note.reference.v1"}
-	if view == "summary" {
-		caps = append(caps, "note.summary.v1")
-	}
-	if err = requireCapabilities(resp.Meta, caps...); err != nil {
-		return nil, err
-	}
-	if resp.Data.Note.NoteURL == "" {
-		resp.Data.Note.NoteURL = c.NoteURL(noteIdentity(resp.Data.Note))
-	}
 	return resp, nil
 }
 func normalizeLookup(value string) string {

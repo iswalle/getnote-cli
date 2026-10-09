@@ -50,8 +50,8 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 先用 `summary` 列出候选，再按需读取详情。`display_title` 是展示标题，不覆盖原始 `title`；引用笔记空标题很正常。`preview` 是带来源和截断标记的定位片段，不是全文。
 
 ```bash
-getnote notes --view summary --source dedao --note-type ref --page-size 20 -o json
-getnote note '<note_id>' --view full -o json
+getnote notes --source dedao --note-type ref --page-size 20 -o json
+getnote note '<note_id>' -o json
 getnote note original '<note_id>' -o json
 ```
 
@@ -67,9 +67,9 @@ getnote note original '<note_id>' -o json
 文章或课程没有知识库时，先从已有详情或语义搜索候选读取真实 `reference`，再精确查找：
 
 ```bash
-getnote notes --source dedao --note-type ref --reference-type course_article --reference-id '<reference.resource_id>' --view summary --all -o json
+getnote notes --source dedao --note-type ref --reference-type course_article --reference-id '<reference.resource_id>' --all -o json
 # 缺少资源 ID，但有 reference.article.url 时，可改用精确文章 URL
-getnote notes --source dedao --note-type ref --article-url '<reference.article.url>' --view summary --all -o json
+getnote notes --source dedao --note-type ref --article-url '<reference.article.url>' --all -o json
 ```
 
 平台值取 `reference.source`；资源类型取 `reference.resource_type`，不要用标签或内部 ptype 猜枚举。`--reference-id` 必须同时传 `--source` 和 `--reference-type`。引用的 `resource_id`、`original_note_id`、书 ID 与笔记 ID 都是不同身份；始终按返回的字符串使用。URL 保留 query/fragment，不自行去参。同一文章可以有多个不同的 `original_note_id`，不可按文章 ID 合并成一条划线。

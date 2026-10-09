@@ -34,14 +34,6 @@ func NewKbCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if noContent {
-				if resolved.View != "" && resolved.View != "summary" {
-					return fmt.Errorf("--no-content requires --view summary")
-				}
-				if resolved.Active() {
-					resolved.View = "summary"
-				}
-			}
 			var resp *client.KBNotesResponse
 			if all {
 				if resolved.Active() {
@@ -91,7 +83,7 @@ func NewKbCmd() *cobra.Command {
 	cmd.Flags().IntVar(&options.Page, "page", 0, "Page number (discovery default 1)")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes per page")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all notes (auto-paginate)")
-	cmd.Flags().BoolVar(&noContent, "no-content", false, "Omit the body locally with an explicit content state; use --view summary for server-side light reads")
+	cmd.Flags().BoolVar(&noContent, "no-content", false, "Omit body fields when connected to an older server")
 
 	cmd.AddCommand(newCreateCmd())
 	cmd.AddCommand(newAddCmd())
