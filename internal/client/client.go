@@ -955,7 +955,7 @@ type KBLive struct {
 type KBLiveListData struct {
 	Lives   []KBLive `json:"lives"`
 	HasMore bool     `json:"has_more"`
-	Total   *int     `json:"total,omitempty"`
+	Total   int      `json:"total"`
 }
 
 // KBLiveListResponse is the response from the live list endpoint.

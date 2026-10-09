@@ -145,3 +145,32 @@ func TestDiscoveryFullQuoteTableDoesNotTruncate(t *testing.T) {
 		t.Error("full comment or quote truncated")
 	}
 }
+
+func TestDiscoveryTopicOnlyCannotFallBackToUnfilteredLegacy(t *testing.T) {
+	for _, args := range [][]string{{"notes", "--topic-id", "topic-x"}, {"notes", "--topic-id", "topic-x", "--all"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			calls := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				if r.URL.Query().Get("topic_id") != "topic-x" || r.URL.Query().Get("page_size") != "20" {
+					t.Errorf("topic-only request lost its verified scope: %s", r.URL.RawQuery)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"success":true,"meta":{"capabilities":["note.filters.v1","pagination.v1"]},"data":{"notes":[],"applied_filters":{"topic_id":"topic-x"},"pagination":{"mode":"cursor","page":null,"page_size":20,"returned_count":0,"has_more":false,"total_count":null,"next_page":null,"next_cursor":null}}}`))
+			}))
+			defer server.Close()
+			t.Setenv("GETNOTE_API_URL", server.URL)
+			root := discoveryRoot()
+			root.SetArgs(append(args, "-o", "json"))
+			var output bytes.Buffer
+			root.SetOut(&output)
+			root.SetErr(&output)
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if calls != 1 {
+				t.Errorf("requests=%d", calls)
+			}
+		})
+	}
+}
