@@ -127,7 +127,7 @@ func newOriginalCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "original <id>",
 		Short:   "读取笔记原文 / Read the original note content",
-		Long:    "按笔记类型返回真实原文：链接笔记返回网页原文，录音笔记返回转写原文，文字笔记返回正文。",
+		Long:    "按笔记类型返回真实原文：引用笔记返回被引原文，链接笔记返回网页原文，录音笔记返回转写原文，文字笔记返回正文。",
 		Example: "  getnote note original 1896830231705320746",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -136,20 +136,33 @@ func newOriginalCmd() *cobra.Command {
 				return ui.FriendlyError(err)
 			}
 			n := resp.Data.Note
-			var value string
-			switch {
-			case n.WebPage != nil && n.WebPage.Content != "":
-				value = n.WebPage.Content
-			case n.Audio != nil && n.Audio.Original != "":
-				value = n.Audio.Original
+			var value, source string
+			switch n.NoteType {
+			case "ref":
+				value, source = n.RefContent, "ref_content"
+			case "plain_text":
+				value, source = n.Content, "content"
+			case "link":
+				source = "web_page.content"
+				if n.WebPage != nil {
+					value = n.WebPage.Content
+				}
+			case "audio", "local_audio":
+				source = "audio.original"
+				if n.Audio != nil {
+					value = n.Audio.Original
+				}
 			default:
-				value = n.Content
+				return fmt.Errorf("unsupported note type %q for original content", n.NoteType)
 			}
 			if value == "" {
 				return fmt.Errorf("original content is not available for this note")
 			}
 			if outputFormat(cmd) == "json" {
-				return writeDetailResult(cmd, n, "original", value)
+				payload := map[string]interface{}{"success": true, "data": map[string]interface{}{"note_id": ui.NoteID(n.NoteID, n.ID), "title": n.Title, "original": value, "original_source": source}}
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(payload)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), value)
 			return nil
