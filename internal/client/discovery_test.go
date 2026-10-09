@@ -195,3 +195,32 @@ func TestDiscoverySearchUnknownScoreAndFileIdentity(t *testing.T) {
 		t.Errorf("file became a note: %s", b)
 	}
 }
+
+func TestDiscoveryJSONRetainsEmptyAppliedFiltersAndNullPage(t *testing.T) {
+	raw := []byte(`{"success":true,"data":{"notes":[],"topics":[],"pagination":{"mode":"cursor","page":null,"page_size":20,"returned_count":0,"total_count":null,"has_more":false,"next_page":null,"next_cursor":null},"applied_filters":{}}}`)
+	for _, value := range []any{&NoteListResponse{}, &KBNotesResponse{}, &KBListResponse{}} {
+		if err := json.Unmarshal(raw, value); err != nil {
+			t.Fatal(err)
+		}
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got struct {
+			Data map[string]json.RawMessage `json:"data"`
+		}
+		if err := json.Unmarshal(encoded, &got); err != nil {
+			t.Fatal(err)
+		}
+		if string(got.Data["applied_filters"]) != "{}" {
+			t.Errorf("%T lost authoritative empty filters: %s", value, encoded)
+		}
+		var page map[string]json.RawMessage
+		if err := json.Unmarshal(got.Data["pagination"], &page); err != nil {
+			t.Fatal(err)
+		}
+		if string(page["page"]) != "null" {
+			t.Errorf("%T lost nullable page: %s", value, encoded)
+		}
+	}
+}

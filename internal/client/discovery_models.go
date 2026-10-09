@@ -9,7 +9,7 @@ type ResponseMeta struct {
 
 type Pagination struct {
 	Mode          string  `json:"mode"`
-	Page          *int    `json:"page,omitempty"`
+	Page          *int    `json:"page"`
 	PageSize      int     `json:"page_size"`
 	ReturnedCount int     `json:"returned_count"`
 	TotalCount    *int64  `json:"total_count"`
@@ -24,6 +24,39 @@ type DiscoveryListFields struct {
 	AppliedFilters map[string]string `json:"applied_filters,omitempty"`
 	Warnings       []json.RawMessage `json:"warnings,omitempty"`
 	Traversal      *Traversal        `json:"traversal,omitempty"`
+}
+
+// nil means a legacy response omitted the field; a non-nil empty map is the
+// server's affirmative statement that no filters were applied.
+func marshalDiscoveryData(value any, filters map[string]string) ([]byte, error) {
+	encoded, err := json.Marshal(value)
+	if err != nil || filters == nil {
+		return encoded, err
+	}
+	var fields map[string]json.RawMessage
+	if err = json.Unmarshal(encoded, &fields); err != nil {
+		return nil, err
+	}
+	fields["applied_filters"], err = json.Marshal(filters)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(fields)
+}
+
+func (d NoteListData) MarshalJSON() ([]byte, error) {
+	type plain NoteListData
+	return marshalDiscoveryData(plain(d), d.AppliedFilters)
+}
+
+func (d KBNoteListData) MarshalJSON() ([]byte, error) {
+	type plain KBNoteListData
+	return marshalDiscoveryData(plain(d), d.AppliedFilters)
+}
+
+func (d KBListData) MarshalJSON() ([]byte, error) {
+	type plain KBListData
+	return marshalDiscoveryData(plain(d), d.AppliedFilters)
 }
 
 // Traversal describes this walk; it never claims snapshot or global totals.
