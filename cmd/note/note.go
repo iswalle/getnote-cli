@@ -14,6 +14,7 @@ import (
 // NewNoteCmd returns the note command (detail + update + delete).
 func NewNoteCmd() *cobra.Command {
 	var field string
+	var view string
 
 	cmd := &cobra.Command{
 		Use:   "note <id>",
@@ -24,7 +25,7 @@ func NewNoteCmd() *cobra.Command {
   getnote note 1234567890 --field url`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
-			resp, err := c.NoteGet(args[0])
+			resp, err := c.NoteGetWithOptions(args[0], view)
 			if err != nil {
 				return err
 			}
@@ -49,7 +50,7 @@ func NewNoteCmd() *cobra.Command {
 			if n.NoteURL != "" {
 				table.Append([]string{"Note URL", n.NoteURL})
 			}
-			table.Append([]string{"Title", n.Title})
+			table.Append([]string{"Title", n.DisplayName()})
 			table.Append([]string{"Type", n.NoteType})
 			table.Append([]string{"Created", n.CreatedAt})
 			table.Append([]string{"Updated", n.UpdatedAt})
@@ -59,8 +60,21 @@ func NewNoteCmd() *cobra.Command {
 			if n.WebPage != nil && n.WebPage.Excerpt != "" {
 				table.Append([]string{"Excerpt", ui.Truncate(n.WebPage.Excerpt, 120)})
 			}
-			if n.Content != "" {
+			if n.NoteType == "ref" {
+				if n.ContentState == nil || n.ContentState.Content != "omitted" {
+					table.Append([]string{"Comment", ui.Truncate(n.Content, 200)})
+				}
+				if n.ContentState == nil || n.ContentState.RefContent != "omitted" {
+					table.Append([]string{"Quote", ui.Truncate(n.RefContent, 200)})
+				}
+			} else if n.Content != "" {
 				table.Append([]string{"Content", ui.Truncate(n.Content, 200)})
+			}
+			if n.Preview != nil {
+				table.Append([]string{"Preview (" + n.Preview.Source + ")", n.Preview.Text})
+			}
+			if n.ContentState != nil {
+				table.Append([]string{"Content state", n.ContentState.Content + " / quote: " + n.ContentState.RefContent})
 			}
 			if n.Source != "" {
 				table.Append([]string{"Source", n.Source})
@@ -76,7 +90,8 @@ func NewNoteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, note_url, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags)")
+	cmd.Flags().StringVar(&view, "view", "", "Content view: summary or full")
+	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, note_url, title, display_title, content, ref_content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags)")
 	cmd.AddCommand(newUpdateCmd())
 	cmd.AddCommand(newDeleteCmd())
 	cmd.AddCommand(newShareCmd())
@@ -276,7 +291,17 @@ func printField(n client.Note, field string) error {
 		val = n.NoteURL
 	case "title":
 		val = n.Title
+	case "display_title":
+		val = n.DisplayName()
+	case "ref_content":
+		if n.ContentState != nil && n.ContentState.RefContent != "full" {
+			return fmt.Errorf("ref_content is %s; request --view full", n.ContentState.RefContent)
+		}
+		val = n.RefContent
 	case "content":
+		if n.ContentState != nil && n.ContentState.Content != "full" {
+			return fmt.Errorf("content is %s; request --view full", n.ContentState.Content)
+		}
 		val = n.Content
 	case "type":
 		val = n.NoteType
@@ -305,7 +330,7 @@ func printField(n client.Note, field string) error {
 	case "tags":
 		val = strings.Join(n.TagNames(), ", ")
 	default:
-		return fmt.Errorf("unknown field %q; valid: id, note_url, title, content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags", field)
+		return fmt.Errorf("unknown field %q; valid: id, note_url, title, display_title, content, ref_content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags", field)
 	}
 	fmt.Println(val)
 	return nil

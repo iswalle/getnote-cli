@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/iswalle/getnote-cli/internal/client"
+	"github.com/iswalle/getnote-cli/internal/discoveryflags"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -13,6 +14,8 @@ import (
 func NewKbsSubCmd() *cobra.Command {
 	var page int
 	var scope string
+	var options client.KnowledgeLookupOptions
+	var all bool
 
 	cmd := &cobra.Command{
 		Use:     "kbs-sub",
@@ -24,7 +27,19 @@ func NewKbsSubCmd() *cobra.Command {
   getnote kbs-sub --scope DEFAULT --page 2 -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
-			resp, err := c.KBSubscribedList(page, scope)
+			options.Page, options.Scope = page, scope
+			if err := discoveryflags.ValidateLookupFlags(cmd, options); err != nil {
+				return err
+			}
+			var resp *client.KBListResponse
+			var err error
+			if all {
+				resp, err = c.AllKnowledge(options, true)
+			} else if discoveryflags.LookupRequested(cmd) {
+				resp, err = c.KBListWithOptions(options, true)
+			} else {
+				resp, err = c.KBSubscribedList(page, scope)
+			}
 			if err != nil {
 				return err
 			}
@@ -52,6 +67,7 @@ func NewKbsSubCmd() *cobra.Command {
 		},
 	}
 
+	discoveryflags.BindLookup(cmd, &options, &all)
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().StringVar(&scope, "scope", "DEFAULT", "Knowledge base scope: DEFAULT, CUSTOMER, BOOKSPACE, TEAMSPACE")
 	return cmd

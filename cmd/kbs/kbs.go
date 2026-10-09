@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/iswalle/getnote-cli/internal/client"
+	"github.com/iswalle/getnote-cli/internal/discoveryflags"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -13,6 +14,8 @@ import (
 func NewKbsCmd() *cobra.Command {
 	var page int
 	var scope string
+	var options client.KnowledgeLookupOptions
+	var all bool
 	cmd := &cobra.Command{
 		Use:   "kbs",
 		Args:  cobra.NoArgs,
@@ -22,7 +25,19 @@ func NewKbsCmd() *cobra.Command {
   getnote kbs --scope DEFAULT --page 2`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
-			resp, err := c.KBList(page, scope)
+			options.Page, options.Scope = page, scope
+			if err := discoveryflags.ValidateLookupFlags(cmd, options); err != nil {
+				return err
+			}
+			var resp *client.KBListResponse
+			var err error
+			if all {
+				resp, err = c.AllKnowledge(options, false)
+			} else if discoveryflags.LookupRequested(cmd) {
+				resp, err = c.KBListWithOptions(options, false)
+			} else {
+				resp, err = c.KBList(page, scope)
+			}
 			if err != nil {
 				return err
 			}
@@ -49,6 +64,7 @@ func NewKbsCmd() *cobra.Command {
 			return nil
 		},
 	}
+	discoveryflags.BindLookup(cmd, &options, &all)
 	cmd.Flags().IntVar(&page, "page", 1, "页码 / Page number")
 	cmd.Flags().StringVar(&scope, "scope", "DEFAULT", "知识库类型 / Scope: DEFAULT, CUSTOMER, BOOKSPACE, TEAMSPACE")
 	return cmd
