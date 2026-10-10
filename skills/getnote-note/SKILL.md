@@ -47,7 +47,7 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 
 ## 来源筛选、轻量定位与原文
 
-先用 `summary` 列出候选，再按需读取详情。`display_title` 是展示标题，不覆盖原始 `title`；引用笔记空标题很正常。`preview` 是带来源和截断标记的定位片段，不是全文。
+列表接口只返回定位信息，再用详情接口读取完整笔记。`display_title` 是展示标题，不覆盖原始 `title`；引用笔记空标题很正常。`preview` 是带来源和截断标记的定位片段，不是全文。
 
 ```bash
 getnote notes --source dedao --note-type ref --page-size 20 -o json
@@ -62,7 +62,7 @@ getnote note original '<note_id>' -o json
 | link | web_page.content | 通常是摘要 |
 | audio / local_audio | audio.original | 通常是摘要 |
 
-`original` 只按真实类型读取上述字段，并返回 `original_source`；原文缺失或类型不支持会报错，不能把评论或摘要补成原文。summary 省略 `content/ref_content` 等大字段，通过 `content_state` 表示 omitted/full/unavailable；省略不等于空正文。用 `metadata_state.reference/topics` 区分完整、部分、不可用的元数据；缺失的作者、书 ID、来源 URL 不猜测补写。
+`original` 只按真实类型读取上述字段，并返回 `original_source`；原文缺失或类型不支持会报错，不能把评论或定位片段补成原文。列表中的 `content_state` 会标明正文被省略；详情接口返回完整正文和元数据。用 `metadata_state.reference/topics` 区分完整、部分、不可用的元数据；缺失的作者、书 ID、来源 URL 不猜测补写。
 
 文章或课程没有知识库时，先从已有详情或语义搜索候选读取真实 `reference`，再精确查找：
 
