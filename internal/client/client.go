@@ -112,7 +112,7 @@ func New(envTarget string) *Client {
 	if v := os.Getenv("GETNOTE_API_URL"); v != "" {
 		baseURL = normalizeAPIHost(v)
 	} else if envTarget == "dev" {
-		baseURL = "https://openapi-dev.biji.com"
+		baseURL = "http://entree.dev.didatrip.com"
 	}
 
 	cfg := config.Get()
