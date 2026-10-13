@@ -1,5 +1,9 @@
 # 得到大脑（Get笔记） CLI
 
+## 1.7.0 查找与引用
+
+支持书库身份与书名查找、引用来源筛选及完整分页。列表用于定位，完整内容由 `getnote note <id>` 读取；引用原文与个人评论分别返回。搜索保留部分结果与资源身份，Top-K 不代表全量。随包五个领域 Skill 已同步这些调用规则。
+
 ## v1.6：文件上传与独立报告
 
 - `getnote note chapters <id> -o json` 读取章节；`note timeline` 保留录音 moments，`marks <note_id>` 独立读取标记。

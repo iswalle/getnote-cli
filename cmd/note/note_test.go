@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -75,6 +76,57 @@ func TestDetailViewsHaveStableJSONEnvelope(t *testing.T) {
 				if len(items) != 1 || items[0].(map[string]interface{})["start_ms"] != float64(1000) {
 					t.Fatal("chapter data lost")
 				}
+			}
+		})
+	}
+}
+
+func TestOriginalSelectsOnlyTheTypeSpecificSource(t *testing.T) {
+	cases := []struct {
+		name, noteJSON, wantOriginal, wantSource, wantError string
+	}{
+		{"reference with comment", `{"note_type":"ref","content":"personal comment","ref_content":"quoted passage"}`, "quoted passage", "ref_content", ""},
+		{"reference without comment", `{"note_type":"ref","content":"","ref_content":"quoted passage"}`, "quoted passage", "ref_content", ""},
+		{"reference without quote", `{"note_type":"ref","content":"personal comment","ref_content":""}`, "", "", "not available"},
+		{"plain text", `{"note_type":"plain_text","content":"typed text","ref_content":"other"}`, "typed text", "content", ""},
+		{"link", `{"note_type":"link","content":"AI summary","web_page":{"content":"web article"}}`, "web article", "web_page.content", ""},
+		{"audio", `{"note_type":"audio","content":"AI summary","audio":{"original":"raw transcript"}}`, "raw transcript", "audio.original", ""},
+		{"local audio", `{"note_type":"local_audio","content":"AI summary","audio":{"original":"local transcript"}}`, "local transcript", "audio.original", ""},
+		{"unknown", `{"note_type":"unknown","content":"AI summary"}`, "", "", "unsupported"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("GETNOTE_API_KEY", "test-key")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(w, `{"success":true,"data":{"note":{"id":"123","note_id":"123","title":"Synthetic",%s}}}`, tc.noteJSON[1:len(tc.noteJSON)-1])
+			}))
+			defer server.Close()
+			t.Setenv("GETNOTE_API_URL", server.URL)
+			root := &cobra.Command{Use: "getnote", SilenceUsage: true, SilenceErrors: true}
+			root.PersistentFlags().StringP("output", "o", "table", "")
+			root.AddCommand(NewNoteCmd())
+			root.SetArgs([]string{"note", "original", "123", "-o", "json"})
+			var output bytes.Buffer
+			root.SetOut(&output)
+			root.SetErr(&output)
+			err := root.Execute()
+			if tc.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+					t.Fatalf("error = %v, want %q", err, tc.wantError)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got struct {
+				Data map[string]any `json:"data"`
+			}
+			if err := json.Unmarshal(output.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Data["original"] != tc.wantOriginal || got.Data["original_source"] != tc.wantSource || got.Data["note_id"] != "123" || got.Data["title"] != "Synthetic" {
+				t.Fatalf("data = %#v", got.Data)
 			}
 		})
 	}

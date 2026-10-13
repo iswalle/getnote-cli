@@ -3,9 +3,9 @@ package notes
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/iswalle/getnote-cli/internal/client"
+	"github.com/iswalle/getnote-cli/internal/discoveryflags"
 	"github.com/iswalle/getnote-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +25,7 @@ func NewNotesCmd() *cobra.Command {
 	var limit int
 	var cursor string
 	var all bool
+	var options client.DiscoveryOptions
 
 	cmd := &cobra.Command{
 		Use:   "notes",
@@ -37,15 +38,29 @@ func NewNotesCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 
-			if all {
-				return streamAll(cmd, c)
+			options.Cursor = cursor
+			resolved, err := discoveryflags.ResolveNotes(cmd, options, limit)
+			if err != nil {
+				return err
 			}
-
-			resp, err := c.NoteList(client.NoteListParams{Limit: limit, Cursor: cursor})
+			var resp *client.NoteListResponse
+			if all {
+				if resolved.Active() {
+					resp, err = c.AllNotes(resolved)
+				} else {
+					resp, err = c.LegacyAllNotes(cursor)
+				}
+			} else if resolved.Active() {
+				resp, err = c.NoteListWithOptions(resolved)
+			} else {
+				resp, err = c.NoteList(client.NoteListParams{Limit: limit, Cursor: cursor})
+				if err == nil {
+					applyLimit(resp, limit)
+				}
+			}
 			if err != nil {
 				return ui.FriendlyError(err)
 			}
-			applyLimit(resp, limit)
 
 			if outputFormat(cmd) == "json" {
 				enc := json.NewEncoder(cmd.OutOrStdout())
@@ -64,15 +79,16 @@ func NewNotesCmd() *cobra.Command {
 					"\n(showing %d of more notes — use --cursor %s for next page, or --all)\n",
 					len(shown), resp.Data.Cursor)
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes)\n", len(shown))
+				fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes returned in this traversal; no snapshot guarantee)\n", len(shown))
 			}
 			return nil
 		},
 	}
 
+	discoveryflags.BindNotes(cmd, &options, true)
 	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes per page")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor (from a previous page's cursor)")
-	cmd.Flags().BoolVar(&all, "all", false, "Fetch all notes (auto-paginate, streams output)")
+	cmd.Flags().BoolVar(&all, "all", false, "Traverse all matching pages; report incomplete on errors, no snapshot guarantee")
 	return cmd
 }
 
@@ -88,60 +104,6 @@ func applyLimit(resp *client.NoteListResponse, limit int) {
 	resp.Data.HasMore = true
 }
 
-// streamAll fetches all notes page by page, printing each row immediately.
-func streamAll(cmd *cobra.Command, c *client.Client) error {
-	isJSON := outputFormat(cmd) == "json"
-
-	if isJSON {
-		var allNotes []client.Note
-		cursor := ""
-		for {
-			resp, err := c.NoteList(client.NoteListParams{Limit: 20, Cursor: cursor})
-			if err != nil {
-				return ui.FriendlyError(err)
-			}
-			allNotes = append(allNotes, resp.Data.Notes...)
-			if !resp.Data.HasMore {
-				break
-			}
-			cursor = resp.Data.Cursor
-			time.Sleep(500 * time.Millisecond)
-		}
-		result := &client.NoteListResponse{
-			Success: true,
-			Data: client.NoteListData{
-				Notes:   allNotes,
-				HasMore: false,
-				Total:   len(allNotes),
-			},
-		}
-		enc := json.NewEncoder(cmd.OutOrStdout())
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
-	}
-
-	printHeader(cmd)
-	cursor := ""
-	total := 0
-	for {
-		resp, err := c.NoteList(client.NoteListParams{Limit: 20, Cursor: cursor})
-		if err != nil {
-			return ui.FriendlyError(err)
-		}
-		for _, n := range resp.Data.Notes {
-			printRow(cmd, n)
-			total++
-		}
-		if !resp.Data.HasMore {
-			break
-		}
-		cursor = resp.Data.Cursor
-		time.Sleep(500 * time.Millisecond)
-	}
-	fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes total)\n", total)
-	return nil
-}
-
 func printHeader(cmd *cobra.Command) {
 	fmt.Fprint(cmd.OutOrStdout(), ui.PrintHeader(cols, sep))
 	fmt.Fprint(cmd.OutOrStdout(), ui.DividerLine(cols, sep))
@@ -150,7 +112,7 @@ func printHeader(cmd *cobra.Command) {
 func printRow(cmd *cobra.Command, n client.Note) {
 	row := []ui.ColSpec{
 		{Value: ui.NoteID(n.NoteID, n.ID), Width: cols[0].Width},
-		{Value: n.Title, Width: cols[1].Width},
+		{Value: n.DisplayName(), Width: cols[1].Width},
 		{Value: n.NoteType, Width: cols[2].Width},
 		{Value: n.CreatedAt, Width: cols[3].Width},
 		{Value: n.NoteURL, Width: cols[4].Width},

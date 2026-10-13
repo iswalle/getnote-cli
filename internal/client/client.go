@@ -112,7 +112,7 @@ func New(envTarget string) *Client {
 	if v := os.Getenv("GETNOTE_API_URL"); v != "" {
 		baseURL = normalizeAPIHost(v)
 	} else if envTarget == "dev" {
-		baseURL = "https://openapi-dev.biji.com"
+		baseURL = "http://entree.dev.didatrip.com"
 	}
 
 	cfg := config.Get()
@@ -183,6 +183,8 @@ type NoteTag struct {
 // Tags can be []string (kb/notes API) or []NoteTag (note/list API);
 // use TagNames() to get plain tag names regardless of format.
 type Note struct {
+	DiscoveryNoteFields
+	rawFields map[string]json.RawMessage
 	ID        StringID          `json:"id"`
 	NoteID    string            `json:"note_id"`
 	NoteURL   string            `json:"note_url,omitempty"`
@@ -277,10 +279,11 @@ func (n *Note) TagNames() []string {
 
 // NoteListData is the data field of the note list response.
 type NoteListData struct {
+	DiscoveryListFields
 	Notes      []Note   `json:"notes"`
 	HasMore    bool     `json:"has_more"`
 	NextCursor StringID `json:"next_cursor"`
-	Total      int      `json:"total"`
+	Total      *int     `json:"total,omitempty"`
 	Cursor     string   `json:"cursor"` // 推荐的翻页方式
 }
 
@@ -292,8 +295,10 @@ type NoteListParams struct {
 
 // NoteListResponse is the response from the note list endpoint.
 type NoteListResponse struct {
-	Success bool         `json:"success"`
-	Data    NoteListData `json:"data"`
+	Meta      *ResponseMeta `json:"meta,omitempty"`
+	RequestID string        `json:"request_id,omitempty"`
+	Success   bool          `json:"success"`
+	Data      NoteListData  `json:"data"`
 }
 
 // NoteList fetches a list of notes.
@@ -311,7 +316,9 @@ func (c *Client) NoteList(params NoteListParams) (*NoteListResponse, error) {
 	resp, err := doGet[NoteListResponse](c, "/open/api/v1/resource/note/list", q)
 	if err == nil {
 		for i := range resp.Data.Notes {
-			resp.Data.Notes[i].NoteURL = c.NoteURL(noteIdentity(resp.Data.Notes[i]))
+			if resp.Data.Notes[i].NoteURL == "" {
+				resp.Data.Notes[i].NoteURL = c.NoteURL(noteIdentity(resp.Data.Notes[i]))
+			}
 		}
 	}
 	return resp, err
@@ -324,8 +331,10 @@ type NoteGetData struct {
 
 // NoteGetResponse is the response from the note detail endpoint.
 type NoteGetResponse struct {
-	Success bool        `json:"success"`
-	Data    NoteGetData `json:"data"`
+	Meta      *ResponseMeta `json:"meta,omitempty"`
+	RequestID string        `json:"request_id,omitempty"`
+	Success   bool          `json:"success"`
+	Data      NoteGetData   `json:"data"`
 }
 
 // NoteGet fetches a single note by ID.
@@ -334,7 +343,9 @@ func (c *Client) NoteGet(noteID string) (*NoteGetResponse, error) {
 	q := url.Values{"id": {noteID}}
 	resp, err := doGet[NoteGetResponse](c, "/open/api/v1/resource/note/detail", q)
 	if err == nil {
-		resp.Data.Note.NoteURL = c.NoteURL(noteIdentity(resp.Data.Note))
+		if resp.Data.Note.NoteURL == "" {
+			resp.Data.Note.NoteURL = c.NoteURL(noteIdentity(resp.Data.Note))
+		}
 	}
 	return resp, err
 }
@@ -493,15 +504,16 @@ func (c *Client) NoteShare(noteID string, excludeAudio bool) (*NoteShareResponse
 
 // KBTopic represents a single knowledge base.
 type KBTopic struct {
-	ID          string       `json:"id"`
-	TopicID     string       `json:"topic_id"`
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Cover       string       `json:"cover"`
-	Scope       string       `json:"scope"`
-	CreatedAt   string       `json:"created_at"`
-	UpdatedAt   string       `json:"updated_at"`
-	Stats       KBTopicStats `json:"stats"`
+	BookInfo    json.RawMessage `json:"book_info,omitempty"`
+	ID          string          `json:"id"`
+	TopicID     string          `json:"topic_id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Cover       string          `json:"cover"`
+	Scope       string          `json:"scope"`
+	CreatedAt   string          `json:"created_at"`
+	UpdatedAt   string          `json:"updated_at"`
+	Stats       KBTopicStats    `json:"stats"`
 }
 
 // KBTopicStats holds knowledge base statistics.
@@ -514,15 +526,18 @@ type KBTopicStats struct {
 
 // KBListData is the data field of the knowledge base list response.
 type KBListData struct {
+	DiscoveryListFields
 	Topics  []KBTopic `json:"topics"`
 	HasMore bool      `json:"has_more"`
-	Total   int       `json:"total"`
+	Total   *int      `json:"total,omitempty"`
 }
 
 // KBListResponse is the response from the knowledge base list endpoint.
 type KBListResponse struct {
-	Success bool       `json:"success"`
-	Data    KBListData `json:"data"`
+	Meta      *ResponseMeta `json:"meta,omitempty"`
+	RequestID string        `json:"request_id,omitempty"`
+	Success   bool          `json:"success"`
+	Data      KBListData    `json:"data"`
 }
 
 // KBList fetches knowledge bases for the given page (1-based) and scope.
@@ -588,6 +603,12 @@ type KBNotesParams struct {
 // updated_at), includes is_ai_generated, and returns note_id as a string
 // with no int64 id.
 type KBNote struct {
+	NoteURL    string            `json:"note_url,omitempty"`
+	RefContent string            `json:"ref_content,omitempty"`
+	Source     string            `json:"source,omitempty"`
+	Topics     []json.RawMessage `json:"topics,omitempty"`
+	DiscoveryNoteFields
+	rawFields     map[string]json.RawMessage
 	NoteID        string            `json:"note_id"`
 	Title         string            `json:"title"`
 	Content       string            `json:"content,omitempty"`
@@ -601,15 +622,19 @@ type KBNote struct {
 // KBNoteListData is the data field of the KB notes response.
 // Unlike NoteListData, this endpoint does not return next_cursor.
 type KBNoteListData struct {
+	Topic json.RawMessage `json:"topic,omitempty"`
+	DiscoveryListFields
 	Notes   []KBNote `json:"notes"`
 	HasMore bool     `json:"has_more"`
-	Total   int      `json:"total"`
+	Total   *int     `json:"total,omitempty"`
 }
 
 // KBNotesResponse is the response from the knowledge base notes endpoint.
 type KBNotesResponse struct {
-	Success bool           `json:"success"`
-	Data    KBNoteListData `json:"data"`
+	Meta      *ResponseMeta  `json:"meta,omitempty"`
+	RequestID string         `json:"request_id,omitempty"`
+	Success   bool           `json:"success"`
+	Data      KBNoteListData `json:"data"`
 }
 
 // KBNotes fetches notes in a knowledge base.
@@ -739,13 +764,19 @@ func (c *Client) KBNotesRemove(topicID string, noteIDs []string) (*KBNotesRemove
 
 // RecallResult is a single search result item.
 type RecallResult struct {
-	NoteID    string  `json:"note_id"`
-	NoteURL   string  `json:"note_url,omitempty"`
-	NoteType  string  `json:"note_type"`
-	Title     string  `json:"title"`
-	Content   string  `json:"content"`
-	CreatedAt string  `json:"created_at"`
-	Score     float64 `json:"score"`
+	PageNo        *int     `json:"page_no,omitempty"`
+	ResourceType  string   `json:"resource_type,omitempty"`
+	ResourceID    string   `json:"resource_id,omitempty"`
+	Note          *Note    `json:"note,omitempty"`
+	Snippet       string   `json:"snippet,omitempty"`
+	SnippetSource string   `json:"snippet_source,omitempty"`
+	NoteID        string   `json:"note_id"`
+	NoteURL       string   `json:"note_url,omitempty"`
+	NoteType      string   `json:"note_type"`
+	Title         string   `json:"title"`
+	Content       string   `json:"content"`
+	CreatedAt     string   `json:"created_at"`
+	Score         *float64 `json:"score"`
 }
 
 // NoteSearchRequest is the request body for global recall.
@@ -756,9 +787,17 @@ type NoteSearchRequest struct {
 
 // NoteSearchResponse is the response from the global recall endpoint.
 type NoteSearchResponse struct {
-	Success bool `json:"success"`
-	Data    struct {
-		Results []RecallResult `json:"results"`
+	Meta      *ResponseMeta `json:"meta,omitempty"`
+	RequestID string        `json:"request_id,omitempty"`
+	Success   bool          `json:"success"`
+	Data      struct {
+		Results           []RecallResult    `json:"results"`
+		ResultMode        string            `json:"result_mode,omitempty"`
+		IsExhaustive      *bool             `json:"is_exhaustive,omitempty"`
+		ReturnedCount     *int              `json:"returned_count,omitempty"`
+		DistinctNoteCount *int              `json:"distinct_note_count,omitempty"`
+		Partial           *bool             `json:"partial,omitempty"`
+		Warnings          []json.RawMessage `json:"warnings,omitempty"`
 	} `json:"data"`
 }
 
@@ -790,7 +829,9 @@ func (c *Client) decorateSearch(resp *NoteSearchResponse) {
 		return
 	}
 	for i := range resp.Data.Results {
-		resp.Data.Results[i].NoteURL = c.NoteURL(resp.Data.Results[i].NoteID)
+		if resp.Data.Results[i].NoteURL == "" && (resp.Data.Results[i].ResourceType == "note" || (resp.Data.Results[i].ResourceType == "" && strings.EqualFold(resp.Data.Results[i].NoteType, "NOTE"))) {
+			resp.Data.Results[i].NoteURL = c.NoteURL(resp.Data.Results[i].NoteID)
+		}
 	}
 }
 

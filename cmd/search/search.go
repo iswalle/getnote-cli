@@ -66,8 +66,19 @@ func NewSearchCmd() *cobra.Command {
 			}
 
 			out := cmd.OutOrStdout()
+			partial := (resp.Data.Partial != nil && *resp.Data.Partial) || len(resp.Data.Warnings) > 0
+			if partial {
+				fmt.Fprintln(out, "Partial search: some results could not be verified or read.")
+				for _, warning := range resp.Data.Warnings {
+					fmt.Fprintf(out, "Warning: %s\n", warning)
+				}
+			}
 			results := resp.Data.Results
 			if len(results) == 0 {
+				if partial {
+					fmt.Fprintln(out, "No verified results available; this does not establish that no matches exist.")
+					return nil
+				}
 				fmt.Fprintln(out, "No results found.")
 				return nil
 			}
@@ -75,18 +86,23 @@ func NewSearchCmd() *cobra.Command {
 			fmt.Fprint(out, ui.PrintHeader(cols, sep))
 			fmt.Fprint(out, ui.DividerLine(cols, sep))
 			for _, r := range results {
+				title, noteType := r.Title, r.NoteType
+				if r.Note != nil {
+					title = r.Note.DisplayName()
+					noteType = r.Note.NoteType
+				}
 				row := []ui.ColSpec{
 					{Value: r.NoteID, Width: cols[0].Width},
-					{Value: r.Title, Width: cols[1].Width},
-					{Value: r.NoteType, Width: cols[2].Width},
-					{Value: fmt.Sprintf("%.2f", r.Score), Width: cols[3].Width},
+					{Value: title, Width: cols[1].Width},
+					{Value: noteType, Width: cols[2].Width},
+					{Value: scoreText(r.Score), Width: cols[3].Width},
 					{Value: r.CreatedAt, Width: cols[4].Width},
 					{Value: ui.Truncate(r.Content, cols[5].Width), Width: cols[5].Width},
 					{Value: r.NoteURL, Width: cols[6].Width},
 				}
 				fmt.Fprint(out, ui.PrintRow(row, sep))
 			}
-			fmt.Fprintf(out, "\n(%d results)\n", len(results))
+			fmt.Fprintf(out, "\n(%d Top-K hits; may contain multiple fragments of one note, not an exhaustive list)\n", len(results))
 			return nil
 		},
 	}
@@ -107,4 +123,11 @@ func isSearchTimeout(err error) bool {
 func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
+}
+
+func scoreText(score *float64) string {
+	if score == nil {
+		return "—"
+	}
+	return fmt.Sprintf("%.2f", *score)
 }

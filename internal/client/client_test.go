@@ -338,3 +338,15 @@ func TestSkill2FirstClassNoteFieldsDecode(t *testing.T) {
 		t.Fatalf("first-class fields = %+v", resp.Data.Note)
 	}
 }
+
+func TestDevDefaultUsesTestingGateway(t *testing.T) {
+	t.Setenv("GETNOTE_API_URL", "")
+	c := New("dev")
+	if c.baseURL != "http://entree.dev.didatrip.com" {
+		t.Fatalf("dev base URL = %q", c.baseURL)
+	}
+	t.Setenv("GETNOTE_API_URL", "http://override.example/open/api/v1")
+	if got := New("dev").baseURL; got != "http://override.example" {
+		t.Fatalf("explicit API URL must override dev default: %q", got)
+	}
+}

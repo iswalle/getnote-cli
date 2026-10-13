@@ -12,6 +12,7 @@ import (
 )
 
 type response struct {
+	Discovery       map[string]any           `json:"discovery"`
 	Success         bool                     `json:"success"`
 	CLIVersion      string                   `json:"cli_version"`
 	ContractVersion string                   `json:"contract_version"`
@@ -115,7 +116,7 @@ func commandResults() map[string]commandResult {
 			SuccessFields: []string{"success=true", "data.note.note_id", "data.note.title", "data.note.note_url", "data.note.note_type", "data.note.content?"},
 		},
 		"note original": {
-			SuccessFields: []string{"success=true", "data.note_id", "data.title", "data.original"},
+			SuccessFields: []string{"success=true", "data.note_id", "data.title", "data.original", "data.original_source"},
 		},
 		"note transcript": {
 			SuccessFields: []string{"success=true", "data.note_id", "data.title", "data.transcript"},
@@ -267,6 +268,16 @@ func currentResponse() response {
 			"verify":                 "getnote doctor -o json",
 			"managed_skill_boundary": "The host platform updates the independent ClawHub/OpenClaw Skill; getnote update updates the CLI and CLI-bundled domain Skills",
 		},
+		Discovery: map[string]any{
+			"requires_server_capabilities": []string{"note.reference.v1", "note.filters.v1", "knowledge.lookup.v1", "pagination.v1"},
+			"capability_scope":             "Client supports these contracts; verify the current endpoint's meta.capabilities and applied_filters. A client declaration is not server support.",
+			"book_lookup":                  "kbs --scope BOOKSPACE --query <title> [--author <author>] [--book-id <book_id>] --all; disambiguate before selecting topic_id",
+			"source_lookup":                "notes --source <reference.source> --note-type ref --reference-type <reference.resource_type> --reference-id <reference.resource_id> --all",
+			"all_pages":                    "Only completed=true and pagination_verified=true traversal proves the authorized filtered walk finished; deduplicate string IDs; total_count=null is unknown.",
+			"list_detail":                  "列表只返回定位信息；需要正文和完整元数据时调用 note 详情命令。display_title 和 preview 不替代原始标题或正文。",
+			"original":                     "ref=ref_content; plain_text=content; link=web_page.content; audio/local_audio=audio.original; return original_source and never substitute comments/summaries.",
+			"search":                       "Top-K is not exhaustive. Preserve actual snippet, distinguish resource_type from note.note_type, count distinct IDs and keep unknown score null.",
+		},
 		ResultContracts: map[string][]string{
 			"common_success": {"success=true", "data"},
 			"common_error":   {"success=false", "data=null", "error.code", "error.message", "error.reason", "error.retryable", "request_id?"},
@@ -288,7 +299,7 @@ func currentResponse() response {
 			SafeLongInput:            []string{"--content-file", "--stdin"},
 			KnowledgeScopes:          []string{"DEFAULT", "BOOKSPACE", "CUSTOMER", "TEAMSPACE"},
 			KnowledgeFeatures:        []string{"directories", "add_to_directory", "douyin_blogger_subscription"},
-			NoteDetailViews:          []string{"summary", "original", "transcript", "attachments", "timeline", "quick_note", "meeting_todos"},
+			NoteDetailViews:          []string{"original", "transcript", "attachments", "timeline", "quick_note", "meeting_todos"},
 			Limits: map[string]int{
 				"search_results": 10,
 				"kb_note_batch":  20,

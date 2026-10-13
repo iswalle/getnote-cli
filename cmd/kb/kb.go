@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/iswalle/getnote-cli/internal/client"
+	"github.com/iswalle/getnote-cli/internal/discoveryflags"
 	"github.com/iswalle/getnote-cli/internal/ui"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -17,6 +17,7 @@ func NewKbCmd() *cobra.Command {
 	var limit int
 	var all bool
 	var noContent bool
+	var options client.DiscoveryOptions
 
 	cmd := &cobra.Command{
 		Use:   "kb <topic_id>",
@@ -29,21 +30,32 @@ func NewKbCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.New("")
 
-			if all {
-				return streamAllKBNotes(cmd, c, args[0], noContent)
+			resolved, err := discoveryflags.ResolveNotes(cmd, options, limit)
+			if err != nil {
+				return err
 			}
-
-			resp, err := c.KBNotes(client.KBNotesParams{TopicID: args[0], Limit: limit})
+			var resp *client.KBNotesResponse
+			if all {
+				if resolved.Active() {
+					resp, err = c.AllKBNotes(args[0], resolved)
+				} else {
+					resp, err = c.LegacyAllKBNotes(args[0])
+				}
+			} else if resolved.Active() {
+				resp, err = c.KBNotesWithOptions(args[0], resolved)
+			} else {
+				resp, err = c.KBNotes(client.KBNotesParams{TopicID: args[0], Limit: limit})
+			}
 			if err != nil {
 				return ui.FriendlyError(err)
 			}
 
-			if outputFormat(cmd) == "json" {
-				if noContent {
-					for i := range resp.Data.Notes {
-						resp.Data.Notes[i].Content = ""
-					}
+			if noContent {
+				for i := range resp.Data.Notes {
+					resp.Data.Notes[i].OmitContent()
 				}
+			}
+			if outputFormat(cmd) == "json" {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
@@ -61,15 +73,17 @@ func NewKbCmd() *cobra.Command {
 					"\n(showing %d of more notes — use --all for everything)\n",
 					len(resp.Data.Notes))
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes)\n", len(resp.Data.Notes))
+				fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes returned in this traversal; no snapshot guarantee)\n", len(resp.Data.Notes))
 			}
 			return nil
 		},
 	}
 
+	discoveryflags.BindNotes(cmd, &options, false)
+	cmd.Flags().IntVar(&options.Page, "page", 0, "Page number (discovery default 1)")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes per page")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all notes (auto-paginate)")
-	cmd.Flags().BoolVar(&noContent, "no-content", false, "Omit the content field in JSON output (saves tokens for AI agents)")
+	cmd.Flags().BoolVar(&noContent, "no-content", false, "Omit body fields when connected to an older server")
 
 	cmd.AddCommand(newCreateCmd())
 	cmd.AddCommand(newAddCmd())
@@ -126,77 +140,11 @@ var noteCols = []ui.ColSpec{
 
 const colSep = "  "
 
-func streamAllKBNotes(cmd *cobra.Command, c *client.Client, topicID string, noContent bool) error {
-	isJSON := outputFormat(cmd) == "json"
-
-	if isJSON {
-		var allNotes []client.KBNote
-		page := 1
-		for {
-			resp, err := c.KBNotes(client.KBNotesParams{TopicID: topicID, Limit: 20, Page: page})
-			if err != nil {
-				return ui.FriendlyError(err)
-			}
-			if noContent {
-				for i := range resp.Data.Notes {
-					resp.Data.Notes[i].Content = ""
-				}
-			}
-			allNotes = append(allNotes, resp.Data.Notes...)
-			if !resp.Data.HasMore {
-				break
-			}
-			page++
-			time.Sleep(500 * time.Millisecond)
-		}
-		result := &client.KBNotesResponse{
-			Success: true,
-			Data: client.KBNoteListData{
-				Notes:   allNotes,
-				HasMore: false,
-				Total:   len(allNotes),
-			},
-		}
-		enc := json.NewEncoder(cmd.OutOrStdout())
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
-	}
-
-	fmt.Fprint(cmd.OutOrStdout(), ui.PrintHeader(noteCols, colSep))
-	fmt.Fprint(cmd.OutOrStdout(), ui.DividerLine(noteCols, colSep))
-
-	page := 1
-	total := 0
-	for {
-		resp, err := c.KBNotes(client.KBNotesParams{TopicID: topicID, Limit: 20, Page: page})
-		if err != nil {
-			return ui.FriendlyError(err)
-		}
-		for _, n := range resp.Data.Notes {
-			row := []ui.ColSpec{
-				{Value: n.NoteID, Width: noteCols[0].Width},
-				{Value: n.Title, Width: noteCols[1].Width},
-				{Value: n.NoteType, Width: noteCols[2].Width},
-				{Value: n.CreatedAt, Width: noteCols[3].Width},
-			}
-			fmt.Fprint(cmd.OutOrStdout(), ui.PrintRow(row, colSep))
-			total++
-		}
-		if !resp.Data.HasMore {
-			break
-		}
-		page++
-		time.Sleep(500 * time.Millisecond)
-	}
-	fmt.Fprintf(cmd.OutOrStdout(), "\n(%d notes total)\n", total)
-	return nil
-}
-
 func renderNoteRows(table *tablewriter.Table, data client.KBNoteListData) {
 	for _, n := range data.Notes {
 		table.Append([]string{
 			n.NoteID,
-			ui.Truncate(n.Title, 40),
+			ui.Truncate(n.DisplayName(), 40),
 			n.NoteType,
 			n.CreatedAt,
 		})
