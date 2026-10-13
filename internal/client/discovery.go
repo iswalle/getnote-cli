@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"golang.org/x/text/unicode/norm"
 	"net/url"
@@ -105,12 +106,13 @@ func requireCapabilities(meta *ResponseMeta, caps ...string) error {
 	}
 	return nil
 }
-func verifyApplied(actual, expected map[string]string) error {
+func verifyApplied(actual map[string]json.RawMessage, expected map[string]string) error {
 	if actual == nil {
 		return fmt.Errorf("server did not return applied_filters")
 	}
 	for k, v := range expected {
-		if actual[k] != v {
+		var got *string
+		if err := json.Unmarshal(actual[k], &got); err != nil || got == nil || *got != v {
 			return fmt.Errorf("server did not apply %s=%q", k, v)
 		}
 	}

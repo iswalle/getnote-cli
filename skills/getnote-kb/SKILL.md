@@ -1,6 +1,6 @@
 ---
 name: getnote-kb
-description: 查看和管理得到大脑的知识库、文件夹、书籍、客户档案、团队知识库、抖音博主订阅与直播，归档笔记，以及查询文件格式限制、直传文件到 OSS 并提交知识库入库。用户要上传文档或文件时也使用。
+description: 按书名或作者查找书籍笔记，查看和管理得到大脑知识库、文件夹、客户档案、团队知识库、博主订阅与直播，归档笔记，以及查询文件限制、上传文件入库。
 ---
 
 # 得到大脑知识库
@@ -45,26 +45,40 @@ description: 查看和管理得到大脑的知识库、文件夹、书籍、客�
 4. 订阅知识库通常只读。若列表结果明确返回角色或可写标记，按真实字段判断；当前 CLI 契约未保证权限字段时，不得声称已经预检为 owner/admin，可在用户明确授权后尝试写入，并忠实处理权限失败。
 5. 普通成员写入失败时明确说明权限不足，不尝试绕过。当前不代替用户新建团队知识库。
 
-## 按书名找全部划线
+## 按书名、作者定位，再选择内容范围
 
-用户要某本书的划线或“全部笔记”时，先定位书籍知识库，不把语义搜索的 Top-K 当全量。
+用户要某本书或某位作者的划线时，先定位书籍知识库，不把语义搜索的 Top-K 当全量。`--query` 只匹配知识库名或书名，`--author` 匹配书籍作者；两个参数同时传时是 AND，不是任选其一。
+
+- “找《某本书》的笔记”：传 `--query`，查询词只放书名，不把“我的笔记”“全部划线”或作者名拼进去。
+- “找某位作者的书籍笔记”：只传 `--author`，省略 `--query`，再按返回书籍库读取。用户要该作者全部书籍时逐库遍历；仅要其中一本但候选不唯一时再消歧。
+- “找某位作者写的《某本书》”：同时传书名 `--query` 和作者 `--author`。作者关键词误传 query 得到空列表不能解释为用户没有该作者的笔记。
 
 ```bash
+# 只有作者线索，无需先猜书名
+getnote kbs --scope BOOKSPACE --author '用户提供的作者' --all -o json
+# 同时知道书名与作者
 getnote kbs --scope BOOKSPACE --query '书名' --author '用户提供的作者' --all -o json
-# 用户明确查订阅库，或自有库无匹配时，再查询真实订阅的书籍库
-getnote kbs-sub --scope BOOKSPACE --query '书名' --all -o json
+# 用户明确查订阅库时保持原有条件；只知作者仍只传 author
+getnote kbs-sub --scope BOOKSPACE --author '用户提供的作者' --all -o json
+# 只要划线 / 摘录
 getnote kb '<返回的 topic_id>' --note-type ref --page-size 20 --all -o json
+# 要这本书里的全部笔记：不加 note-type，避免漏掉读书心得等其它类型
+getnote kb '<返回的 topic_id>' --page-size 20 --all -o json
 getnote note original '<返回的 note_id>' -o json
 ```
 
+- “全部笔记”和“全部划线”不是同一范围：只在用户明确要划线/摘录时加 `--note-type ref`。用户要某章划线时，在候选 `reference.location.chapter_name/chapter_id` 核对，不把章节名当书名；字段缺失不能证明该章没有笔记。
+- “书里关于某主题的内容”：定位书库后用 `getnote search '主题' --kb '<topic_id>' --limit 10 -o json`，不退回全局搜索再把别处内容归到这本书。搜索为空或结果不符合主题时，用 `getnote kb '<topic_id>' --page-size 20 -o json` 在同一库内补查；沿真实 pagination 翻页，先匹配定位信息，截断或不足时按需读候选详情的真实正文/原文。发现与深读预算沿用搜索参考，超出预算说明范围未查完而非判定没有。用户要求全部时按完整分页逐项核验，Top-K 不能给全量承诺。
+- 自有书库无匹配且用户未限定“只查我的”时，可以查询真实订阅书库，保留原有 scope/query/author/book-id；用户明确只查订阅库则直接用 kbs-sub。命令报错、权限不足或解析失败不能当空库，不能去掉条件后称筛选成功。
 - 作者未知时省略 `--author`。先用 `name`、`scope=BOOKSPACE`、`book_info.title/author/book_id` 核对候选；同名多作者、多版本仍不唯一时请用户选择，不能用第一项代替。已有真实书 ID 可加 `--book-id`，它不是知识库 ID。
-- query/author 会做 NFKC、外围书名号/引号和大小写归一化；这只是候选定位，不证明同名书是同一本。
+- query/author 会做 NFKC、外围书名号/引号和大小写归一化，但不是自动分词或模糊纠错。全名未匹配时可用用户原话中的稳定片段找候选（如作者姓氏、连续书名片段），再核对完整书名/作者；不擅自更换作者、季数或版本，不无提示忽略冲突条件。
+- `BOOKSPACE` 表示书籍库，不等于全部来自得到。用户明确“得到电子书”时核对 `book_info.source` 与引用的 `reference.source`；不要把豆瓣等其它来源的同名书当作得到来源。只说某本书时不擅自加平台限制。
 - 普通知识库在笔记的 `topics[]` 中仍只有 `id/name`；书籍关联才附带 `scope/book_info`。标签、知识库名称都不能代替 `reference` 来源证据。
 - 新查询核对 `meta.capabilities`（`knowledge.lookup.v1`、`pagination.v1`；笔记筛选还需 `note.filters.v1`，引用筛选还需 `note.reference.v1`）和 `applied_filters`。CLI 会拒绝不支持或未应用的条件；不得去掉条件后把未筛选结果交差。列表只返回定位信息，需要完整内容时按 `note_id` 调用 `getnote note`。
 - 候选知识库的 `stats.note_count` 可能滞后，也不代表筛选后的划线数；回答以本次验证过的分页结果和去重 ID 为准。
 - `--all` 只有退出码为 0、`success=true`、`data.traversal.completed=true` 且 `pagination_verified=true` 才能确认完成了当前授权范围的遍历。按字符串笔记 ID 去重；`traversal.returned_count` 是本次实际取回数，`traversal.total_count=null` 仍表示服务端精确总数未知。旧 `total` 保留兼容语义，不能当新的筛选总数。
 - 手动翻页或 MCP：保持 scope、全部筛选和 page_size 不变；按 `pagination.next_page` / `next_cursor` 原样继续，直到 `has_more=false`。记录已经访问的页码/游标和笔记 ID；循环、空页仍声称有下一页、重复结果无进展或中途失败都不能声称“全部找到”。
-- `topics=[]` 不能证明没有来源或没有划线；知识库为空时先核对原文访问权限、筛选和 `metadata_state`，再按笔记/搜索参考的引用来源路线查找，不自动建库或修改归属。
+- 书库不存在、无匹配、或库内无划线，不等于账号没有该书来源的引用。用户已明确得到电子书时，可用 `getnote notes --source dedao --note-type ref --reference-type ebook --page-size 20 -o json` 按来源补查，在 `reference.title/author/book_id` 匹配；按搜索参考的预算和分页规则继续，必要时用真实 `reference.resource_id` 精确筛选。只对当前授权范围下结论，不新建库、不修改归属。
 
 ## 文件夹和归档流程
 
@@ -115,9 +129,9 @@ getnote note original '<返回的 note_id>' -o json
 
 ## 完成、处理中与失败后的动作
 
-- `kbs`、`kbs-sub`、`kb`、`dir`、博主和直播的空列表都是成功结果：如实说“目前没有”，不要自动创建知识库、目录或订阅。
+- `kbs`、`kbs-sub`、`kb`、`dir`、博主和直播的空列表是本次查询无结果；按用户目标核对筛选、分页与已说明的补查路径，再说明“在本次范围内未找到”，不直接说账号没有，不自动创建知识库、目录或订阅。
 - `kb create`、`kb add`、`mkdir`、`mvdir` 等写操作的 `data` 可能因服务版本不同而不提供完整对象。只在 `success=true` 时确认动作已提交；若要向用户返回新目录 ID、最终层级或笔记归属，必须紧接着重新读取 `gnote kb dir` 或 `getnote kb <topic_id>`，不能猜字段。
 - `kb add` 即使请求成功，也不能把“已发起加入”说成“已进入某个目录”；只有重新读取后在 `resources[]` 的同一项出现对应字符串 `note_id` 和 `directory_id`，才能展示最终归属。
 - `kb remove`、`rmdir` 前必须有用户明确确认并带 `--yes`；若 `reason=knowledge_directory_not_empty`，明确提示“目录非空，请先移出内容或删除子目录”，不要原请求重试。其它失败也应说明真实原因和下一步，绝不宣称已删除。
-- 用户给的团队知识库不在 `getnote kbs` 返回中时，先说明当前账号没有访问权限；不能把个人知识库同名项替代成团队知识库。
+- 知识库未出现在某一页或某种 scope 的列表中不能直接推断权限不足；先核对 scope、完整分页以及自有/订阅范围。实际返回权限错误才说明无权访问；不把个人知识库同名项替代团队知识库。
 - “这条笔记”只能复用当前会话中已经由 CLI 返回并验证过的字符串 `note_id`。没有可靠上下文时先请用户提供笔记 ID；不能从不受支持的私有链接、标题或雪花 ID 数值转换中猜测。
