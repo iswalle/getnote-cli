@@ -9,8 +9,24 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    name: Test before publishing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: go test ./...
+      - run: go vet ./...
+      - run: npm test
+
   build:
     name: Build binaries
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
