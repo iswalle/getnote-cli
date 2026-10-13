@@ -19,16 +19,17 @@ type Pagination struct {
 }
 
 type DiscoveryListFields struct {
-	TotalScope     string            `json:"total_scope,omitempty"`
-	Pagination     *Pagination       `json:"pagination,omitempty"`
-	AppliedFilters map[string]string `json:"applied_filters,omitempty"`
-	Warnings       []json.RawMessage `json:"warnings,omitempty"`
-	Traversal      *Traversal        `json:"traversal,omitempty"`
+	TotalScope string      `json:"total_scope,omitempty"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+	// Filters include string selectors and typed flags such as exclude_mine.
+	AppliedFilters map[string]json.RawMessage `json:"applied_filters,omitempty"`
+	Warnings       []json.RawMessage          `json:"warnings,omitempty"`
+	Traversal      *Traversal                 `json:"traversal,omitempty"`
 }
 
 // nil means a legacy response omitted the field; a non-nil empty map is the
 // server's affirmative statement that no filters were applied.
-func marshalDiscoveryData(value any, filters map[string]string) ([]byte, error) {
+func marshalDiscoveryData(value any, filters map[string]json.RawMessage) ([]byte, error) {
 	encoded, err := json.Marshal(value)
 	if err != nil || filters == nil {
 		return encoded, err

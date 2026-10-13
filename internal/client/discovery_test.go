@@ -224,3 +224,31 @@ func TestDiscoveryJSONRetainsEmptyAppliedFiltersAndNullPage(t *testing.T) {
 		}
 	}
 }
+
+func TestDiscoveryJSONPreservesTypedAppliedFilters(t *testing.T) {
+	filters := `{"scope":"BOOKSPACE","exclude_mine":true,"future_count":9007199254740993,"future_flag":false,"future_value":null,"future_object":{"id":9007199254740995}}`
+	for _, value := range []any{&NoteListData{}, &KBNoteListData{}, &KBListData{}} {
+		if err := json.Unmarshal([]byte(`{"applied_filters":`+filters+`}`), value); err != nil {
+			t.Fatal(err)
+		}
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got struct {
+			Filters map[string]json.RawMessage `json:"applied_filters"`
+		}
+		if err := json.Unmarshal(encoded, &got); err != nil {
+			t.Fatal(err)
+		}
+		var want map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(filters), &want); err != nil {
+			t.Fatal(err)
+		}
+		for key, raw := range want {
+			if string(got.Filters[key]) != string(raw) {
+				t.Errorf("%T changed %s: got %s want %s", value, key, got.Filters[key], raw)
+			}
+		}
+	}
+}

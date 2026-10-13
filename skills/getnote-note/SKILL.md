@@ -64,7 +64,7 @@ getnote note original '<note_id>' -o json
 
 `original` 只按真实类型读取上述字段，并返回 `original_source`；原文缺失或类型不支持会报错，不能把评论或定位片段补成原文。列表中的 `content_state` 会标明正文被省略；详情接口返回完整正文和元数据。用 `metadata_state.reference/topics` 区分完整、部分、不可用的元数据；缺失的作者、书 ID、来源 URL 不猜测补写。
 
-文章或课程没有知识库时，先从已有详情或语义搜索候选读取真实 `reference`，再精确查找：
+文章或课程没有知识库时，已有候选可从详情或搜索结果读取真实 `reference` 后精确查找。只有课程名/文稿名或评论、尚无候选时，先执行搜索 Skill 的“课程、文稿与评论定位”：语义搜索无来源匹配后，按来源分页列定位信息再匹配元数据；不要要求用户提供内部 ID，也不要因 `topics=[]` 放弃。拿到候选后精确查找：
 
 ```bash
 getnote notes --source dedao --note-type ref --reference-type course_article --reference-id '<reference.resource_id>' --all -o json
@@ -72,9 +72,9 @@ getnote notes --source dedao --note-type ref --reference-type course_article --r
 getnote notes --source dedao --note-type ref --article-url '<reference.article.url>' --all -o json
 ```
 
-平台值取 `reference.source`；资源类型取 `reference.resource_type`，不要用标签或内部 ptype 猜枚举。`--reference-id` 必须同时传 `--source` 和 `--reference-type`。引用的 `resource_id`、`original_note_id`、书 ID 与笔记 ID 都是不同身份；始终按返回的字符串使用。URL 保留 query/fragment，不自行去参。同一文章可以有多个不同的 `original_note_id`，不可按文章 ID 合并成一条划线。
+平台值取 `reference.source`；资源类型取 `reference.resource_type`，不要用标签或内部 ptype 猜枚举。`--reference-id` 必须同时传 `--source` 和 `--reference-type`。课程文稿的 `resource_id` 指向单篇文稿，不能据此取全整门课程；整门课程需按搜索参考的课程来源匹配遍历。引用的 `resource_id`、`original_note_id`、书 ID 与笔记 ID 都是不同身份；始终按返回的字符串使用。课程主页与文稿 URL 不通用；用户给的是课程主页时按搜索参考匹配 `reference.url`，不能传到 `--article-url`。URL 保留 query/fragment，不自行去参。同一文章可以有多个不同的 `original_note_id`，不可按文章 ID 合并成一条划线。
 
-创建、正文编辑、记录更新是三个独立时间轴。按需使用 `--created-from/to`、`--edited-from/to`、`--record-updated-from/to`，值必须为带时区 RFC3339；区间 from 包含、to 不包含。不得把 `updated_at` 当正文编辑时间。
+创建、正文编辑、记录更新是三个独立时间轴。按需使用 `--created-from/to`、`--edited-from/to`、`--record-updated-from/to`，值必须为带时区 RFC3339；区间 from 包含、to 不包含。不得把 `updated_at` 当正文编辑时间。“今天/上周”按用户当前日期和时区换算边界；保存时间不是文章发布日期，不把“最近”擅自解释成固定一个月。用户同时限定课程/知识库时保留这些条件。
 
 新参数需要服务端对应 `meta.capabilities` 且 `applied_filters` 与请求一致；不支持时停止该查询并说明升级服务/客户端的需要，不自动移除筛选。全量按知识库参考中的分页规则验收；只拿一页或一次语义搜索，不能说“全部找到”。
 
@@ -109,7 +109,7 @@ getnote notes --source dedao --note-type ref --article-url '<reference.article.u
 
 1. “最近、列表、有哪些”使用 `getnote notes`；有明确书名或引用来源时按上面的来源/知识库路线查找，模糊主题才交给搜索 Skill。
 2. 用户给出 ID 时直接读取详情；雪花 ID 全程按字符串原样传递。“这条笔记”只复用当前会话中已经由 CLI 返回并验证过的字符串 ID。当前 CLI 若不能直接接收某种私有链接，就先请用户提供 ID，不能自行截取、猜测或转成数字。
-3. 列表先展示标题、字符串 ID 和真实 `note_url`，用户选择后再读取全文。
+3. 用户只要列表时展示标题、字符串 ID 和真实 `note_url`。用户明确要某条或某来源的划线、原文、评论时，定位匹配候选后直接读详情完成请求，不额外等待用户选择；仅在候选仍有歧义、无法确认目标时请用户选择。
 4. 不确定笔记类型时先读 `getnote note <id> -o json`：
    - 引用/链接/文字原文：`original`；
    - 录音、会议、课堂逐字稿：`transcript`；
@@ -134,7 +134,7 @@ getnote notes --source dedao --note-type ref --article-url '<reference.article.u
 |---|---|---|
 | `getnote save … -o json` | `success=true`、`data.note.note_id/title/note_url` | 回复“已保存《标题》”和真实链接。链接/图片先只得到 `task_id` 时还未成功，继续查任务。 |
 | `getnote task <task_id> -o json` | `data.task_id/status/note_id?/msg?/error_msg?` | 仅 `done`/`success` 且有 `note_id` 为完成；`pending`/`processing` 是处理中；`failed` 说明真实原因。 |
-| `getnote notes -o json` | `data.notes[].note_id/title/note_url`、`has_more/cursor/total` | 返回标题、字符串 ID 和真实链接；下一页只用返回的 `cursor`。 |
+| `getnote notes -o json` | `data.notes[].note_id/title/note_url`；新筛选响应另有 `pagination` | 返回标题、字符串 ID 和真实链接。新筛选按 `pagination.has_more/next_cursor` 翻页；仅无 `pagination` 的旧响应按 `has_more/cursor`。旧 `total` 不能当作筛选后数量。 |
 | `getnote note <id> -o json` | `data.note.note_id/title/note_url/note_type`，按需读 `content` | 先给摘要和链接；私密全文只在用户明确要求时展开。 |
 | `getnote note original <id> -o json` | `data.note_id/title/original/original_source` | 只把 `original` 当原文；原文不可用会失败，不能拿评论或摘要补全。 |
 | `getnote note transcript <id> -o json` | `data.note_id/title/transcript` | 仅录音类笔记可用；不可用时如实说明。 |
