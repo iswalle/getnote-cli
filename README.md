@@ -1,23 +1,5 @@
 # 得到大脑（Get笔记） CLI
 
-## 1.7.1 查找修复
-
-修复订阅书库查询因布尔筛选字段而解析失败的问题，保留作者、书名和分页校验。随包 Skill 明确作者与书名的不同查法，补充课程、文稿、评论的来源补查，并区分全部笔记与划线。
-
-## 1.7.0 查找与引用
-
-支持书库身份与书名查找、引用来源筛选及完整分页。列表用于定位，完整内容由 `getnote note <id>` 读取；引用原文与个人评论分别返回。搜索保留部分结果与资源身份，Top-K 不代表全量。随包五个领域 Skill 已同步这些调用规则。
-
-## v1.6：文件上传与独立报告
-
-- `getnote note chapters <id> -o json` 读取章节；`note timeline` 保留录音 moments，`marks <note_id>` 独立读取标记。
-- `sprouts <YYYY-MM>` 列表从 `data.tasks[].sprouts[]` 取真实报告 id，再运行 `sprout <id>`；不要将 task_id 当报告 id。
-- `file-capabilities` 查询当前格式、大小及页数限制，不在 Agent 中写死限制。
-
-云 MCP 已授权时，无需再登录 CLI：MCP 获取临时上传 token，将 JSON 经受控文件或 stdin 交给 `getnote upload <file> --max-size-bytes <能力接口上限>`。此命令不读取 CLI 身份凭证，只向 OSS 上传，返回 `stage=oss_uploaded` 和文件元数据。随后由同一个已授权 MCP 提交知识库入库并查询最终 `SUCCESS`；上传成功不等于入库完成。不要将 token 放入命令参数、聊天或日志。
-
-CLI 已登录时也可使用 `file-token <extension>` 获取 token、`upload` 直传，再用 `file-add <topic_id> <directory_id> --metadata-file <上传结果文件>` 提交。临时 token 不提供通用 OpenAPI 权限。
-
 得到大脑（Get笔记）的命令行工具，让你在终端和 AI Agent 里直接管理笔记和知识库。
 
 存链接、记文字、搜笔记、管知识库——一条命令搞定，支持脚本和 AI Agent 调用。
@@ -164,6 +146,27 @@ getnote search "LLM 推荐阅读"
 getnote search "产品设计" --kb vnrOAaGY
 ```
 
+**按书名、作者或课程查找**
+
+```bash
+# 按书名查书库；query 不匹配作者
+getnote kbs --scope BOOKSPACE --query '沙之书' --all -o json
+
+# 只有作者线索时用 author
+getnote kbs --scope BOOKSPACE --author '博尔赫斯' --all -o json
+
+# 使用返回的 topic_id 读取全部笔记；只要划线时再加 --note-type ref
+getnote kb '<topic_id>' --page-size 20 --all -o json
+
+# 得到课程文稿：先列出引用定位信息，再核对课程名和文稿标题
+getnote notes --source dedao --note-type ref --reference-type course_article --page-size 20 -o json
+
+# 定位后读取完整内容
+getnote note '<note_id>' -o json
+```
+
+书名和作者同时传入时须同时匹配。课程列表没有课程名筛选参数，AI 根据返回的来源元数据匹配，并按 `pagination.next_cursor` 继续查询。语义搜索 Top-K 不是全部笔记；搜索为空也不能证明没有相关内容。
+
 **场景 3：管理知识库**
 ```bash
 # 列出默认知识库；特殊类型使用 --scope
@@ -279,11 +282,12 @@ getnote note share <id>              生成公开分享链接
 
 ### 字段语义说明（适合 AI Agent 参考）
 
-不同笔记类型的"原文"字段不同，`content` 通常是 AI 总结而非原文：
+不同笔记类型的原文字段不同；`content` 可能是正文、AI 总结或个人评论：
 
-| 笔记类型 | 原文字段 | AI 总结字段 |
+| 笔记类型 | 原文字段 | 正文 / 总结 / 评论字段 |
 |---------|---------|------------|
-| 普通文字笔记 | `content` | `content` |
+| 普通文字笔记 | `content` | `content`（正文） |
+| 引用 / 划线笔记 | `ref_content` | `content`（个人评论） |
 | 链接/网页笔记 | `web_content` | `content` |
 | 录音笔记 | `audio_original` | `content` |
 | 知识库博主内容 | `post_media_text`（via `kb blogger-content`）| `content` |
@@ -312,6 +316,11 @@ getnote tag list <note_id>           查看笔记的所有标签
 ```
 getnote kbs                          列出 DEFAULT 知识库
   --scope <scope>                    指定 DEFAULT / BOOKSPACE / CUSTOMER / TEAMSPACE
+  --query <名称>                     按知识库名 / 书名查找
+  --author <作者>                    按书籍作者查找（仅 BOOKSPACE）
+  --book-id <book_id>                 按书籍 ID 查找（仅 BOOKSPACE）
+  --page-size <n>                    每页数量；新查询默认 20
+  --all                              按返回分页遍历；kbs-sub 同样支持上述查找参数
 
 getnote kb <topic_id>                知识库内的笔记
   --limit <n>
@@ -345,6 +354,18 @@ gnote kb mvdir <topic_id> <directory_id> --name <新名称>
 gnote kb rmdir <topic_id> <directory_id> --yes
 gnote note quick <note_id>
 ```
+
+---
+
+### 文件上传与独立报告
+
+- `getnote note chapters <id> -o json` 读取章节；`note timeline` 保留录音 moments，`marks <note_id>` 独立读取标记。
+- `sprouts <YYYY-MM>` 列表从 `data.tasks[].sprouts[]` 取真实报告 id，再运行 `sprout <id>`；不要将 task_id 当报告 id。
+- `file-capabilities` 查询当前格式、大小及页数限制，不在 Agent 中写死限制。
+
+云 MCP 已授权时，无需再登录 CLI：MCP 获取临时上传 token，将 JSON 经受控文件或 stdin 交给 `getnote upload <file> --max-size-bytes <能力接口上限>`。此命令不读取 CLI 身份凭证，只向 OSS 上传，返回 `stage=oss_uploaded` 和文件元数据。随后由同一个已授权 MCP 提交知识库入库并查询最终 `SUCCESS`；上传成功不等于入库完成。不要将 token 放入命令参数、聊天或日志。
+
+CLI 已登录时也可使用 `file-token <extension>` 获取 token、`upload` 直传，再用 `file-add <topic_id> <directory_id> --metadata-file <上传结果文件>` 提交。临时 token 不提供通用 OpenAPI 权限。
 
 ---
 
@@ -425,6 +446,9 @@ $ getnote search "工作日志" --limit 7 -o json
 
 | 日期 | 版本 | 新能力 | 适合怎么用 |
 |------|------|--------|------------|
+| 2026-10-13 | **v1.7.1** | 修复订阅书库布尔筛选字段解析错误；完善随包 Skill 的作者、课程、文稿和评论查找规则 | 按作者查书籍；搜索未命中时在同一来源范围补查，区分全部笔记与划线 |
+| 2026-10-13 | **v1.7.0** | 支持书名、作者、书籍 ID 定位；引用来源与时间筛选；保留分页和来源元数据 | 列表定位后通过 detail 读取完整笔记，分别核对原文与评论；Top-K 不代表全量 |
+| 2026-09-24 | **v1.6.0** | 支持文件上传、临时 OSS 上传凭据，以及独立标记、发芽和章节时间线 | 云 MCP 已授权时可用 CLI 直传文件，提交入库后确认解析状态 |
 | 2026-09-02 | **v1.5.8** | 1. `kbs` 与 `kbs-sub` 默认只返回 `DEFAULT` 知识库<br>2. 新增 `--scope`，可按 `CUSTOMER`、`BOOKSPACE`、`TEAMSPACE` 精确读取<br>3. 订阅列表不再混入自己创建的知识库 | 避免书籍库和自有库挤占订阅列表分页；需要特殊知识库时显式选择 scope |
 | 2026-08-19 | **v1.5.6** | 1. `getnote update` 默认升级 CLI、同步五个领域 Skill 并运行诊断<br>2. capabilities 2.2 提供机器可读的安装、更新、验证与平台托管边界<br>3. 移除失效的 `install.sh` 引导 | 用户只说“安装”或“更新”即可，AI Agent 无需让用户选择内部组件，并能按统一成功条件完成验收 |
 | 2026-08-19 | **v1.5.5** | 1. 一键安装自动识别本机 AI Agent，并按平台显示安装结果<br>2. 新增 GitHub Copilot、Gemini CLI、Windsurf、OpenCode 和 Cline 自动安装<br>3. OpenClaw（小龙虾）和 QClaw 仅在检测到时提供 ClawHub 确认入口<br>4. 保留 `SKILLS` 品牌开场，隐藏底层安装术语<br>5. `doctor` 按平台真实目录检查 Skill 状态 | 用户只需运行一次安装命令；AI 能根据结构化结果判断安装状态并给出明确修复动作 |
