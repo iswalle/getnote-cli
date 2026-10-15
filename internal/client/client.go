@@ -773,22 +773,23 @@ func (c *Client) KBNotesRemove(topicID string, noteIDs []string) (*KBNotesRemove
 
 // RecallResult is a single search result item.
 type RecallResult struct {
-	Truncated     *bool           `json:"truncated,omitempty"`
-	ContentState  json.RawMessage `json:"content_state,omitempty"`
-	rawFields     map[string]json.RawMessage
-	PageNo        *int     `json:"page_no,omitempty"`
-	ResourceType  string   `json:"resource_type,omitempty"`
-	ResourceID    string   `json:"resource_id,omitempty"`
-	Note          *Note    `json:"note,omitempty"`
-	Snippet       string   `json:"snippet,omitempty"`
-	SnippetSource string   `json:"snippet_source,omitempty"`
-	NoteID        string   `json:"note_id"`
-	NoteURL       string   `json:"note_url,omitempty"`
-	NoteType      string   `json:"note_type"`
-	Title         string   `json:"title"`
-	Content       string   `json:"content"`
-	CreatedAt     string   `json:"created_at"`
-	Score         *float64 `json:"score"`
+	Truncated         *bool           `json:"truncated,omitempty"`
+	ContentState      json.RawMessage `json:"content_state,omitempty"`
+	rawFields         map[string]json.RawMessage
+	preserveOmissions bool
+	PageNo            *int     `json:"page_no,omitempty"`
+	ResourceType      string   `json:"resource_type,omitempty"`
+	ResourceID        string   `json:"resource_id,omitempty"`
+	Note              *Note    `json:"note,omitempty"`
+	Snippet           string   `json:"snippet,omitempty"`
+	SnippetSource     string   `json:"snippet_source,omitempty"`
+	NoteID            string   `json:"note_id"`
+	NoteURL           string   `json:"note_url,omitempty"`
+	NoteType          string   `json:"note_type"`
+	Title             string   `json:"title"`
+	Content           string   `json:"content"`
+	CreatedAt         string   `json:"created_at"`
+	Score             *float64 `json:"score"`
 }
 
 // NoteSearchRequest is the request body for global recall.
@@ -1296,12 +1297,18 @@ func doRequest[T any](c *Client, req *http.Request) (*T, error) {
 		}
 		resp, err := c.httpClient.Do(current)
 		if err != nil {
+			if lastError != nil && req.Context().Err() != nil {
+				return nil, errors.Join(lastError, req.Context().Err(), err)
+			}
 			return nil, fmt.Errorf("request failed: %w", err)
 		}
 
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
+			if lastError != nil && req.Context().Err() != nil {
+				return nil, errors.Join(lastError, req.Context().Err(), err)
+			}
 			return nil, fmt.Errorf("reading response: %w", err)
 		}
 

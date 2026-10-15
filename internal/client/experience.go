@@ -299,6 +299,9 @@ func (c *Client) SearchWithOptions(topicID, query string, topK int, o SearchOpti
 	if r.Data.ResponseMode != "snippet" || r.Data.MaxSnippetChars != limit {
 		return nil, fmt.Errorf("server ignored snippet options")
 	}
+	for i := range r.Data.Results {
+		r.Data.Results[i].preserveOmissions = true
+	}
 	c.decorateSearch(r)
 	return r, nil
 }
@@ -313,5 +316,8 @@ func (v *RecallResult) UnmarshalJSON(raw []byte) error {
 }
 func (v RecallResult) MarshalJSON() ([]byte, error) {
 	type plain RecallResult
+	if !v.preserveOmissions {
+		return json.Marshal(plain(v))
+	}
 	return preserveWireFields(plain(v), v.rawFields)
 }

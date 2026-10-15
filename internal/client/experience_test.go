@@ -170,3 +170,48 @@ func TestExperienceNotePreservesCourseAndUnknownReferenceMetadata(t *testing.T) 
 		t.Fatalf("course metadata lost: %s err=%v", raw, err)
 	}
 }
+
+func TestExperienceLegacyRecallKeepsBaseShapeWhileSnippetOmitsBody(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]any
+		json.NewDecoder(r.Body).Decode(&req)
+		data := map[string]any{"results": []any{map[string]any{"resource_type": "file", "resource_id": "7", "note_type": "FILE", "title": "file", "snippet": "", "content": "", "future_field": true}}}
+		if req["response_mode"] == "snippet" {
+			data["response_mode"] = "snippet"
+			data["max_snippet_chars"] = 400
+			delete(data["results"].([]any)[0].(map[string]any), "content")
+		}
+		json.NewEncoder(w).Encode(map[string]any{"success": true, "meta": map[string]any{"capabilities": []string{"search.snippet.v1"}}, "data": data})
+	}))
+	defer s.Close()
+	t.Setenv("GETNOTE_API_URL", s.URL)
+	for _, mode := range []string{"", "snippet"} {
+		r, err := New("").SearchWithOptions("", "AI", 3, SearchOptions{ResponseMode: mode})
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, _ := json.Marshal(r)
+		var wire map[string]any
+		json.Unmarshal(raw, &wire)
+		item := wire["data"].(map[string]any)["results"].([]any)[0].(map[string]any)
+		if mode == "" {
+			for _, key := range []string{"note_id", "created_at", "content", "score"} {
+				if _, ok := item[key]; !ok {
+					t.Fatalf("legacy fixed field %s disappeared: %s", key, raw)
+				}
+			}
+			if _, ok := item["snippet"]; ok {
+				t.Fatalf("legacy empty snippet no longer omitempty: %s", raw)
+			}
+		} else {
+			for _, key := range []string{"note_id", "created_at", "content", "score"} {
+				if _, ok := item[key]; ok {
+					t.Fatalf("snippet restored omitted %s: %s", key, raw)
+				}
+			}
+			if item["snippet"] != "" || item["future_field"] != true {
+				t.Fatal("explicit empty snippet or future field lost")
+			}
+		}
+	}
+}

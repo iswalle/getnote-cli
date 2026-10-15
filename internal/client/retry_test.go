@@ -70,6 +70,30 @@ func TestExperienceBatchReadRetryReplaysIdenticalBody(t *testing.T) {
 	}
 }
 
+func TestExperienceCancellationDuringRetriedRequestRetainsLastAdvice(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var calls atomic.Int32
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) == 1 {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(429)
+			fmt.Fprint(w, `{"success":false,"error":{"code":10202,"reason":"qps_exceeded","retryable":true},"request_id":"req-before-cancel"}`)
+			return
+		}
+		cancel()
+		<-r.Context().Done()
+	}))
+	defer s.Close()
+	t.Setenv("GETNOTE_API_URL", s.URL)
+	req, _ := http.NewRequestWithContext(ctx, "GET", s.URL+"/open/api/v1/resource/note/detail?id=1", nil)
+	_, err := doRequest[map[string]any](New(""), req)
+	var apiErr *RequestError
+	if !errors.Is(err, context.Canceled) || !errors.As(err, &apiErr) || apiErr.RequestID != "req-before-cancel" || apiErr.RetryAfterSeconds == nil || *apiErr.RetryAfterSeconds != 0 || calls.Load() != 2 {
+		t.Fatalf("cancel lost original advice: calls=%d err=%v", calls.Load(), err)
+	}
+}
+
 func TestExperienceRetryStopsAfterTwoAdditionalReads(t *testing.T) {
 	var calls atomic.Int32
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
