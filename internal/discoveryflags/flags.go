@@ -12,6 +12,8 @@ func BindNotes(cmd *cobra.Command, o *client.DiscoveryOptions, topic bool) {
 	f.StringVar(&o.Source, "source", "", "Exact source, e.g. dedao")
 	f.StringVar(&o.ReferenceType, "reference-type", "", "Reference resource type: ebook, course_article, audio_book, unknown")
 	f.StringVar(&o.ReferenceID, "reference-id", "", "Source resource ID; requires --source and --reference-type")
+	f.StringVar(&o.CourseType, "course-type", "", "Course container type; currently 66, requires --source dedao and --course-id")
+	f.StringVar(&o.CourseID, "course-id", "", "Course container decimal ID; personal notes only, paired with --course-type")
 	f.StringVar(&o.ArticleURL, "article-url", "", "Exact article URL, including query and fragment")
 	if topic {
 		f.StringVar(&o.TopicID, "topic-id", "", "Limit to an authorized knowledge base")

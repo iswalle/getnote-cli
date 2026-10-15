@@ -39,3 +39,22 @@ func TestPartialEmptySearchIsNotReportedAsNoMatches(t *testing.T) {
 		t.Fatalf("partial search was hidden: %s", out.String())
 	}
 }
+
+func TestExperienceSnippetCommandDisplaysActualSnippet(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"success":true,"meta":{"capabilities":["search.snippet.v1"]},"data":{"response_mode":"snippet","max_snippet_chars":400,"results":[{"resource_type":"file","resource_id":"7","title":"file","snippet":"actual snippet","content_state":{"content":"omitted","snippet":"full"},"score":null}]}}`)
+	}))
+	defer s.Close()
+	t.Setenv("GETNOTE_API_URL", s.URL)
+	cmd := NewSearchCmd()
+	cmd.SetArgs([]string{"query", "--response-mode", "snippet"})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "actual snippet") {
+		t.Fatalf("snippet hidden: %s", out.String())
+	}
+}

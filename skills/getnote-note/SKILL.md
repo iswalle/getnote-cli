@@ -28,6 +28,7 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，查�
 | 保存文字、链接或本地图片 | `getnote save` |
 | 查询异步保存任务 | `getnote task` |
 | 查看最近笔记 | `getnote notes` |
+| 按预算读取少量个人笔记正文/原文 | `getnote notes batch` |
 | 查看详情或字段 | `getnote note` |
 | 引用/链接/文字原文 | `getnote note original` |
 | 录音、会议或课堂转写 | `getnote note transcript` |
@@ -64,7 +65,15 @@ getnote note original '<note_id>' -o json
 
 `original` 只按真实类型读取上述字段，并返回 `original_source`；原文缺失或类型不支持会报错，不能把评论或定位片段补成原文。列表中的 `content_state` 会标明正文被省略；详情接口返回完整正文和元数据。用 `metadata_state.reference/topics` 区分完整、部分、不可用的元数据；缺失的作者、书 ID、来源 URL 不猜测补写。
 
-文章或课程没有知识库时，已有候选可从详情或搜索结果读取真实 `reference` 后精确查找。只有课程名/文稿名或评论、尚无候选时，先执行搜索 Skill 的“课程、文稿与评论定位”：语义搜索无来源匹配后，按来源分页列定位信息再匹配元数据；不要要求用户提供内部 ID，也不要因 `topics=[]` 放弃。拿到候选后精确查找：
+得到课程无需知识库：已知课程名/老师时先按搜索 Skill 执行 `getnote references list --source dedao --resource-type course --query '<课程名>' --all -o json`，再用真实课程容器身份筛选；author 精确匹配老师，query 可显式 prefix。同名版本先消歧，topics=[] 不阻断；不要求用户提供内部 ID。
+
+```bash
+getnote notes --source dedao --course-type '<course_type>' --course-id '<course_id>' --note-type ref --all -o json
+```
+
+课程容器身份是 course_type+course_id；当前66，不能用课节65的 resource_id 代替。课程筛选包含课程直接引用和所属课节，增量 reference.course 不改旧 resource_id。首版 course+topic_id 不支持，不用个人笔记冒充知识库交集。新能力缺失时报告不支持，不删除筛选继续查询。
+
+单篇文稿已有真实 reference ID 或文章 URL 时继续使用旧精确筛选：
 
 ```bash
 getnote notes --source dedao --note-type ref --reference-type course_article --reference-id '<reference.resource_id>' --all -o json
@@ -72,11 +81,19 @@ getnote notes --source dedao --note-type ref --reference-type course_article --r
 getnote notes --source dedao --note-type ref --article-url '<reference.article.url>' --all -o json
 ```
 
-平台值取 `reference.source`；资源类型取 `reference.resource_type`，不要用标签或内部 ptype 猜枚举。`--reference-id` 必须同时传 `--source` 和 `--reference-type`。课程文稿的 `resource_id` 指向单篇文稿，不能据此取全整门课程；整门课程需按搜索参考的课程来源匹配遍历。引用的 `resource_id`、`original_note_id`、书 ID 与笔记 ID 都是不同身份；始终按返回的字符串使用。课程主页与文稿 URL 不通用；用户给的是课程主页时按搜索参考匹配 `reference.url`，不能传到 `--article-url`。URL 保留 query/fragment，不自行去参。同一文章可以有多个不同的 `original_note_id`，不可按文章 ID 合并成一条划线。
+平台值取 `reference.source`；资源类型取 `reference.resource_type`，不要用标签或内部 ptype 猜枚举。`--reference-id` 必须同时传 `--source` 和 `--reference-type`。课程文稿的 resource_id 指向单篇文稿，课程筛选再加 reference-id 时取交集。resource_id、course_id、original_note_id、书 ID 与笔记 ID 是不同身份；全程用返回的字符串。课程主页不传到 --article-url，也不解析编码 ID；文章 URL 保留 query/fragment。同篇文稿的不同笔记 ID 仍是不同划线。
 
 创建、正文编辑、记录更新是三个独立时间轴。按需使用 `--created-from/to`、`--edited-from/to`、`--record-updated-from/to`，值必须为带时区 RFC3339；区间 from 包含、to 不包含。不得把 `updated_at` 当正文编辑时间。“今天/上周”按用户当前日期和时区换算边界；保存时间不是文章发布日期，不把“最近”擅自解释成固定一个月。用户同时限定课程/知识库时保留这些条件。
 
 新参数需要服务端对应 `meta.capabilities` 且 `applied_filters` 与请求一致；不支持时停止该查询并说明升级服务/客户端的需要，不自动移除筛选。全量按知识库参考中的分页规则验收；只拿一页或一次语义搜索，不能说“全部找到”。
+
+## 有预算的批量正文读取
+
+不超过20个已定位个人笔记用 `getnote notes batch '<note_id_1>' '<note_id_2>' --fields original -o json`。默认 fields=content,ref_content,reference；original 显式选择，引用原文来自 ref_content，个人评论来自 content。默认32000个Unicode码点，--max-total-chars 可设1..64000，服务端另有1MiB上限；不是给旧单条详情加截断。
+
+退出码0和 success=true 只代表批量调用成功：逐条检查 status=ok/unavailable/failed/deferred_budget、content_state、partial、pending_ids。成功项正文完整，deferred_budget 整条待读，不能把 omitted 当空正文；未知未来状态原样保留并说明未确认。用户确需全文时再用旧 `getnote note original '<真实note_id>' -o json` 补读，不自动并发20次单条请求。不存在与无权统一 unavailable，不判断对象是否存在；首版不批量读知识库共享笔记，不绕过原单条权限。
+
+参数错误读取 field/supported_values；限流保留 retry_after_seconds。CLI 已对已知只读瞬时429做最多额外2次、累计等待5秒重试；Agent 不叠加重试，日/月配额、写操作与上传凭证不自动重试。
 
 ## 保存流程
 

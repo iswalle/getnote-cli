@@ -91,6 +91,12 @@ func (e *RequestError) Error() string {
 	if e.Field != "" {
 		parts = append(parts, "field="+e.Field)
 	}
+	if len(e.SupportedValues) > 0 {
+		parts = append(parts, "supported_values="+strings.Join(e.SupportedValues, ","))
+	}
+	if e.RetryAfterSeconds != nil {
+		parts = append(parts, fmt.Sprintf("retry_after_seconds=%d", *e.RetryAfterSeconds))
+	}
 	if e.RequestID != "" {
 		parts = append(parts, "request_id="+e.RequestID)
 	}
@@ -767,6 +773,9 @@ func (c *Client) KBNotesRemove(topicID string, noteIDs []string) (*KBNotesRemove
 
 // RecallResult is a single search result item.
 type RecallResult struct {
+	Truncated     *bool           `json:"truncated,omitempty"`
+	ContentState  json.RawMessage `json:"content_state,omitempty"`
+	rawFields     map[string]json.RawMessage
 	PageNo        *int     `json:"page_no,omitempty"`
 	ResourceType  string   `json:"resource_type,omitempty"`
 	ResourceID    string   `json:"resource_id,omitempty"`
@@ -794,6 +803,9 @@ type NoteSearchResponse struct {
 	RequestID string        `json:"request_id,omitempty"`
 	Success   bool          `json:"success"`
 	Data      struct {
+		ResponseMode      string            `json:"response_mode,omitempty"`
+		MaxSnippetChars   int               `json:"max_snippet_chars,omitempty"`
+		MaxTotalBytes     int               `json:"max_total_bytes,omitempty"`
 		Results           []RecallResult    `json:"results"`
 		ResultMode        string            `json:"result_mode,omitempty"`
 		IsExhaustive      *bool             `json:"is_exhaustive,omitempty"`
@@ -832,6 +844,9 @@ func (c *Client) decorateSearch(resp *NoteSearchResponse) {
 		return
 	}
 	for i := range resp.Data.Results {
+		if resp.Data.Results[i].NoteURL == "" && resp.Data.Results[i].Note != nil {
+			resp.Data.Results[i].NoteURL = resp.Data.Results[i].Note.NoteURL
+		}
 		if resp.Data.Results[i].NoteURL == "" && (resp.Data.Results[i].ResourceType == "note" || (resp.Data.Results[i].ResourceType == "" && strings.EqualFold(resp.Data.Results[i].NoteType, "NOTE"))) {
 			resp.Data.Results[i].NoteURL = c.NoteURL(resp.Data.Results[i].NoteID)
 		}

@@ -89,6 +89,7 @@ func NewNotesCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes per page")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor (from a previous page's cursor)")
 	cmd.Flags().BoolVar(&all, "all", false, "Traverse all matching pages; report incomplete on errors, no snapshot guarantee")
+	cmd.AddCommand(newBatchCmd())
 	return cmd
 }
 

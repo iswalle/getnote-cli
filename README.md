@@ -218,6 +218,21 @@ npx skills add iswalle/getnote-cli -y -g
 
 ## 完整命令参考
 
+### 课程定位与按需正文
+
+以下为本分支的增量能力，需当前服务端声明对应 capability；安装 CLI 不代表服务已发布。旧命令与默认正文行为保留。
+
+```bash
+getnote references list --source dedao --resource-type course --query '课程名' --author '准确老师姓名' --all -o json
+getnote notes --source dedao --course-type '66' --course-id '<返回的course_id>' --note-type ref --all -o json
+getnote notes batch '<note_id_1>' '<note_id_2>' --fields original --max-total-chars 32000 -o json
+getnote search '主题' --response-mode snippet --max-snippet-chars 400 -o json
+```
+
+课程名可 exact/prefix，老师精确匹配；query/author 至少一个。ID 全程用字符串，课程 ID 与课节 ID 不互换。查课程需沿空页的有效游标继续；课程与知识库交集、课程内语义搜索尚未开放。批量只读个人笔记，最多20个去重ID、默认32000/上限64000个Unicode码点及1MiB；保留 status/pending_ids，整条超预算可改用旧单条详情读取。snippet full 表示完整命中片段，不能冒充全文。新选项要求当前接口 capability 与筛选回显，不接受旧服务忽略筛选的成功结果。
+
+错误保留合法值和等待建议；已知只读瞬时429最多额外重试2次，累计等待不超过5秒。配额耗尽、写操作和凭证签发不自动重试。
+
 ### 认证
 
 ```

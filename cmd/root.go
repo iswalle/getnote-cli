@@ -16,6 +16,7 @@ import (
 	"github.com/iswalle/getnote-cli/cmd/note"
 	"github.com/iswalle/getnote-cli/cmd/notes"
 	"github.com/iswalle/getnote-cli/cmd/quota"
+	"github.com/iswalle/getnote-cli/cmd/references"
 	"github.com/iswalle/getnote-cli/cmd/save"
 	"github.com/iswalle/getnote-cli/cmd/search"
 	"github.com/iswalle/getnote-cli/cmd/setup"
@@ -125,6 +126,7 @@ func init() {
 	rootCmd.AddCommand(save.NewSaveCmd())
 	rootCmd.AddCommand(task.NewTaskCmd())
 	rootCmd.AddCommand(notes.NewNotesCmd())
+	rootCmd.AddCommand(references.NewReferencesCmd())
 	rootCmd.AddCommand(note.NewNoteCmd())
 	rootCmd.AddCommand(kbs.NewKbsCmd())
 	rootCmd.AddCommand(kbssub.NewKbsSubCmd())

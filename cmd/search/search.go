@@ -29,6 +29,8 @@ const sep = "  "
 func NewSearchCmd() *cobra.Command {
 	var limit int
 	var kb string
+	var responseMode string
+	var snippetChars int
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
@@ -47,11 +49,11 @@ func NewSearchCmd() *cobra.Command {
 			var resp *client.NoteSearchResponse
 			var err error
 
-			if kb != "" {
-				resp, err = c.KBSearch(kb, query, limit)
-			} else {
-				resp, err = c.NoteSearch(query, limit)
+			opts := client.SearchOptions{ResponseMode: responseMode}
+			if cmd.Flags().Changed("max-snippet-chars") {
+				opts.MaxSnippetChars = &snippetChars
 			}
+			resp, err = c.SearchWithOptions(kb, query, limit, opts)
 			if err != nil {
 				if isSearchTimeout(err) {
 					return fmt.Errorf("搜索服务响应超时，请稍后重试；也可以缩小关键词或指定知识库后再试: %w", err)
@@ -86,6 +88,10 @@ func NewSearchCmd() *cobra.Command {
 			fmt.Fprint(out, ui.PrintHeader(cols, sep))
 			fmt.Fprint(out, ui.DividerLine(cols, sep))
 			for _, r := range results {
+				body := r.Content
+				if resp.Data.ResponseMode == "snippet" {
+					body = r.Snippet
+				}
 				title, noteType := r.Title, r.NoteType
 				if r.Note != nil {
 					title = r.Note.DisplayName()
@@ -97,7 +103,7 @@ func NewSearchCmd() *cobra.Command {
 					{Value: noteType, Width: cols[2].Width},
 					{Value: scoreText(r.Score), Width: cols[3].Width},
 					{Value: r.CreatedAt, Width: cols[4].Width},
-					{Value: ui.Truncate(r.Content, cols[5].Width), Width: cols[5].Width},
+					{Value: ui.Truncate(body, cols[5].Width), Width: cols[5].Width},
 					{Value: r.NoteURL, Width: cols[6].Width},
 				}
 				fmt.Fprint(out, ui.PrintRow(row, sep))
@@ -109,6 +115,8 @@ func NewSearchCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&limit, "limit", 10, "Max results to return (max 10)")
 	cmd.Flags().StringVar(&kb, "kb", "", "Limit search to a knowledge base (topic_id)")
+	cmd.Flags().StringVar(&responseMode, "response-mode", "", "Opt-in snippet response; omitted preserves the legacy body")
+	cmd.Flags().IntVar(&snippetChars, "max-snippet-chars", 400, "Snippet Unicode limit (100..1000), requires --response-mode snippet")
 	return cmd
 }
 

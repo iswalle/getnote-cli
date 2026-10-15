@@ -112,6 +112,8 @@ func commandResults() map[string]commandResult {
 		"notes": {
 			SuccessFields: []string{"success=true", "data.notes[].note_id", "data.notes[].title", "data.notes[].note_url", "data.has_more", "data.cursor", "data.total"},
 		},
+		"notes batch":     {SuccessFields: []string{"success=true", "data.items[].note_id", "data.items[].status", "data.pending_ids", "data.partial"}, Notes: "Personal notes only, one backend batch, at most20 distinct IDs. Deferred bodies are not truncated success; explicitly read individual notes if needed."},
+		"references list": {SuccessFields: []string{"success=true", "data.resources[].course_type", "data.resources[].course_id", "data.pagination|data.traversal"}, Notes: "Match course name exact/prefix and teacher exact. Empty pages with advancing cursor may still continue. IDs are strings, not article IDs."},
 		"note": {
 			SuccessFields: []string{"success=true", "data.note.note_id", "data.note.title", "data.note.note_url", "data.note.note_type", "data.note.content?"},
 		},
@@ -232,7 +234,7 @@ func currentResponse() response {
 			"file_transfer":  {"upload", "file-capabilities", "file-token", "file-add"},
 			"reports":        {"marks", "sprouts", "sprout"},
 			"connection":     {"doctor", "capabilities", "auth", "auth login", "auth status", "auth logout", "setup"},
-			"notes":          {"save", "task", "notes", "note", "note original", "note transcript", "note attachments", "note timeline", "note quick-note", "note todos", "note update", "note delete", "note share"},
+			"notes":          {"save", "task", "notes", "notes batch", "references list", "note", "note original", "note transcript", "note attachments", "note timeline", "note quick-note", "note todos", "note update", "note delete", "note share"},
 			"search":         {"search"},
 			"knowledge_base": {"kbs", "kbs-sub", "kb", "kb create", "kb add", "kb remove", "kb directories", "kb directory-create", "kb directory-update", "kb directory-delete", "kb bloggers", "kb blogger-follow", "kb blogger-contents", "kb blogger-content", "kb lives", "kb live", "kb live-follow"},
 			"tags":           {"tag", "tag list", "tag add", "tag remove"},
@@ -269,6 +271,11 @@ func currentResponse() response {
 			"managed_skill_boundary": "The host platform updates the independent ClawHub/OpenClaw Skill; getnote update updates the CLI and CLI-bundled domain Skills",
 		},
 		Discovery: map[string]any{
+			"course_lookup":                "references list --source dedao --resource-type course --query <course-name> [--author <teacher>] --all; choose returned course_type/course_id; notes --source dedao --course-type <course_type> --course-id <course_id> --note-type ref --all",
+			"course_boundary":              "Personal notes only; course+topic unsupported. Directory matching is not semantic course search; require reference.resources.v1/note.course_filter.v1 and applied filters.",
+			"batch_detail":                 "notes batch <string-ID> [string-ID...] --fields original; require note.batch_detail.v1, preserve pending_ids/status/partial, never fan out automatically.",
+			"snippet":                      "search <query> --response-mode snippet [--max-snippet-chars 100..1000]; require search.snippet.v1. Full snippet state describes a recalled chunk, not a whole note; legacy defaults unchanged.",
+			"read_retry":                   "Known read-only transient QPS429 only, at most2 additional attempts/5seconds cumulative wait with positive jitter; preserve waiting advice. Quota/writes/credential issuance never retry.",
 			"requires_server_capabilities": []string{"note.reference.v1", "note.filters.v1", "knowledge.lookup.v1", "pagination.v1"},
 			"capability_scope":             "Client supports these contracts; verify the current endpoint's meta.capabilities and applied_filters. A client declaration is not server support.",
 			"book_lookup":                  "kbs --scope BOOKSPACE --query <title> [--author <author>] [--book-id <book_id>] --all; disambiguate before selecting topic_id",

@@ -19,6 +19,8 @@ func TestExperienceRateLimitDoesNotRepeatWritesQuotaOrLongWaits(t *testing.T) {
 		code                                   int
 	}{
 		{"write", "POST", "/open/api/v1/resource/note/save", "qps_exceeded", "0", 10202},
+		{"credential issuance", "GET", "/open/api/v1/resource/image/upload_token", "qps_exceeded", "0", 10202},
+		{"unknown route", "GET", "/open/api/v1/resource/future-action", "qps_exceeded", "0", 10202},
 		{"quota", "GET", "/open/api/v1/resource/note/detail", "quota_exhausted", "0", 10203},
 		{"long wait", "GET", "/open/api/v1/resource/note/detail", "qps_exceeded", "60", 10202},
 		{"unknown reason", "GET", "/open/api/v1/resource/note/detail", "future_limit", "0", 10202},
@@ -43,6 +45,28 @@ func TestExperienceRateLimitDoesNotRepeatWritesQuotaOrLongWaits(t *testing.T) {
 				t.Fatalf("calls=%d err=%v; expected one request and original error", calls.Load(), err)
 			}
 		})
+	}
+}
+
+func TestExperienceBatchReadRetryReplaysIdenticalBody(t *testing.T) {
+	var bodies []string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body bytes.Buffer
+		body.ReadFrom(r.Body)
+		bodies = append(bodies, body.String())
+		if len(bodies) == 1 {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(429)
+			fmt.Fprint(w, `{"success":false,"error":{"code":10202,"reason":"qps_exceeded","retryable":true}}`)
+			return
+		}
+		fmt.Fprint(w, `{"success":true,"meta":{"capabilities":["note.batch_detail.v1"]},"data":{"items":[{"note_id":"42","status":"unavailable"}]}}`)
+	}))
+	defer s.Close()
+	t.Setenv("GETNOTE_API_URL", s.URL)
+	_, err := New("").NotesBatch(BatchDetailOptions{IDs: []string{"42"}})
+	if err != nil || len(bodies) != 2 || bodies[0] != bodies[1] {
+		t.Fatalf("batch read retry changed body: count=%d err=%v", len(bodies), err)
 	}
 }
 
