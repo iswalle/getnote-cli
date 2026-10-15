@@ -4,6 +4,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -59,14 +60,16 @@ func (id *StringID) UnmarshalJSON(data []byte) error {
 
 // APIError represents an error returned by the API.
 type APIError struct {
-	Code          int    `json:"code"`
-	Message       string `json:"message"`
-	Reason        string `json:"reason"`
-	Retryable     bool   `json:"retryable"`
-	Field         string `json:"field,omitempty"`
-	Constraint    string `json:"constraint,omitempty"`
-	ExpectedType  string `json:"expected_type,omitempty"`
-	MembershipURL string `json:"membership_url,omitempty"`
+	Code              int      `json:"code"`
+	Message           string   `json:"message"`
+	Reason            string   `json:"reason"`
+	Retryable         bool     `json:"retryable"`
+	Field             string   `json:"field,omitempty"`
+	Constraint        string   `json:"constraint,omitempty"`
+	ExpectedType      string   `json:"expected_type,omitempty"`
+	MembershipURL     string   `json:"membership_url,omitempty"`
+	SupportedValues   []string `json:"supported_values,omitempty"`
+	RetryAfterSeconds *int64   `json:"retry_after_seconds,omitempty"`
 }
 
 // RequestError is returned whenever the API envelope reports success=false,
@@ -1262,18 +1265,21 @@ func doPost[T any](c *Client, path string, payload interface{}) (*T, error) {
 }
 
 func doRequest[T any](c *Client, req *http.Request) (*T, error) {
-	const maxRetries = 3
-	backoff := time.Second
-
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		// Clone the request body for retries (body is consumed on each Do)
-		var bodyBytes []byte
-		if req.Body != nil && req.Body != http.NoBody {
-			bodyBytes, _ = io.ReadAll(req.Body)
-			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	var waited time.Duration
+	var lastError *RequestError
+	for attempt := 0; ; attempt++ {
+		if lastError != nil && req.Context().Err() != nil {
+			return nil, errors.Join(lastError, req.Context().Err())
 		}
-
-		resp, err := c.httpClient.Do(req)
+		current := req.Clone(req.Context())
+		if attempt > 0 && req.GetBody != nil {
+			body, err := req.GetBody()
+			if err != nil {
+				return nil, fmt.Errorf("replay read request: %w", err)
+			}
+			current.Body = body
+		}
+		resp, err := c.httpClient.Do(current)
 		if err != nil {
 			return nil, fmt.Errorf("request failed: %w", err)
 		}
@@ -1284,24 +1290,17 @@ func doRequest[T any](c *Client, req *http.Request) (*T, error) {
 			return nil, fmt.Errorf("reading response: %w", err)
 		}
 
-		// 429: rate limited — back off and retry
-		if resp.StatusCode == http.StatusTooManyRequests {
-			if attempt == maxRetries {
-				if requestErr := requestErrorFromBody(body, resp.StatusCode); requestErr != nil {
-					return nil, requestErr
-				}
-				return nil, fmt.Errorf("rate limited after %d retries: %s", maxRetries, string(body))
-			}
-			time.Sleep(backoff)
-			backoff *= 2 // exponential: 1s → 2s → 4s
-			// restore body for next attempt
-			if bodyBytes != nil {
-				req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-			}
-			continue
-		}
-
 		if requestErr := requestErrorFromBody(body, resp.StatusCode); requestErr != nil {
+			mergeRetryAfter(&requestErr.APIError, resp.Header.Get("Retry-After"))
+			if delay, ok := readRetryDelay(req, requestErr, attempt, 5*time.Second-waited); ok {
+				lastError = requestErr
+				start := time.Now()
+				if err := waitForRetry(req.Context(), delay); err != nil {
+					return nil, errors.Join(requestErr, err)
+				}
+				waited += time.Since(start)
+				continue
+			}
 			return nil, requestErr
 		}
 
@@ -1315,7 +1314,6 @@ func doRequest[T any](c *Client, req *http.Request) (*T, error) {
 		}
 		return &result, nil
 	}
-	return nil, fmt.Errorf("request failed after retries")
 }
 
 func requestErrorFromBody(body []byte, statusCode int) *RequestError {
