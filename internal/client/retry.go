@@ -37,7 +37,8 @@ func readRetryDelay(req *http.Request, apiErr *RequestError, retry int, remainin
 	if retry >= 2 || remaining <= 0 || apiErr.StatusCode != http.StatusTooManyRequests || !apiErr.Retryable {
 		return 0, false
 	}
-	if !((apiErr.Code == 10202 && apiErr.Reason == "qps_exceeded") || (apiErr.Code == 10005 && apiErr.Reason == "rate_limited")) {
+	qpsLimit := apiErr.Code == 10202 && (apiErr.Reason == "qps_exceeded" || apiErr.Reason == "qps_global_exceeded" || apiErr.Reason == "qps_bucket_exceeded")
+	if !qpsLimit && !(apiErr.Code == 10005 && apiErr.Reason == "rate_limited") {
 		return 0, false
 	}
 	readOnly := isReadOnlyGET(req) || (req.Method == http.MethodPost &&

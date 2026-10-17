@@ -70,6 +70,28 @@ func TestExperienceBatchReadRetryReplaysIdenticalBody(t *testing.T) {
 	}
 }
 
+func TestExperienceDeployedQPSReasonsRetryReads(t *testing.T) {
+	for _, reason := range []string{"qps_global_exceeded", "qps_bucket_exceeded"} {
+		t.Run(reason, func(t *testing.T) {
+			var calls atomic.Int32
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if calls.Add(1) == 1 {
+					w.Header().Set("Retry-After", "0")
+					w.WriteHeader(http.StatusTooManyRequests)
+					fmt.Fprintf(w, `{"success":false,"error":{"code":10202,"reason":%q,"retryable":true},"request_id":"real-qps-shape"}`, reason)
+					return
+				}
+				fmt.Fprint(w, `{"success":true,"data":{"note":{"note_id":"123","note_type":"plain_text","content":"read"}}}`)
+			}))
+			defer s.Close()
+			t.Setenv("GETNOTE_API_URL", s.URL)
+			if _, err := New("").NoteGet("123"); err != nil || calls.Load() != 2 {
+				t.Fatalf("deployed reason %s was not retried: calls=%d err=%v", reason, calls.Load(), err)
+			}
+		})
+	}
+}
+
 func TestExperienceCancellationDuringRetriedRequestRetainsLastAdvice(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
