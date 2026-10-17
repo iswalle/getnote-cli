@@ -63,6 +63,13 @@ getnote note original '<note_id>' -o json
 | link | web_page.content | 通常是摘要 |
 | audio / local_audio | audio.original | 通常是摘要 |
 
+录音按真实类型选择：即时录音/普通录音用 `--note-type audio`，上传的音频文件用 `local_audio`，自己录制的课堂笔记用 `class_audio`，会议录音用 `meeting`，系统内录用 `internal_record`，录音卡长录音/闪念分别用 `recorder_audio` / `recorder_flash_audio`。这些类型与得到课程引用不同；用户未限定平台时不加 `--source dedao` 或课程筛选。只说“录音”且模式不明时保留候选并说明类型，不能把上传音频当即时录音。
+
+```bash
+getnote notes --note-type audio --all -o json
+getnote notes --note-type local_audio --all -o json
+```
+
 `original` 只按真实类型读取上述字段，并返回 `original_source`；原文缺失或类型不支持会报错，不能把评论或定位片段补成原文。列表中的 `content_state` 会标明正文被省略；详情接口返回完整正文和元数据。用 `metadata_state.reference/topics` 区分完整、部分、不可用的元数据；缺失的作者、书 ID、来源 URL 不猜测补写。
 
 得到课程无需知识库：已知课程名/老师时先按搜索 Skill 执行 `getnote references list --source dedao --resource-type course --query '<课程名>' --all -o json`，再用真实课程容器身份筛选；author 精确匹配老师，query 可显式 prefix。同名版本先消歧，topics=[] 不阻断；不要求用户提供内部 ID。
@@ -86,6 +93,8 @@ getnote notes --source dedao --note-type ref --article-url '<reference.article.u
 创建、正文编辑、记录更新是三个独立时间轴。按需使用 `--created-from/to`、`--edited-from/to`、`--record-updated-from/to`，值必须为带时区 RFC3339；区间 from 包含、to 不包含。不得把 `updated_at` 当正文编辑时间。“今天/上周”按用户当前日期和时区换算边界；保存时间不是文章发布日期，不把“最近”擅自解释成固定一个月。用户同时限定课程/知识库时保留这些条件。
 
 新参数需要服务端对应 `meta.capabilities` 且 `applied_filters` 与请求一致；不支持时停止该查询并说明升级服务/客户端的需要，不自动移除筛选。全量按知识库参考中的分页规则验收；只拿一页或一次语义搜索，不能说“全部找到”。
+
+分页结束与来源完整性分别判断：`partial=true`、`warnings`、候选 `metadata_state=partial` 仍须说明。特别是 `course_directory_no_lessons` 表示课程目录缺少课节，即使 `has_more=false` 或 `traversal.completed=true` 也不能保证找全老师的所有课程；保留已找到的真实结果和缺口，不通过删除筛选或重复同一请求消除警告。
 
 ## 有预算的批量正文读取
 

@@ -26,6 +26,7 @@ description: 在得到大脑查找笔记：按书名、课程名、文稿标题�
 | “找博尔赫斯的书籍笔记” / “找提到博尔赫斯的笔记” | 前者按书籍 author 定位；后者是内容主题搜索，不把所有提到一个人的笔记都限制为其著作。 |
 | “某课程共读《某本书》那篇文稿” | 明确课程/文稿时优先课程引用路径，书名在这里是文稿线索，不跳去 BOOKSPACE。 |
 | “课程笔记” | 先区分得到课程引用与自己录制的课堂笔记；只有用户明确来源时才设 dedao/course_article，不能把课堂录音排除掉。 |
+| “即时录音” / “上传的音频” | 前者用 notes --note-type audio，后者用 local_audio；课堂录音为 class_audio，会议为 meeting。平台未限定时不加 dedao 或课程条件。 |
 | “某库/某书里关于某主题” | 先定位真实 topic_id，再 search --kb；未命中按知识库参考在该库列表补查，不把空搜索当作库内没有，不得遗漏库范围。 |
 | “上周保存/昨天修改的某课程笔记” | 列表用对应时间筛选；search 没有时间/来源筛选参数，语义候选需核对 timestamps/reference。不能把时间词拼进 query 就宣称完成了时间筛选。 |
 | “某课程链接下的笔记” / “这篇文稿链接的划线” | 已知课程名/老师时查课程容器；只有主页 URL 时核对真实 reference.url，不猜课程 ID。文稿 URL 才传 --article-url。 |
@@ -53,6 +54,8 @@ getnote notes --source dedao --course-type '<course_type>' --course-id '<course_
 课程筛选同时包含课程直接引用和所属课节；显式增加 `--reference-type course_article` 会再限制为课节引用，`--reference-id` 仍是原课节 ID，组合按交集。需要时间条件时保留对应创建/编辑/记录更新时间参数。首版只支持个人笔记，course+topic_id 明确不支持；用户同时指定真实知识库时说明当前交集尚不可用，不能改查个人笔记后声称满足库范围。课程内语义搜索尚未开放，不能在全局 Top-K 后过滤冒充；可先精确列出课程笔记，再按需读正文核实主题。
 
 新请求需当前服务端声明 `reference.resources.v1` / `note.course_filter.v1`，并核对 applied_filters。服务未支持时报告能力缺失，不自动删除课程条件继续，不把 CLI 安装成功当作服务已发布。旧参数和默认调用继续可用。
+
+每页的 `partial`、`warnings` 和候选 `metadata_state` 都要保留。`course_directory_no_lessons` 表示目录缺少课节；翻到末页或 `traversal.completed=true` 不会消除这个缺口，回复“已找到这些，部分课程目录不完整，无法保证全部”。`candidate_work_budget` 且有下一游标时按原条件继续；游标结束后仍有目录警告，就保留部分完成结论，不改用账号全量扫描来宣称目录已经补齐。
 
 ### 已知单篇文稿或文章 URL
 

@@ -79,6 +79,8 @@ getnote note original '<返回的 note_id>' -o json
 - `--all` 只有退出码为 0、`success=true`、`data.traversal.completed=true` 且 `pagination_verified=true` 才能确认完成了当前授权范围的遍历。按字符串笔记 ID 去重；`traversal.returned_count` 是本次实际取回数，`traversal.total_count=null` 仍表示服务端精确总数未知。旧 `total` 保留兼容语义，不能当新的筛选总数。
 - 手动翻页或 MCP：保持 scope、全部筛选和 page_size 不变；按 `pagination.next_page` / `next_cursor` 原样继续，直到 `has_more=false`。记录已经访问的页码/游标和笔记 ID；循环、空页仍声称有下一页、重复结果无进展或中途失败都不能声称“全部找到”。
 - 书库不存在、无匹配、或库内无划线，不等于账号没有该书来源的引用。用户已明确得到电子书时，可用 `getnote notes --source dedao --note-type ref --reference-type ebook --page-size 20 -o json` 按来源补查，在 `reference.title/author/book_id` 匹配；按搜索参考的预算和分页规则继续，必要时用真实 `reference.resource_id` 精确筛选。只对当前授权范围下结论，不新建库、不修改归属。
+- 平台未限定且书库路线无匹配时，可用 `getnote notes --note-type ref --page-size 20 -o json` 读取个人引用定位信息，再按真实 `reference.resource_type/book_id/title/author` 核对书籍候选；保留已知时间、平台及知识库约束，不自加 dedao。一次发现最多5页，未翻完说明范围未查完；只按需读取匹配候选正文。用户限定只查某库时就在该库补查，不扩大到个人笔记。
+- `book_info.author` 是书籍目录作者，`reference.author` 是同步引用保存的来源作者。两者冲突时分别标注来源，把引用保留为待核验候选，不把空书库查询说成账号没有笔记，也不直接认定该候选就是所问作者的著作；不会自动改写作者或笔记归属。
 
 ## 文件夹和归档流程
 
