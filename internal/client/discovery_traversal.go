@@ -35,6 +35,10 @@ func walkDiscovery[T any](cursor string, page int, strict bool, fetch func(strin
 		}
 		fields.AppliedFilters = result.fields.AppliedFilters
 		fields.Warnings = append(fields.Warnings, result.fields.Warnings...)
+		fields.Partial = fields.Partial || result.fields.Partial || len(result.fields.Warnings) > 0
+		if len(fields.Coverage) == 0 && len(result.fields.Coverage) > 0 {
+			fields.Coverage = append([]byte(nil), result.fields.Coverage...)
+		}
 		meta = result.meta
 		added := 0
 		for _, item := range result.items {
@@ -52,7 +56,7 @@ func walkDiscovery[T any](cursor string, page int, strict bool, fetch func(strin
 			return fail(fmt.Errorf("continuation page made no progress"))
 		}
 		if !p.HasMore {
-			fields.Traversal = &Traversal{Completed: true, Pages: pages, ReturnedCount: len(all), PaginationVerified: strict}
+			fields.Traversal = &Traversal{Completed: !fields.Partial, Pages: pages, ReturnedCount: len(all), PaginationVerified: strict}
 			fields.TotalScope = "returned_in_traversal"
 			return all, fields, meta, nil
 		}

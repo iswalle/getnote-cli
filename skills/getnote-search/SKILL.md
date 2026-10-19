@@ -26,9 +26,10 @@ description: 在得到大脑查找笔记：按书名、课程名、文稿标题�
 | “找博尔赫斯的书籍笔记” / “找提到博尔赫斯的笔记” | 前者按书籍 author 定位；后者是内容主题搜索，不把所有提到一个人的笔记都限制为其著作。 |
 | “某课程共读《某本书》那篇文稿” | 明确课程/文稿时优先课程引用路径，书名在这里是文稿线索，不跳去 BOOKSPACE。 |
 | “课程笔记” | 先区分得到课程引用与自己录制的课堂笔记；只有用户明确来源时才设 dedao/course_article，不能把课堂录音排除掉。 |
+| “即时录音” / “上传的音频” | 前者用 notes --note-type audio，后者用 local_audio；课堂录音为 class_audio，会议为 meeting。平台未限定时不加 dedao 或课程条件。 |
 | “某库/某书里关于某主题” | 先定位真实 topic_id，再 search --kb；未命中按知识库参考在该库列表补查，不把空搜索当作库内没有，不得遗漏库范围。 |
 | “上周保存/昨天修改的某课程笔记” | 列表用对应时间筛选；search 没有时间/来源筛选参数，语义候选需核对 timestamps/reference。不能把时间词拼进 query 就宣称完成了时间筛选。 |
-| “某课程链接下的笔记” / “这篇文稿链接的划线” | 课程主页 URL 匹配 reference.url 后取该课程各篇；文稿 URL 才传 --article-url。URL 中的编码 ID 不是 --reference-id，不自行转换。 |
+| “某课程链接下的笔记” / “这篇文稿链接的划线” | 已知课程名/老师时查课程容器；只有主页 URL 时核对真实 reference.url，不猜课程 ID。文稿 URL 才传 --article-url。 |
 | “全部笔记” / “全部划线” | 前者不默认加 note-type ref；书籍库可能有心得等非引用笔记。得到课程引用路径只能证明该来源下的划线集合，不能涵盖用户另写的课程心得或录音。 |
 
 多条件查询要保留用户全部约束；从候选转入精确文稿列表时也保留已指定的 topic/time/source。条件冲突或作者、版本不符时说明实际候选，不静默删除条件。有正文主题限制时，来源匹配只证明“来自这里”，还需核对正文；截断 preview 未出现某词不能当作全文不包含。多个库/多本书合并结果时按字符串 note_id 去重，不能合并不同 ID 的不同划线。
@@ -37,36 +38,47 @@ description: 在得到大脑查找笔记：按书名、课程名、文稿标题�
 
 ## 课程、文稿与评论定位
 
-`search` 是 Top-K 语义召回，来源元数据出现在返回值中不保证它参与了召回。不要因为搜到了别的笔记就把指定课程的任务判为成功。
+先区分课程容器和单篇文稿；`search` 是 Top-K 语义召回，来源元数据出现在结果中不能证明课程范围参与召回。课程名、老师、主题、评论、时间和真实知识库范围均需保留。
 
-1. **提取约束**：区分课程名、文稿名、授课人、内容主题、评论和用户给定时间。例如“帮我找林老师《科学课》里讲概率那篇划线”应保留课程/授课人约束，不把整句话只搜一次便结束。已提供精确文章 URL 时直接读笔记参考的来源筛选。
-2. **发现候选**：可先用课程/文稿关键词 `getnote search '<课程名或文稿标题关键词>' --limit 10 -o json`。核对结果的 `note.reference`；旧结果没有它时对相关候选读 `note`。无来源匹配、只有无关结果，或用户要“整门课程的全部笔记”时，进入下面的来源列表，不反复换整句搜索。
-3. **来源列表补查**：用户明确说得到课程时执行以下命令；同一对话可复用已经读取的页，但用户说新增了笔记时必须重新读取。
+### 已知课程名或老师：先查课程容器
+
+使用 `getnote references list`，无需用户提供内部 ID，也不需要先建知识库：
 
 ```bash
-getnote notes --source dedao --note-type ref --reference-type course_article --page-size 20 -o json
-# 有下一页时，保持筛选和 page-size，用真实返回的 pagination.next_cursor 继续
-getnote notes --source dedao --note-type ref --reference-type course_article --page-size 20 --cursor '<pagination.next_cursor>' -o json
+getnote references list --source dedao --resource-type course --query '<课程名>' --author '<准确老师姓名>' --match-mode exact --all -o json
+getnote notes --source dedao --course-type '<course_type>' --course-id '<course_id>' --note-type ref --all -o json
 ```
 
-用户给定时间/知识库时同时保留对应筛选，不擅自增加“最近一个月”等限制；来源未明确时先依据候选核实，不把所有课程都当作得到来源。只读取定位信息，不先下载全库正文。此命令没有课程名查询参数，名称由 Agent 在返回的元数据中匹配，不能说成服务端按课程名直接筛选。
+只传已知的 query/author，至少一个；二者为 AND 条件，query 只匹配课程名，author 精确匹配老师。课程名不完整时显式用 `--match-mode prefix`；不把“讲概率”这样的正文主题塞进课程名。结果同名或版本不明时列候选消歧；用返回的 `course_type`+`course_id`，当前支持66，不解析标题、URL或课节 ID 生成课程 ID。空结果页若 `pagination.has_more=true` 仍按真实 `next_cursor` 继续，保持所有条件；循环或失败表示遍历未完成。`--all` 成功的 `traversal.completed=true` 只证明当前同步、授权范围内的遍历，不是得到 App 的全部划线。
 
-| 用户线索 | 核对字段与边界 |
-|---|---|
-| 课程名称、简称 | `reference.title`；允许忽略外围书名号、空格、全半角差异来找候选，保留季数/版本，不把“日课6”当成其它季。 |
-| 文稿标题 | `reference.article.title`；片段可用于候选匹配，详情核验后再认定。 |
-| 老师/作者 | 优先 `reference.author`；缺失时，名称出现在课程标题中可作为候选线索，但不能虚构 author 字段或断言身份。 |
-| 同课程、多篇文稿 | 用真实 `reference.url` 区分课程，缺失或同名冲突时列候选；每篇文稿的 resource_id 不能代替课程 ID。 |
-| 个人评论 | 读取候选详情的 `content`，不在 `preview` 或 `ref_content` 中猜评论。 |
+课程筛选同时包含课程直接引用和所属课节；显式增加 `--reference-type course_article` 会再限制为课节引用，`--reference-id` 仍是原课节 ID，组合按交集。需要时间条件时保留对应创建/编辑/记录更新时间参数。首版只支持个人笔记，course+topic_id 明确不支持；用户同时指定真实知识库时说明当前交集尚不可用，不能改查个人笔记后声称满足库范围。课程内语义搜索尚未开放，不能在全局 Top-K 后过滤冒充；可先精确列出课程笔记，再按需读正文核实主题。
 
-4. **控制遍历与消歧**：按返回 `pagination.has_more/next_cursor` 翻页，按字符串 note_id 去重，并核对 capabilities/applied_filters；遇到游标循环、重复无进展或中途失败就说明未完成。一次来源候选发现先读最多 5 页（每页 20 条）；超过时保留已找到候选与进度，说明仍未查完，结合用户线索缩小范围或询问是否继续。不得把这个执行预算当作“全库没有”。用户明确要求全部时按知识库参考的完整分页规则继续；只有确实遍历完成才能给全量结论。同名课程/同名文稿无法区分时列候选让用户选择。相关 `metadata_state.reference` 为 partial/unavailable 或所需字段缺失时，保留为待核验候选，必要时读详情；不能仅靠字段缺失断言不属于目标来源。
-5. **完成用户的目标**：找一条时读取匹配候选详情；找同篇全部划线时，用笔记参考的 `--reference-id` 或 `--article-url` 精确取全；找整门课全部时需完成课程引用范围遍历，按课程来源分组，再逐条按需读详情。保留原文、个人评论、来源的区别；不按文稿 ID 把多条划线合并成一条。
+新请求需当前服务端声明 `reference.resources.v1` / `note.course_filter.v1`，并核对 applied_filters。服务未支持时报告能力缺失，不自动删除课程条件继续，不把 CLI 安装成功当作服务已发布。旧参数和默认调用继续可用。
 
-只记得个人评论时：先用评论的实质文本做语义搜索并读详情核对。若用户已限定得到课程但搜索无匹配，可按上述来源列表缩小候选；评论在列表被省略，不能据此排除候选。小候选集（不超过 20 条）可按需逐条读取详情匹配，多于 20 条时先用已给的课程/文稿/时间进一步缩小，仍不足再向用户询问线索，不能批量下载整个账号全文。“有启发”等泛化评论可能对应多条，返回全部已核实候选而非随意选第一条。用户没有限定来源时，不自行只查课程后声称查完所有评论。
+每页的 `partial`、`warnings` 和候选 `metadata_state` 都要保留。`course_directory_no_lessons` 表示目录缺少课节；翻到末页或 `traversal.completed=true` 不会消除这个缺口，回复“已找到这些，部分课程目录不完整，无法保证全部”。`candidate_work_budget` 且有下一游标时按原条件继续；游标结束后仍有目录警告，就保留部分完成结论，不改用账号全量扫描来宣称目录已经补齐。
+
+### 已知单篇文稿或文章 URL
+
+直接使用已验证的 `reference.resource_id`+`reference.resource_type` 或 `reference.article.url` 精确筛选：
+
+```bash
+getnote notes --source dedao --note-type ref --reference-type course_article --reference-id '<真实课节ID>' --all -o json
+getnote notes --source dedao --note-type ref --article-url '<真实文章URL>' --all -o json
+```
+
+仅有文稿标题时可语义查候选并核对真实 reference.article.title；找到了课程线索就进入课程容器流程缩小范围。课程主页 URL 与文稿 URL 不互换，不从编码链接猜 ID。没有名称线索的课程主页可沿用既有来源列表核对 reference.url，但不得假称服务端按课程名筛选；定位前5页的预算到达时说明未完成，用户要全部时继续合法分页。metadata_state.reference 为 partial/unavailable 时保留为待核验候选，不能凭缺失字段排除。
+
+### 读取原文与评论
+
+对不超过20个已定位的个人笔记，使用 `getnote notes batch '<note_id_1>' '<note_id_2>' --fields original -o json`；引用原文来自 ref_content，查个人评论改用 fields=content。保留每条 status、content_state、pending_ids、partial；deferred_budget 表示整条待读，不能说完整，也不自动并发20次单条读取。用户确需未读全文时使用旧 `getnote note original '<note_id>' -o json`。知识库共享详情继续原单条权限路径，不用个人批量绕过权限。
+
+只记得评论时先语义搜索实质文本并读 content 核对；已指定课程就先按课程缩小，不因 preview 没出现评论而排除。定位候选多于20条时保留用户线索继续缩小或分页按需读取，不下载整个账号正文。同一篇文稿的不同笔记 ID 是不同划线，不按文章 ID 合并。
 
 ## 语义搜索执行步骤
 
 仅当上面的路径选择需要语义搜索时执行；没有指定知识库不等于必须先语义搜索。
+
+定位时可显式使用 `getnote search '<主题>' --response-mode snippet --max-snippet-chars 400 -o json`，需当前接口声明 search.snippet.v1。旧调用不加参数仍返回原契约。摘要 full 只表示本次命中的完整片段，不是全文；保留 snippet_source、truncated、content_state 和资源身份，未知来源/类型原样保留。需要全文时读真实笔记详情。
 
 1. 用户没有指定知识库时，执行 `getnote search <query> --limit <1-10> -o json`。默认上限是 10，不能自行放大。
 2. 用户指定知识库名称时，先按其类型执行 `getnote kbs --scope <scope> -o json`；默认查 `DEFAULT`，书籍、客户档案和团队知识库分别使用 `BOOKSPACE`、`CUSTOMER`、`TEAMSPACE`。用返回的真实 `topic_id` 和 `scope` 匹配；同名或意图不明确时必须让用户选择。
@@ -111,6 +123,7 @@ getnote search "客户反馈" --kb <topic_id> --limit 5 -o json
 ## 失败、隐私与后续动作
 
 - `success=false` 或退出码非 0：回复失败步骤、`error.message` / `error.reason`、是否 `retryable` 和可选 `request_id`；不要将 HTTP 成功或空输出说成搜索成功。
+- 参数错误先读取 field/supported_values；限流保留 retry_after_seconds。CLI 已对已知只读瞬时429做最多额外2次、累计等待5秒的重试，Agent 不再叠加无界重试；日/月配额和写操作不自动重试。
 - 若 CLI 提示“搜索服务响应超时”，这是检索未完成，不是“没有结果”。建议稍后重试，或缩小关键词、指定知识库后再试；不要伪造空列表。
 - 检索结果可能包含私密正文。群聊或共享会话默认只展示标题、必要摘要和真实链接；用户明确要求后再展开全文。
 - 用户选中结果后，复用返回的字符串 `note_id`，再读取 `getnote note <note_id> -o json`；不要从 URL 截取或转换为数字。

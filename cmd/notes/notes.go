@@ -68,6 +68,19 @@ func NewNotesCmd() *cobra.Command {
 				return enc.Encode(resp)
 			}
 
+			if resp.Data.Partial || len(resp.Data.Warnings) > 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "Partial notes: source coverage is incomplete.")
+				for _, warning := range resp.Data.Warnings {
+					fmt.Fprintf(cmd.OutOrStdout(), "Warning: %s\n", warning)
+				}
+			}
+			if len(resp.Data.Coverage) > 0 && string(resp.Data.Coverage) != "null" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Coverage: %s\n", resp.Data.Coverage)
+			}
+			if resp.Data.Traversal != nil && !resp.Data.Traversal.Completed {
+				fmt.Fprintln(cmd.OutOrStdout(), "Traversal incomplete: returned rows do not establish a complete result.")
+			}
+
 			printHeader(cmd)
 			shown := resp.Data.Notes
 			for _, n := range shown {
@@ -89,6 +102,7 @@ func NewNotesCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 20, "Number of notes per page")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor (from a previous page's cursor)")
 	cmd.Flags().BoolVar(&all, "all", false, "Traverse all matching pages; report incomplete on errors, no snapshot guarantee")
+	cmd.AddCommand(newBatchCmd())
 	return cmd
 }
 

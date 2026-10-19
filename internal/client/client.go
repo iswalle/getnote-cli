@@ -4,6 +4,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -59,14 +60,16 @@ func (id *StringID) UnmarshalJSON(data []byte) error {
 
 // APIError represents an error returned by the API.
 type APIError struct {
-	Code          int    `json:"code"`
-	Message       string `json:"message"`
-	Reason        string `json:"reason"`
-	Retryable     bool   `json:"retryable"`
-	Field         string `json:"field,omitempty"`
-	Constraint    string `json:"constraint,omitempty"`
-	ExpectedType  string `json:"expected_type,omitempty"`
-	MembershipURL string `json:"membership_url,omitempty"`
+	Code              int      `json:"code"`
+	Message           string   `json:"message"`
+	Reason            string   `json:"reason"`
+	Retryable         bool     `json:"retryable"`
+	Field             string   `json:"field,omitempty"`
+	Constraint        string   `json:"constraint,omitempty"`
+	ExpectedType      string   `json:"expected_type,omitempty"`
+	MembershipURL     string   `json:"membership_url,omitempty"`
+	SupportedValues   []string `json:"supported_values,omitempty"`
+	RetryAfterSeconds *int64   `json:"retry_after_seconds,omitempty"`
 }
 
 // RequestError is returned whenever the API envelope reports success=false,
@@ -87,6 +90,12 @@ func (e *RequestError) Error() string {
 	}
 	if e.Field != "" {
 		parts = append(parts, "field="+e.Field)
+	}
+	if len(e.SupportedValues) > 0 {
+		parts = append(parts, "supported_values="+strings.Join(e.SupportedValues, ","))
+	}
+	if e.RetryAfterSeconds != nil {
+		parts = append(parts, fmt.Sprintf("retry_after_seconds=%d", *e.RetryAfterSeconds))
 	}
 	if e.RequestID != "" {
 		parts = append(parts, "request_id="+e.RequestID)
@@ -764,19 +773,23 @@ func (c *Client) KBNotesRemove(topicID string, noteIDs []string) (*KBNotesRemove
 
 // RecallResult is a single search result item.
 type RecallResult struct {
-	PageNo        *int     `json:"page_no,omitempty"`
-	ResourceType  string   `json:"resource_type,omitempty"`
-	ResourceID    string   `json:"resource_id,omitempty"`
-	Note          *Note    `json:"note,omitempty"`
-	Snippet       string   `json:"snippet,omitempty"`
-	SnippetSource string   `json:"snippet_source,omitempty"`
-	NoteID        string   `json:"note_id"`
-	NoteURL       string   `json:"note_url,omitempty"`
-	NoteType      string   `json:"note_type"`
-	Title         string   `json:"title"`
-	Content       string   `json:"content"`
-	CreatedAt     string   `json:"created_at"`
-	Score         *float64 `json:"score"`
+	Truncated         *bool           `json:"truncated,omitempty"`
+	ContentState      json.RawMessage `json:"content_state,omitempty"`
+	rawFields         map[string]json.RawMessage
+	preserveOmissions bool
+	PageNo            *int     `json:"page_no,omitempty"`
+	ResourceType      string   `json:"resource_type,omitempty"`
+	ResourceID        string   `json:"resource_id,omitempty"`
+	Note              *Note    `json:"note,omitempty"`
+	Snippet           string   `json:"snippet,omitempty"`
+	SnippetSource     string   `json:"snippet_source,omitempty"`
+	NoteID            string   `json:"note_id"`
+	NoteURL           string   `json:"note_url,omitempty"`
+	NoteType          string   `json:"note_type"`
+	Title             string   `json:"title"`
+	Content           string   `json:"content"`
+	CreatedAt         string   `json:"created_at"`
+	Score             *float64 `json:"score"`
 }
 
 // NoteSearchRequest is the request body for global recall.
@@ -791,6 +804,9 @@ type NoteSearchResponse struct {
 	RequestID string        `json:"request_id,omitempty"`
 	Success   bool          `json:"success"`
 	Data      struct {
+		ResponseMode      string            `json:"response_mode,omitempty"`
+		MaxSnippetChars   int               `json:"max_snippet_chars,omitempty"`
+		MaxTotalBytes     int               `json:"max_total_bytes,omitempty"`
 		Results           []RecallResult    `json:"results"`
 		ResultMode        string            `json:"result_mode,omitempty"`
 		IsExhaustive      *bool             `json:"is_exhaustive,omitempty"`
@@ -829,6 +845,9 @@ func (c *Client) decorateSearch(resp *NoteSearchResponse) {
 		return
 	}
 	for i := range resp.Data.Results {
+		if resp.Data.Results[i].NoteURL == "" && resp.Data.Results[i].Note != nil {
+			resp.Data.Results[i].NoteURL = resp.Data.Results[i].Note.NoteURL
+		}
 		if resp.Data.Results[i].NoteURL == "" && (resp.Data.Results[i].ResourceType == "note" || (resp.Data.Results[i].ResourceType == "" && strings.EqualFold(resp.Data.Results[i].NoteType, "NOTE"))) {
 			resp.Data.Results[i].NoteURL = c.NoteURL(resp.Data.Results[i].NoteID)
 		}
@@ -1262,46 +1281,48 @@ func doPost[T any](c *Client, path string, payload interface{}) (*T, error) {
 }
 
 func doRequest[T any](c *Client, req *http.Request) (*T, error) {
-	const maxRetries = 3
-	backoff := time.Second
-
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		// Clone the request body for retries (body is consumed on each Do)
-		var bodyBytes []byte
-		if req.Body != nil && req.Body != http.NoBody {
-			bodyBytes, _ = io.ReadAll(req.Body)
-			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	var waited time.Duration
+	var lastError *RequestError
+	for attempt := 0; ; attempt++ {
+		if lastError != nil && req.Context().Err() != nil {
+			return nil, errors.Join(lastError, req.Context().Err())
 		}
-
-		resp, err := c.httpClient.Do(req)
+		current := req.Clone(req.Context())
+		if attempt > 0 && req.GetBody != nil {
+			body, err := req.GetBody()
+			if err != nil {
+				return nil, fmt.Errorf("replay read request: %w", err)
+			}
+			current.Body = body
+		}
+		resp, err := c.httpClient.Do(current)
 		if err != nil {
+			if lastError != nil && req.Context().Err() != nil {
+				return nil, errors.Join(lastError, req.Context().Err(), err)
+			}
 			return nil, fmt.Errorf("request failed: %w", err)
 		}
 
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
+			if lastError != nil && req.Context().Err() != nil {
+				return nil, errors.Join(lastError, req.Context().Err(), err)
+			}
 			return nil, fmt.Errorf("reading response: %w", err)
 		}
 
-		// 429: rate limited — back off and retry
-		if resp.StatusCode == http.StatusTooManyRequests {
-			if attempt == maxRetries {
-				if requestErr := requestErrorFromBody(body, resp.StatusCode); requestErr != nil {
-					return nil, requestErr
-				}
-				return nil, fmt.Errorf("rate limited after %d retries: %s", maxRetries, string(body))
-			}
-			time.Sleep(backoff)
-			backoff *= 2 // exponential: 1s → 2s → 4s
-			// restore body for next attempt
-			if bodyBytes != nil {
-				req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-			}
-			continue
-		}
-
 		if requestErr := requestErrorFromBody(body, resp.StatusCode); requestErr != nil {
+			mergeRetryAfter(&requestErr.APIError, resp.Header.Get("Retry-After"))
+			if delay, ok := readRetryDelay(req, requestErr, attempt, 5*time.Second-waited); ok {
+				lastError = requestErr
+				start := time.Now()
+				if err := waitForRetry(req.Context(), delay); err != nil {
+					return nil, errors.Join(requestErr, err)
+				}
+				waited += time.Since(start)
+				continue
+			}
 			return nil, requestErr
 		}
 
@@ -1315,7 +1336,6 @@ func doRequest[T any](c *Client, req *http.Request) (*T, error) {
 		}
 		return &result, nil
 	}
-	return nil, fmt.Errorf("request failed after retries")
 }
 
 func requestErrorFromBody(body []byte, statusCode int) *RequestError {

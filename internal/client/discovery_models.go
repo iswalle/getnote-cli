@@ -21,6 +21,9 @@ type Pagination struct {
 type DiscoveryListFields struct {
 	TotalScope string      `json:"total_scope,omitempty"`
 	Pagination *Pagination `json:"pagination,omitempty"`
+	// Keep scope metadata opaque so future kinds and fields survive JSON output.
+	Coverage json.RawMessage `json:"coverage,omitempty"`
+	Partial  bool            `json:"partial,omitempty"`
 	// Filters include string selectors and typed flags such as exclude_mine.
 	AppliedFilters map[string]json.RawMessage `json:"applied_filters,omitempty"`
 	Warnings       []json.RawMessage          `json:"warnings,omitempty"`
@@ -70,6 +73,8 @@ type Traversal struct {
 }
 
 type NoteReference struct {
+	Course          *ReferenceCourse `json:"course,omitempty"`
+	rawFields       map[string]json.RawMessage
 	Source          string             `json:"source,omitempty"`
 	ResourceType    string             `json:"resource_type,omitempty"`
 	PType           *int64             `json:"ptype,omitempty"`
@@ -83,6 +88,41 @@ type NoteReference struct {
 	Article         *ReferenceArticle  `json:"article,omitempty"`
 	Location        *ReferenceLocation `json:"location,omitempty"`
 }
+type ReferenceCourse struct {
+	Type      string `json:"type"`
+	ID        string `json:"id"`
+	Title     string `json:"title,omitempty"`
+	Author    string `json:"author,omitempty"`
+	rawFields map[string]json.RawMessage
+}
+
+func (v *NoteReference) UnmarshalJSON(raw []byte) error {
+	type plain NoteReference
+	var p plain
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	*v = NoteReference(p)
+	return json.Unmarshal(raw, &v.rawFields)
+}
+func (v NoteReference) MarshalJSON() ([]byte, error) {
+	type plain NoteReference
+	return preserveWireFields(plain(v), v.rawFields)
+}
+func (v *ReferenceCourse) UnmarshalJSON(raw []byte) error {
+	type plain ReferenceCourse
+	var p plain
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	*v = ReferenceCourse(p)
+	return json.Unmarshal(raw, &v.rawFields)
+}
+func (v ReferenceCourse) MarshalJSON() ([]byte, error) {
+	type plain ReferenceCourse
+	return preserveWireFields(plain(v), v.rawFields)
+}
+
 type ReferenceArticle struct {
 	Title string `json:"title,omitempty"`
 	URL   string `json:"url,omitempty"`

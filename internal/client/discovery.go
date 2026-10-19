@@ -12,6 +12,7 @@ import (
 
 type DiscoveryOptions struct {
 	NoteType, Source, ReferenceType, ReferenceID, ArticleURL, TopicID                string
+	CourseType, CourseID                                                             string
 	CreatedFrom, CreatedTo, EditedFrom, EditedTo, RecordUpdatedFrom, RecordUpdatedTo string
 	Cursor                                                                           string
 	Page, PageSize                                                                   int
@@ -22,7 +23,7 @@ type KnowledgeLookupOptions struct {
 }
 
 func (o DiscoveryOptions) Active() bool {
-	return o.NoteType != "" || o.Source != "" || o.ReferenceType != "" || o.ReferenceID != "" || o.ArticleURL != "" || o.TopicID != "" || o.CreatedFrom != "" || o.CreatedTo != "" || o.EditedFrom != "" || o.EditedTo != "" || o.RecordUpdatedFrom != "" || o.RecordUpdatedTo != "" || o.PageSize != 0 || o.Page != 0
+	return o.CourseType != "" || o.CourseID != "" || o.NoteType != "" || o.Source != "" || o.ReferenceType != "" || o.ReferenceID != "" || o.ArticleURL != "" || o.TopicID != "" || o.CreatedFrom != "" || o.CreatedTo != "" || o.EditedFrom != "" || o.EditedTo != "" || o.RecordUpdatedFrom != "" || o.RecordUpdatedTo != "" || o.PageSize != 0 || o.Page != 0
 }
 
 func (o DiscoveryOptions) values() (url.Values, map[string]string, error) {
@@ -41,6 +42,13 @@ func (o DiscoveryOptions) values() (url.Values, map[string]string, error) {
 		if v = strings.TrimSpace(v); v != "" {
 			filters[k] = v
 		}
+	}
+	if o.CourseType != "" || o.CourseID != "" {
+		id, err := positiveDecimalID(o.CourseID)
+		if err != nil || o.CourseType != "66" || filters["source"] != "dedao" || filters["topic_id"] != "" {
+			return nil, nil, fmt.Errorf("course requires source=dedao, course type=66 and a positive course ID; topic_id is not supported with course filters")
+		}
+		filters["reference_course_type"], filters["reference_course_id"] = "66", id
 	}
 	if id := filters["reference_resource_id"]; id != "" {
 		if filters["source"] == "" || filters["reference_resource_type"] == "" {
@@ -149,6 +157,9 @@ func validateDiscoveryPage(meta *ResponseMeta, data DiscoveryListFields, q url.V
 	}
 	if filters["reference_resource_type"] != "" || filters["reference_resource_id"] != "" || filters["reference_article_url"] != "" {
 		caps = append(caps, "note.reference.v1")
+	}
+	if filters["reference_course_type"] != "" || filters["reference_course_id"] != "" {
+		caps = append(caps, "note.course_filter.v1")
 	}
 	if err := requireCapabilities(meta, caps...); err != nil {
 		return err
