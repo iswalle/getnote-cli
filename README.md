@@ -489,3 +489,7 @@ $ getnote search "工作日志" --limit 7 -o json
 ## License
 
 [MIT](https://opensource.org/licenses/MIT)
+
+## 录音台与录音卡笔记
+
+录音台（AI录音台/MOAN）按 `getnote notes --source vendor_moan --all -o json` 查找，录音卡（GetSeed）使用 `--source getseed`。来源和 note_type 独立：查设备全部笔记不额外限制 audio/meeting，录音卡长录音和闪念均保留。可叠加创建/编辑时间与知识库条件；完整性以真实分页、partial/warnings 和授权范围为准，不包含设备端未同步的会议记录。转写用 `getnote note transcript <note_id>` 读取。
