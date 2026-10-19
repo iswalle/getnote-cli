@@ -21,6 +21,9 @@ type Pagination struct {
 type DiscoveryListFields struct {
 	TotalScope string      `json:"total_scope,omitempty"`
 	Pagination *Pagination `json:"pagination,omitempty"`
+	// Keep scope metadata opaque so future kinds and fields survive JSON output.
+	Coverage json.RawMessage `json:"coverage,omitempty"`
+	Partial  bool            `json:"partial,omitempty"`
 	// Filters include string selectors and typed flags such as exclude_mine.
 	AppliedFilters map[string]json.RawMessage `json:"applied_filters,omitempty"`
 	Warnings       []json.RawMessage          `json:"warnings,omitempty"`

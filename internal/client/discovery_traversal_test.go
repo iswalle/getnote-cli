@@ -134,3 +134,53 @@ func TestDiscoveryTraversalCompletesOrClearlyFails(t *testing.T) {
 		}
 	}
 }
+
+func TestAllNotesPreservesOpaqueCoverageAndIncompleteScope(t *testing.T) {
+	for _, cause := range []string{"partial", "warning"} {
+		t.Run(cause, func(t *testing.T) {
+			calls := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				if calls > 2 {
+					t.Fatal("unexpected extra page")
+				}
+				p := map[string]any{"mode": "cursor", "page_size": 20, "returned_count": 1, "total_count": nil, "has_more": calls == 1, "next_cursor": nil, "next_page": nil}
+				if calls == 1 {
+					p["next_cursor"] = "next-page"
+				}
+				data := map[string]any{"notes": []any{map[string]any{"note_id": fmt.Sprint(10000 + calls)}}, "pagination": p,
+					"applied_filters": map[string]string{"source": "dedao", "reference_course_type": "66", "reference_course_id": "10001"},
+					"coverage":        map[string]any{"kind": "future_reference_scope", "note_types": []string{"ref"}, "future_flag": true, "future_id": "9007199254740993"}, "partial": cause == "partial" && calls == 1}
+				if cause == "warning" && calls == 1 {
+					data["warnings"] = []string{"mapping_incomplete"}
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "meta": map[string]any{"capabilities": []string{"pagination.v1", "note.filters.v1", "note.course_filter.v1"}}, "data": data})
+			}))
+			defer server.Close()
+			t.Setenv("GETNOTE_API_URL", server.URL)
+			got, err := New("").AllNotes(DiscoveryOptions{Source: "dedao", CourseType: "66", CourseID: "10001"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := json.Marshal(got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wire struct {
+				Data struct {
+					Coverage map[string]any `json:"coverage"`
+					Partial  bool           `json:"partial"`
+				} `json:"data"`
+			}
+			if err := json.Unmarshal(raw, &wire); err != nil {
+				t.Fatal(err)
+			}
+			if wire.Data.Coverage["kind"] != "future_reference_scope" || wire.Data.Coverage["future_flag"] != true || wire.Data.Coverage["future_id"] != "9007199254740993" {
+				t.Fatalf("opaque coverage and future fields lost: %s", raw)
+			}
+			if got.Data.Traversal == nil || got.Data.Traversal.Completed || !wire.Data.Partial || len(got.Data.Notes) != 2 || calls != 2 {
+				t.Fatalf("ended pages must retain incomplete scope: %s", raw)
+			}
+		})
+	}
+}

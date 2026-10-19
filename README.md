@@ -231,6 +231,8 @@ getnote search '主题' --response-mode snippet --max-snippet-chars 400 -o json
 
 课程名可 exact/prefix，老师精确匹配；query/author 至少一个。ID 全程用字符串，课程 ID 与课节 ID 不互换。查课程需沿空页的有效游标继续；课程与知识库交集、课程内语义搜索尚未开放。批量只读个人笔记，最多20个去重ID、默认32000/上限64000个Unicode码点及1MiB；保留 status/pending_ids，整条超预算可改用旧单条详情读取。snippet full 表示完整命中片段，不能冒充全文。新选项要求当前接口 capability 与筛选回显，不接受旧服务忽略筛选的成功结果。
 
+课程响应的 `coverage` 说明实际覆盖范围，省略类型也不表示包含未关联课程身份的心得或录音。JSON 输出及 `--all` 保留该对象中的未知类型和新增字段；任一页的 `partial` 或警告都会保留，存在未解决问题时 `traversal.completed=false`，不能因分页结束便声称结果完整。
+
 错误保留合法值和等待建议；已知只读瞬时429最多额外重试2次，累计等待不超过5秒。配额耗尽、写操作和凭证签发不自动重试。
 
 ### 认证
