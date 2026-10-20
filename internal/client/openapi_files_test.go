@@ -79,3 +79,73 @@ func TestTimelineAndResourceFieldsSurviveClientDecoding(t *testing.T) {
 		t.Fatal("resource fields lost")
 	}
 }
+
+func TestSproutsRejectsInvalidMonthBeforeSendingRequest(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_, _ = io.WriteString(w, `{"success":true,"data":{"tasks":[]}}`)
+	}))
+	defer server.Close()
+	t.Setenv("GETNOTE_API_URL", server.URL)
+	c := New("")
+	for _, month := range []string{"2026-00", "2026-13", "2026-99", "2026-1", "26-01", "2026-01-01", " 2026-01", "garbage"} {
+		if _, err := c.SproutsPage(month, "", 20); err == nil {
+			t.Errorf("accepted invalid month %q", month)
+		}
+	}
+	if calls != 0 {
+		t.Fatalf("invalid months made %d HTTP requests", calls)
+	}
+	for _, month := range []string{"2026-01", "2024-02", "2026-12"} {
+		if _, err := c.Sprouts(month); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if calls != 3 {
+		t.Fatalf("valid months made %d requests", calls)
+	}
+}
+
+func TestFileAddKeepsNumericIDsAndPublishesLosslessStringAliases(t *testing.T) {
+	for _, raw := range []string{
+		`{"id":9007199254740993,"topic_id":9223372036854775807,"directory_id":9007199254740995,"status":"UPLOADING","future":{"v":9007199254740997}}`,
+		`{"id":9007199254740993,"id_str":"9007199254740993","topic_id":9223372036854775807,"topic_id_str":"9223372036854775807","directory_id":9007199254740995,"directory_id_str":"9007199254740995","status":"UPLOADING","future":{"v":9007199254740997}}`,
+	} {
+		t.Run(raw, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = io.WriteString(w, `{"success":true,"data":`+raw+`}`)
+			}))
+			defer server.Close()
+			t.Setenv("GETNOTE_API_URL", server.URL)
+			got, err := New("").FileAdd(map[string]string{"topic_id": "test"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var out map[string]json.RawMessage
+			if err := json.Unmarshal(got.Data, &out); err != nil {
+				t.Fatal(err)
+			}
+			for key, want := range map[string]string{"id": "9007199254740993", "topic_id": "9223372036854775807", "directory_id": "9007199254740995", "id_str": `"9007199254740993"`, "topic_id_str": `"9223372036854775807"`, "directory_id_str": `"9007199254740995"`, "future": `{"v":9007199254740997}`} {
+				if string(out[key]) != want {
+					t.Errorf("%s=%s want %s", key, out[key], want)
+				}
+			}
+		})
+	}
+}
+
+func TestFileAddRejectsInconsistentIDStrings(t *testing.T) {
+	for _, raw := range []string{`{"id":9007199254740993,"id_str":"9007199254740992"}`, `{"id":null}`, `{"id":1.25}`, `{"id":9223372036854775808}`} {
+		t.Run(raw, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = io.WriteString(w, `{"success":true,"data":`+raw+`}`)
+			}))
+			defer server.Close()
+			t.Setenv("GETNOTE_API_URL", server.URL)
+			if _, err := New("").FileAdd(map[string]string{}); err == nil {
+				t.Fatal("invalid file identity accepted")
+			}
+		})
+	}
+}

@@ -33,6 +33,7 @@ type response struct {
 // HTTP status. Fields use dotted paths relative to the JSON response root.
 // A command with no stable data payload explicitly declares that fact.
 type commandResult struct {
+	Arguments     []string `json:"arguments,omitempty"`
 	SuccessFields []string `json:"success_fields"`
 	PendingFields []string `json:"pending_fields,omitempty"`
 	Notes         string   `json:"notes,omitempty"`
@@ -59,7 +60,7 @@ func commandResults() map[string]commandResult {
 		"sprout":            {SuccessFields: []string{"success=true", "data.has_sprout", "data.sprout"}},
 		"file-capabilities": {SuccessFields: []string{"success=true", "data.formats[]", "data.daily_upload_limit"}},
 		"file-token":        {SuccessFields: []string{"success=true", "data.put_sign_url", "data.get_url"}, Notes: "Sensitive temporary credentials; send only to the local upload process."},
-		"file-add":          {SuccessFields: []string{"success=true", "data.id", "data.status"}, PendingFields: []string{"data.status=UPLOADING|CONVERT|ANALYZING"}, Notes: "Query the same resource with kb directories until SUCCESS or FAIL; submission is not ingestion completion."},
+		"file-add":          {SuccessFields: []string{"success=true", "data.id_str", "data.topic_id_str", "data.directory_id_str", "data.status"}, PendingFields: []string{"data.status=UPLOADING|CONVERT|ANALYZING"}, Notes: "Use id_str/topic_id_str/directory_id_str for exact IDs. Legacy numeric id/topic_id/directory_id remain for compatibility. Query kb directories until SUCCESS or FAIL; submission is not ingestion completion."},
 		"upload": {
 			SuccessFields: []string{"stage=oss_uploaded", "file_name", "file_type", "size_bytes", "md5", "url"},
 			Notes:         "No CLI authentication. Receives a short-lived OSS token via stdin or --token-file. Only transfers bytes to OSS; the authorized MCP must submit Knowledge ingestion and check its final status. Never print the token or signed URL in chat.",
@@ -128,6 +129,11 @@ func commandResults() map[string]commandResult {
 		},
 		"note timeline": {
 			SuccessFields: []string{"success=true", "data.note_id", "data.title", "data.timeline"},
+		},
+		"note chapters": {
+			Arguments:     []string{"id: required note ID (string)"},
+			SuccessFields: []string{"success=true", "data.note_id", "data.title", "data.chapter_timeline.source", "data.chapter_timeline.items[]"},
+			Notes:         "Reads chapters from an explicit meeting-summary section; preserve source. Empty items means no recognized chapters, independently of timeline moments and marks.",
 		},
 		"note quick-note": {
 			SuccessFields: []string{"success=true", "data.note_id", "data.title", "data.quick_note"},
@@ -234,7 +240,7 @@ func currentResponse() response {
 			"file_transfer":  {"upload", "file-capabilities", "file-token", "file-add"},
 			"reports":        {"marks", "sprouts", "sprout"},
 			"connection":     {"doctor", "capabilities", "auth", "auth login", "auth status", "auth logout", "setup"},
-			"notes":          {"save", "task", "notes", "notes batch", "references list", "note", "note original", "note transcript", "note attachments", "note timeline", "note quick-note", "note todos", "note update", "note delete", "note share"},
+			"notes":          {"save", "task", "notes", "notes batch", "references list", "note", "note original", "note transcript", "note attachments", "note timeline", "note chapters", "note quick-note", "note todos", "note update", "note delete", "note share"},
 			"search":         {"search"},
 			"knowledge_base": {"kbs", "kbs-sub", "kb", "kb create", "kb add", "kb remove", "kb directories", "kb directory-create", "kb directory-update", "kb directory-delete", "kb bloggers", "kb blogger-follow", "kb blogger-contents", "kb blogger-content", "kb lives", "kb live", "kb live-follow"},
 			"tags":           {"tag", "tag list", "tag add", "tag remove"},
@@ -298,7 +304,7 @@ func currentResponse() response {
 		},
 		CommandResults: commandResults(),
 		Guarantees: guarantees{
-			IDsAsStrings:             true,
+			IDsAsStrings:             false, // Numeric legacy aliases are retained; use command-specific canonical string fields.
 			StructuredBusinessErrors: true,
 			FinalAsyncSaveResult:     true,
 			EnvironmentNoteURL:       true,
@@ -306,7 +312,7 @@ func currentResponse() response {
 			SafeLongInput:            []string{"--content-file", "--stdin"},
 			KnowledgeScopes:          []string{"DEFAULT", "BOOKSPACE", "CUSTOMER", "TEAMSPACE"},
 			KnowledgeFeatures:        []string{"directories", "add_to_directory", "douyin_blogger_subscription"},
-			NoteDetailViews:          []string{"original", "transcript", "attachments", "timeline", "quick_note", "meeting_todos"},
+			NoteDetailViews:          []string{"original", "transcript", "attachments", "timeline", "chapter_timeline", "quick_note", "meeting_todos"},
 			Limits: map[string]int{
 				"search_results": 10,
 				"kb_note_batch":  20,

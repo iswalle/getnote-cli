@@ -85,3 +85,37 @@ func TestResolveContentRejectsEmptyStdin(t *testing.T) {
 		t.Fatal("expected empty stdin to fail")
 	}
 }
+
+func TestResolveContentRejectsWhitespaceAcrossInputSources(t *testing.T) {
+	for _, input := range []string{"   ", "\t\r\n", "\u3000\u00a0"} {
+		for _, source := range []string{"args", "stdin", "file"} {
+			t.Run(source+input, func(t *testing.T) {
+				c := &cobra.Command{}
+				var args []string
+				file := ""
+				stdin := false
+				switch source {
+				case "args":
+					args = []string{input}
+				case "stdin":
+					stdin = true
+					c.SetIn(strings.NewReader(input))
+				case "file":
+					file = filepath.Join(t.TempDir(), "input.txt")
+					if err := os.WriteFile(file, []byte(input), 0600); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if _, err := resolveContent(c, args, file, stdin); err == nil {
+					t.Fatal("whitespace accepted")
+				}
+			})
+		}
+	}
+	for _, input := range []string{"  正文 🌱  ", "\n第一行\n第二行\n"} {
+		got, err := resolveContent(&cobra.Command{}, []string{input}, "", false)
+		if err != nil || got != input {
+			t.Fatalf("valid content changed: %q %v", got, err)
+		}
+	}
+}

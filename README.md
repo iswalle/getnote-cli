@@ -384,6 +384,10 @@ gnote note quick <note_id>
 
 CLI 已登录时也可使用 `file-token <extension>` 获取 token、`upload` 直传，再用 `file-add <topic_id> <directory_id> --metadata-file <上传结果文件>` 提交。临时 token 不提供通用 OpenAPI 权限。
 
+`file-add -o json` 保留历史数字字段 `id`、`topic_id`、`directory_id`，同时提供精确的十进制字符串 `id_str`、`topic_id_str`、`directory_id_str`；新消费者应使用后者，避免 JavaScript 大整数精度损失。旧服务端缺少字符串字段时，CLI 会无损补齐。`capabilities.guarantees.ids_as_strings=false` 表示不保证所有历史 ID 字段均为字符串，各命令的推荐字段以 `command_results` 为准。
+
+发芽月份必须是合法的 `YYYY-MM`；非法月份在发请求前报错。`note chapters <id>` 读取章节时间线，与录音标记独立；没有可识别章节时返回空 `items`。
+
 ---
 
 ## 全局参数

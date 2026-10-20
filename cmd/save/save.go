@@ -135,7 +135,7 @@ func resolveContent(cmd *cobra.Command, args []string, contentFile string, readS
 			return "", fmt.Errorf("读取标准输入失败: %w", err)
 		}
 	default:
-		return strings.Join(args, " "), nil
+		raw = []byte(strings.Join(args, " "))
 	}
 	content := string(raw)
 	if strings.TrimSpace(content) == "" {

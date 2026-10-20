@@ -62,7 +62,7 @@ func TestCapabilitiesExposeSkill2ContractAndUpgrade(t *testing.T) {
 func TestContractPublishesHistoricalSafetyGuarantees(t *testing.T) {
 	data := currentResponse()
 	if data.ContractVersion != "2.2" ||
-		!data.Guarantees.IDsAsStrings ||
+		data.Guarantees.IDsAsStrings ||
 		!data.Guarantees.StructuredBusinessErrors ||
 		!data.Guarantees.FinalAsyncSaveResult ||
 		!data.Guarantees.EnvironmentNoteURL ||
@@ -79,7 +79,7 @@ func TestContractPublishesHistoricalSafetyGuarantees(t *testing.T) {
 	if strings.Join(data.Guarantees.KnowledgeFeatures, ",") != "directories,add_to_directory,douyin_blogger_subscription" {
 		t.Fatalf("knowledge features = %v", data.Guarantees.KnowledgeFeatures)
 	}
-	if strings.Join(data.Guarantees.NoteDetailViews, ",") != "original,transcript,attachments,timeline,quick_note,meeting_todos" {
+	if strings.Join(data.Guarantees.NoteDetailViews, ",") != "original,transcript,attachments,timeline,chapter_timeline,quick_note,meeting_todos" {
 		t.Fatalf("note detail views = %v", data.Guarantees.NoteDetailViews)
 	}
 	for _, command := range []string{"note update content_or_tags", "note delete", "note share", "kb remove", "kb directory-delete"} {
@@ -107,5 +107,56 @@ func TestAgentDiscoveryContractIsConditionalOnServerSupport(t *testing.T) {
 	}
 	if len(discovery.Required) != 4 || discovery.All == "" {
 		t.Fatalf("incomplete discovery declaration: %+v", discovery)
+	}
+}
+
+func TestCapabilitiesDeclareChaptersAndHonestFileIDContract(t *testing.T) {
+	raw, err := json.Marshal(currentResponse())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	commands := out["commands"].(map[string]any)["notes"].([]any)
+	found := false
+	for _, command := range commands {
+		if command == "note chapters" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("note chapters command omitted")
+	}
+	result, ok := out["command_results"].(map[string]any)["note chapters"].(map[string]any)
+	if !ok {
+		t.Error("chapter result contract omitted")
+	} else {
+		fields := result["success_fields"].([]any)
+		found = false
+		for _, field := range fields {
+			if field == "data.chapter_timeline.items[]" {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("chapter item path omitted")
+		}
+	}
+	guarantees := out["guarantees"].(map[string]any)
+	if guarantees["ids_as_strings"] != false {
+		t.Error("global guarantee contradicts legacy numeric file IDs")
+	}
+	result = out["command_results"].(map[string]any)["file-add"].(map[string]any)
+	fields := result["success_fields"].([]any)
+	found = false
+	for _, field := range fields {
+		if field == "data.id_str" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("canonical string resource ID omitted")
 	}
 }
