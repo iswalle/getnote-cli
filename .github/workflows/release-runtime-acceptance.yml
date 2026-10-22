@@ -1,0 +1,36 @@
+name: Public 1.8.2 runtime acceptance
+on:
+  push:
+    branches: [test/release-runtime-1.8.2-20261022]
+permissions:
+  contents: read
+jobs:
+  runtime:
+    name: ${{ matrix.os }}-${{ matrix.arch }} public installs
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, os: linux, arch: amd64}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: arm64}
+          - {runner: windows-latest, os: windows, arch: amd64}
+          - {runner: windows-11-arm, os: windows, arch: arm64}
+          - {runner: macos-15-intel, os: darwin, arch: amd64}
+          - {runner: macos-14, os: darwin, arch: arm64}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install and execute public npm and GitHub distributions
+        env:
+          ACCEPTANCE_GOOS: ${{ matrix.os }}
+          ACCEPTANCE_GOARCH: ${{ matrix.arch }}
+        run: python scripts/verify-public-runtime.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-${{ matrix.os }}-${{ matrix.arch }}
+          path: runtime-evidence.json
