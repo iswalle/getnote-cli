@@ -1,5 +1,7 @@
 """Execute already-published binaries; never publish, build, or use account credentials."""
-import hashlib, http.server, json, os, platform, shutil, subprocess, tarfile, tempfile, threading, urllib.request, zipfile
+import hashlib, http.server, json, os, platform, shutil, subprocess, sys, tarfile, tempfile, threading, urllib.request, zipfile
+
+sys.stdout.reconfigure(encoding="utf-8")
 from pathlib import Path
 
 VERSION = "1.8.2"
