@@ -217,12 +217,40 @@ func newAddCmd() *cobra.Command {
 				}
 				return fmt.Errorf("API error: %s", msg)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "✓ Added %d note(s) to %s.\n", len(args[1:]), args[0])
+			added, failed := addResult(resp.Data, len(args[1:]))
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Added %d note(s) to %s.\n", added, args[0])
+			if len(failed) > 0 {
+				return fmt.Errorf("%d note(s) not added: %s\n%s", len(failed), strings.Join(failed, ", "), addFailureHint)
+			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&directoryID, "directory-id", "", "Target directory ID; omit for the knowledge-base root")
 	return cmd
+}
+
+const addFailureHint = "一条笔记同一时间只能在一个自有知识库中；已在其他知识库或已在本知识库时会加入失败。" +
+	"如需换库或放入文件夹，请先用 getnote kb remove 移出，再重新加入。"
+
+// addResult reads success_count and failed_note_ids from a batch-add response.
+// The service reports per-note rejections inside a successful response, so
+// success=true alone does not mean every note was added.
+func addResult(data interface{}, requested int) (added int, failed []string) {
+	m, _ := data.(map[string]interface{})
+	if raw, ok := m["failed_note_ids"].([]interface{}); ok {
+		for _, v := range raw {
+			failed = append(failed, fmt.Sprint(v))
+		}
+	}
+	switch n := m["success_count"].(type) {
+	case json.Number:
+		if v, err := n.Int64(); err == nil {
+			return int(v), failed
+		}
+	case float64:
+		return int(n), failed
+	}
+	return requested - len(failed), failed
 }
 
 func newDirectoriesCmd() *cobra.Command {
