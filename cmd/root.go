@@ -81,6 +81,11 @@ func writeError(w io.Writer, err error, format string) {
 				apiErr.MembershipURL = client.MembershipPurchaseURL
 			}
 		}
+		var data any
+		var contextual interface{ ErrorData() any }
+		if errors.As(err, &contextual) {
+			data = contextual.ErrorData()
+		}
 		payload := struct {
 			Success   bool             `json:"success"`
 			Data      interface{}      `json:"data"`
@@ -88,7 +93,7 @@ func writeError(w io.Writer, err error, format string) {
 			RequestID string           `json:"request_id,omitempty"`
 		}{
 			Success:   false,
-			Data:      nil,
+			Data:      data,
 			Error:     &apiErr,
 			RequestID: requestID,
 		}

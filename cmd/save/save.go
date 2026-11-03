@@ -1,10 +1,13 @@
 package save
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,12 +28,16 @@ func NewSaveCmd() *cobra.Command {
 	var idempotencyKey string
 	var contentFile string
 	var readStdin bool
+	var imageURLFile string
 
 	cmd := &cobra.Command{
 		Use:   "save [url|text|image_path]",
 		Short: "保存链接、文本或图片笔记 / Save a URL, text note, or image",
 		Args: func(cmd *cobra.Command, args []string) error {
 			sources := 0
+			if imageURLFile != "" {
+				sources++
+			}
 			if len(args) > 0 {
 				sources++
 			}
@@ -52,6 +59,17 @@ func NewSaveCmd() *cobra.Command {
   pbpaste | getnote save --stdin --title "Clipboard note"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			content, err := resolveContent(cmd, args, contentFile, readStdin)
+			if imageURLFile != "" {
+				raw, readErr := os.ReadFile(imageURLFile)
+				err = readErr
+				content = strings.TrimSpace(string(raw))
+				if err == nil {
+					u, parseErr := url.Parse(content)
+					if parseErr != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
+						return fmt.Errorf("image-url-file 必须仅包含原图片的 HTTPS 地址")
+					}
+				}
+			}
 			if err != nil {
 				return err
 			}
@@ -71,7 +89,14 @@ func NewSaveCmd() *cobra.Command {
 				ParentID:        parentID,
 				ClientRequestID: idempotencyKey,
 			}
-			if strings.HasPrefix(content, "http://") || strings.HasPrefix(content, "https://") {
+			if imageURLFile != "" {
+				if idempotencyKey == "" {
+					return fmt.Errorf("续接图片保存必须提供原 --idempotency-key")
+				}
+				req.NoteType = "img_text"
+				req.ImageURLs = []string{content}
+				req.Title = title
+			} else if strings.HasPrefix(content, "http://") || strings.HasPrefix(content, "https://") {
 				req.NoteType = "link"
 				req.LinkURL = content
 				req.Title = title
@@ -116,6 +141,7 @@ func NewSaveCmd() *cobra.Command {
 	cmd.Flags().StringVar(&parentID, "parent-id", "", "创建为指定笔记的子笔记 / Create as a child note")
 	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "重试时复用的幂等键，1-128 位 ASCII / Retry-safe request key")
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "从 UTF-8 文件安全读取长文本 / Read long text from a UTF-8 file")
+	cmd.Flags().StringVar(&imageURLFile, "image-url-file", "", "从私有文件读取已上传图片的原地址；仅续接保存，不重新上传")
 	cmd.Flags().BoolVar(&readStdin, "stdin", false, "从标准输入安全读取长文本 / Read long text from stdin")
 	return cmd
 }
@@ -224,6 +250,13 @@ func saveImage(
 	tags []string,
 	topicID, parentID, idempotencyKey string,
 ) error {
+	if idempotencyKey == "" {
+		b := make([]byte, 16)
+		if _, err := rand.Read(b); err != nil {
+			return err
+		}
+		idempotencyKey = "image-note-" + hex.EncodeToString(b)
+	}
 	isJSON := outputFormat(cmd) == "json"
 	out := cmd.OutOrStdout()
 
@@ -247,7 +280,7 @@ func saveImage(
 		fmt.Fprintf(out, "Uploading %s...\n", filepath.Base(imagePath))
 	}
 	if err := c.ImageUploadToOSS(token, imagePath); err != nil {
-		return fmt.Errorf("uploading image: %w", err)
+		return &client.RecoveryError{Err: err, Kind: "image", OperationID: token.OperationID, State: "object_upload_unconfirmed"}
 	}
 
 	// Step 3: save img_text note
@@ -262,7 +295,7 @@ func saveImage(
 	}
 	resp, err := c.NoteSave(req)
 	if err != nil {
-		return fmt.Errorf("saving image note: %w", err)
+		return &uploadedImageError{Err: err, URL: token.AccessURL, NoteKey: idempotencyKey}
 	}
 
 	// Extract task_id
@@ -271,13 +304,16 @@ func saveImage(
 		if noteID := extractNoteID(resp.Data); noteID != "" && noteID != "0" {
 			noteResp, detailErr := c.NoteGet(noteID)
 			if detailErr != nil {
-				return fmt.Errorf("图片已提交但读取最终笔记失败: %w", detailErr)
+				return &uploadedImageError{Err: detailErr, URL: token.AccessURL, NoteKey: idempotencyKey}
 			}
 			return outputFinalNote(cmd, noteResp)
 		}
-		return fmt.Errorf("图片已上传，但保存响应未返回 note_id 或 task_id，无法确认是否完成；请勿直接重复保存")
+		return &uploadedImageError{Err: fmt.Errorf("保存未返回 note_id 或 task_id，不能确认完成"), URL: token.AccessURL, NoteKey: idempotencyKey}
 	}
-	return pollTask(cmd, c, taskID)
+	if err := pollTask(cmd, c, taskID); err != nil {
+		return &uploadedImageError{Err: err, URL: token.AccessURL, NoteKey: idempotencyKey, TaskID: taskID}
+	}
+	return nil
 }
 
 // extractTaskID tries to extract a task_id from a save response data value.
@@ -446,4 +482,19 @@ func renderNote(cmd *cobra.Command, n client.Note) {
 func outputFormat(cmd *cobra.Command) string {
 	f, _ := cmd.Root().PersistentFlags().GetString("output")
 	return f
+}
+
+// Machine-only context lets agents resume the exact save without uploading again.
+type uploadedImageError struct {
+	Err          error
+	URL, NoteKey string
+	TaskID       string
+}
+
+func (e *uploadedImageError) Error() string {
+	return "图片已上传，保存未确认；保留原图片地址和原请求键，勿重新上传"
+}
+func (e *uploadedImageError) Unwrap() error { return e.Err }
+func (e *uploadedImageError) ErrorData() any {
+	return map[string]any{"uploaded_image": map[string]any{"stage": "oss_uploaded", "url": e.URL, "client_request_id": e.NoteKey, "task_id": e.TaskID}}
 }

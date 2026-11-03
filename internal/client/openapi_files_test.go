@@ -45,6 +45,7 @@ func TestFileAndReportRoutesPreserveMetadataAndPagination(t *testing.T) {
 		"/open/api/v1/resource/note/sprouts?limit=2&month=2026-09&since_id=1922071641760757698",
 		"/open/api/v1/resource/note/sprout?id=report-alias",
 		"/open/api/v1/resource/knowledge/file/capabilities",
+		"/open/api/v1/resource/knowledge/file/capabilities",
 		"/open/api/v1/resource/knowledge/file/upload_token?mime_type=HTM",
 		"/open/api/v1/resource/knowledge/file/upload",
 	}

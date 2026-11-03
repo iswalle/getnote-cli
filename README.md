@@ -233,7 +233,7 @@ getnote search '主题' --response-mode snippet --max-snippet-chars 400 -o json
 
 课程响应的 `coverage` 说明实际覆盖范围，省略类型也不表示包含未关联课程身份的心得或录音。JSON 输出及 `--all` 保留该对象中的未知类型和新增字段；任一页的 `partial` 或警告都会保留，存在未解决问题时 `traversal.completed=false`，不能因分页结束便声称结果完整。
 
-错误保留合法值和等待建议；已知只读瞬时429最多额外重试2次，累计等待不超过5秒。配额耗尽、写操作和凭证签发不自动重试。
+错误保留合法值及完整 `error.rate_limit_detail`。明确 `not_started/retry_same_operation` 的 QPS 拒绝由客户端复用同一步骤，最多额外重试 2 次、累计等待不超过 5 秒；日/月额度等到重置，上传滚动额度先完成已有操作，零限额联系管理员，配置不可用暂停。Agent 不叠加重试循环。同一身份队列仅在进程内协调，跨 CLI 进程、token 和 MCP 调用仍需排队；频率以实时策略为准。
 
 ### 认证
 
@@ -383,6 +383,10 @@ gnote note quick <note_id>
 云 MCP 已授权时，无需再登录 CLI：MCP 获取临时上传 token，将 JSON 经受控文件或 stdin 交给 `getnote upload <file> --max-size-bytes <能力接口上限>`。此命令不读取 CLI 身份凭证，只向 OSS 上传，返回 `stage=oss_uploaded` 和文件元数据。随后由同一个已授权 MCP 提交知识库入库并查询最终 `SUCCESS`；上传成功不等于入库完成。不要将 token 放入命令参数、聊天或日志。
 
 CLI 已登录时也可使用 `file-token <extension>` 获取 token、`upload` 直传，再用 `file-add <topic_id> <directory_id> --metadata-file <上传结果文件>` 提交。临时 token 不提供通用 OpenAPI 权限。
+
+`image-config` / `file-capabilities` 的 runtime 声明 `operation_replay`、幂等头和状态入口时，凭证命令可保留 `--operation-id`；旧服务或治理关闭时不发送凭证幂等头。签发结果未知或失败 `data.upload_recovery` 要求查询原操作时，分别使用 `image-operation <operation_id>` / `file-operation <operation_id>`。`issued` 且未过 `resume_until` 复用原凭证，`processing/needs_reconciliation` 停止新签发，`expired` 先查已有对象与保存/入库结果；重放不延长原期限。
+
+图片已上传而保存被限流时，失败 `data.uploaded_image` 保留对象地址和原 `client_request_id`。把原 HTTPS 地址写入权限 0600 的私有文件，使用 `getnote save --image-url-file ./private-uploaded-url.txt --idempotency-key <原笔记键> -o json` 续接保存，不重领 token 或重传图片。凭证、签名 URL 和对象私有地址不贴聊天、不放命令参数。支持情况以 capabilities 的 `same_identity_request_queue/safe_not_started_retries/upload_operation_recovery` 和服务 runtime 为准。
 
 `file-add -o json` 保留历史数字字段 `id`、`topic_id`、`directory_id`，同时提供精确的十进制字符串 `id_str`、`topic_id_str`、`directory_id_str`；新消费者应使用后者，避免 JavaScript 大整数精度损失。旧服务端缺少字符串字段时，CLI 会无损补齐。`capabilities.guarantees.ids_as_strings=false` 表示不保证所有历史 ID 字段均为字符串，各命令的推荐字段以 `command_results` 为准。
 

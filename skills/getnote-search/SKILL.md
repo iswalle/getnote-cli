@@ -124,7 +124,7 @@ getnote search "客户反馈" --kb <topic_id> --limit 5 -o json
 ## 失败、隐私与后续动作
 
 - `success=false` 或退出码非 0：回复失败步骤、`error.message` / `error.reason`、是否 `retryable` 和可选 `request_id`；不要将 HTTP 成功或空输出说成搜索成功。
-- 参数错误先读取 field/supported_values；限流保留 retry_after_seconds。CLI 已对已知只读瞬时429做最多额外2次、累计等待5秒的重试，Agent 不再叠加无界重试；日/月配额和写操作不自动重试。
+- 参数错误先读取 field/supported_values；限流保留完整 `error.rate_limit_detail`，按连接与额度指南（CLI 的 `getnote-auth` / 独立 Skill 的 `references/auth.md`）中的“限流与同一操作恢复”处理。客户端负责明确安全未执行请求的有界重试；Agent 不叠加循环、并发重试或固定 1 QPS 假设，日/月额度按 reset_at 暂停。
 - 若 CLI 提示“搜索服务响应超时”，这是检索未完成，不是“没有结果”。建议稍后重试，或缩小关键词、指定知识库后再试；不要伪造空列表。
 - 检索结果可能包含私密正文。群聊或共享会话默认只展示标题、必要摘要和真实链接；用户明确要求后再展开全文。
 - 用户选中结果后，复用返回的字符串 `note_id`，再读取 `getnote note <note_id> -o json`；不要从 URL 截取或转换为数字。

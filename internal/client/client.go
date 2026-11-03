@@ -60,16 +60,17 @@ func (id *StringID) UnmarshalJSON(data []byte) error {
 
 // APIError represents an error returned by the API.
 type APIError struct {
-	Code              int      `json:"code"`
-	Message           string   `json:"message"`
-	Reason            string   `json:"reason"`
-	Retryable         bool     `json:"retryable"`
-	Field             string   `json:"field,omitempty"`
-	Constraint        string   `json:"constraint,omitempty"`
-	ExpectedType      string   `json:"expected_type,omitempty"`
-	MembershipURL     string   `json:"membership_url,omitempty"`
-	SupportedValues   []string `json:"supported_values,omitempty"`
-	RetryAfterSeconds *int64   `json:"retry_after_seconds,omitempty"`
+	Code              int             `json:"code"`
+	Message           string          `json:"message"`
+	Reason            string          `json:"reason"`
+	Retryable         bool            `json:"retryable"`
+	Field             string          `json:"field,omitempty"`
+	Constraint        string          `json:"constraint,omitempty"`
+	ExpectedType      string          `json:"expected_type,omitempty"`
+	MembershipURL     string          `json:"membership_url,omitempty"`
+	SupportedValues   []string        `json:"supported_values,omitempty"`
+	RetryAfterSeconds *int64          `json:"retry_after_seconds,omitempty"`
+	RateLimitDetail   json.RawMessage `json:"rate_limit_detail,omitempty"`
 }
 
 // RequestError is returned whenever the API envelope reports success=false,
@@ -1070,15 +1071,18 @@ type QuotaWindow struct {
 
 // QuotaData is the data field of the quota response.
 type QuotaData struct {
-	Read      QuotaWindow `json:"read"`
-	Write     QuotaWindow `json:"write"`
-	WriteNote QuotaWindow `json:"write_note"`
+	AIChat          QuotaWindow     `json:"ai_chat"`
+	RateLimitPolicy json.RawMessage `json:"rate_limit_policy,omitempty"`
+	Read            QuotaWindow     `json:"read"`
+	Write           QuotaWindow     `json:"write"`
+	WriteNote       QuotaWindow     `json:"write_note"`
 }
 
 // QuotaResponse is the response from the quota endpoint.
 type QuotaResponse struct {
-	Success bool      `json:"success"`
-	Data    QuotaData `json:"data"`
+	RequestID string    `json:"request_id,omitempty"`
+	Success   bool      `json:"success"`
+	Data      QuotaData `json:"data"`
 }
 
 // QuotaGet fetches the user's API quota usage.
@@ -1093,6 +1097,10 @@ func (c *Client) QuotaGet() (*QuotaResponse, error) {
 
 // ImageUploadToken holds the credentials for a single OSS upload.
 type ImageUploadToken struct {
+	UploadID       string `json:"upload_id,omitempty"`
+	Expire         int64  `json:"expire,omitempty"`
+	OperationID    string `json:"operation_id,omitempty"`
+	ResumeUntil    string `json:"resume_until,omitempty"`
 	Host           string `json:"host"`
 	ObjectKey      string `json:"object_key"`
 	AccessID       string `json:"accessid"`
@@ -1107,15 +1115,19 @@ type ImageUploadToken struct {
 // The API returns the token object directly under `data` (it is not wrapped
 // in a `tokens` array), so Data is a single ImageUploadToken.
 type ImageUploadTokenResponse struct {
-	Success bool             `json:"success"`
-	Data    ImageUploadToken `json:"data"`
+	RequestID string           `json:"request_id,omitempty"`
+	Success   bool             `json:"success"`
+	Data      ImageUploadToken `json:"data"`
 }
 
 // ImageGetUploadToken retrieves OSS upload credentials for the given mime type.
 // GET /open/api/v1/resource/image/upload_token
 func (c *Client) ImageGetUploadToken(mimeType string) (*ImageUploadTokenResponse, error) {
-	q := url.Values{"mime_type": {mimeType}, "count": {"1"}}
-	return doGet[ImageUploadTokenResponse](c, "/open/api/v1/resource/image/upload_token", q)
+	result, err := c.ImageToken(mimeType, "")
+	if err != nil {
+		return nil, err
+	}
+	return decodeImageToken(result)
 }
 
 // ImageUploadToOSS uploads the file at imagePath to OSS using the given token.
@@ -1281,13 +1293,29 @@ func doPost[T any](c *Client, path string, payload interface{}) (*T, error) {
 }
 
 func doRequest[T any](c *Client, req *http.Request) (*T, error) {
+	queue, release, err := acquireAdmissionQueue(req.Context(), c.baseURL, c.apiKey, c.clientID)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	var waited time.Duration
 	var lastError *RequestError
 	for attempt := 0; ; attempt++ {
 		if lastError != nil && req.Context().Err() != nil {
 			return nil, errors.Join(lastError, req.Context().Err())
 		}
+		if err := queue.wait(req.Context(), requestBucket(req)); err != nil {
+			if lastError != nil {
+				return nil, errors.Join(lastError, err)
+			}
+			return nil, err
+		}
 		current := req.Clone(req.Context())
+		if requestBucket(req) == "upload_credential" {
+			current.Body = io.NopCloser(strings.NewReader(""))
+			current.GetBody = nil
+			current.ContentLength = 0
+		}
 		if attempt > 0 && req.GetBody != nil {
 			body, err := req.GetBody()
 			if err != nil {
@@ -1295,7 +1323,13 @@ func doRequest[T any](c *Client, req *http.Request) (*T, error) {
 			}
 			current.Body = body
 		}
-		resp, err := c.httpClient.Do(current)
+		transportClient := c.httpClient
+		if requestBucket(req) == "upload_credential" {
+			copyClient := *c.httpClient
+			copyClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
+			transportClient = &copyClient
+		}
+		resp, err := transportClient.Do(current)
 		if err != nil {
 			if lastError != nil && req.Context().Err() != nil {
 				return nil, errors.Join(lastError, req.Context().Err(), err)
@@ -1314,8 +1348,13 @@ func doRequest[T any](c *Client, req *http.Request) (*T, error) {
 
 		if requestErr := requestErrorFromBody(body, resp.StatusCode); requestErr != nil {
 			mergeRetryAfter(&requestErr.APIError, resp.Header.Get("Retry-After"))
-			if delay, ok := readRetryDelay(req, requestErr, attempt, 5*time.Second-waited); ok {
+			queue.observeDecision(requestErr.RateLimitDetail)
+			queue.observeCooldown(requestBucket(req), requestErr.APIError)
+			if delay, ok := readRetryDelay(req, requestErr, attempt, 5*time.Second-waited); ok && queue.remainingWait(requestBucket(req)) <= 5*time.Second-waited {
 				lastError = requestErr
+				if pacing := queue.remainingWait(requestBucket(req)); pacing > delay {
+					delay = pacing
+				}
 				start := time.Now()
 				if err := waitForRetry(req.Context(), delay); err != nil {
 					return nil, errors.Join(requestErr, err)
@@ -1334,6 +1373,7 @@ func doRequest[T any](c *Client, req *http.Request) (*T, error) {
 		if err := decodeJSON(body, &result); err != nil {
 			return nil, fmt.Errorf("parsing response: %w", err)
 		}
+		queue.observePolicy(body)
 		return &result, nil
 	}
 }

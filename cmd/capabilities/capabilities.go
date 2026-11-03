@@ -40,6 +40,9 @@ type commandResult struct {
 }
 
 type guarantees struct {
+	SameIdentityRequestQueue bool              `json:"same_identity_request_queue"`
+	SafeNotStartedRetries    bool              `json:"safe_not_started_retries"`
+	UploadOperationRecovery  bool              `json:"upload_operation_recovery"`
 	IDsAsStrings             bool              `json:"ids_as_strings"`
 	StructuredBusinessErrors bool              `json:"structured_business_errors"`
 	FinalAsyncSaveResult     bool              `json:"final_async_save_result"`
@@ -55,6 +58,10 @@ type guarantees struct {
 
 func commandResults() map[string]commandResult {
 	return map[string]commandResult{
+		"image-config":      {SuccessFields: []string{"success=true", "data.runtime"}},
+		"image-token":       {SuccessFields: []string{"success=true", "data.access_url"}, Notes: "Sensitive temporary credential; capability-gated stable operation."},
+		"image-operation":   {SuccessFields: []string{"success=true", "data.operation_id", "data.state"}, Notes: "Only issued and unexpired credentials can resume; never change operation ID."},
+		"file-operation":    {SuccessFields: []string{"success=true", "data.operation_id", "data.state"}},
 		"marks":             {SuccessFields: []string{"success=true", "data.note_id", "data.marks[]"}, Notes: "Independent from timeline moments."},
 		"sprouts":           {SuccessFields: []string{"success=true", "data.tasks[]"}},
 		"sprout":            {SuccessFields: []string{"success=true", "data.has_sprout", "data.sprout"}},
@@ -237,7 +244,7 @@ func currentResponse() response {
 		ContractVersion: "2.2",
 		Architecture:    "Skill navigates intent; CLI performs deterministic operations",
 		Commands: map[string][]string{
-			"file_transfer":  {"upload", "file-capabilities", "file-token", "file-add"},
+			"file_transfer":  {"upload", "image-config", "image-token", "image-operation", "file-capabilities", "file-token", "file-operation", "file-add"},
 			"reports":        {"marks", "sprouts", "sprout"},
 			"connection":     {"doctor", "capabilities", "auth", "auth login", "auth status", "auth logout", "setup"},
 			"notes":          {"save", "task", "notes", "notes batch", "references list", "note", "note original", "note transcript", "note attachments", "note timeline", "note chapters", "note quick-note", "note todos", "note update", "note delete", "note share"},
@@ -281,7 +288,7 @@ func currentResponse() response {
 			"course_boundary":              "Personal notes only; course+topic unsupported. Directory matching is not semantic course search; require reference.resources.v1/note.course_filter.v1 and applied filters.",
 			"batch_detail":                 "notes batch <string-ID> [string-ID...] --fields original; require note.batch_detail.v1, preserve pending_ids/status/partial, never fan out automatically.",
 			"snippet":                      "search <query> --response-mode snippet [--max-snippet-chars 100..1000]; require search.snippet.v1. Full snippet state describes a recalled chunk, not a whole note; legacy defaults unchanged.",
-			"read_retry":                   "Known read-only transient QPS429 only, at most2 additional attempts/5seconds cumulative wait with positive jitter; preserve waiting advice. Quota/writes/credential issuance never retry.",
+			"read_retry":                   "At most2 additional attempts/5seconds cumulative wait with positive jitter. Legacy: known reads only. V2: retryable QPS + detail.retryable=true + not_started + retry_same_operation allow identical known writes and stable-key credentials. Never retry quota, admitted or uncertain writes; no outer Agent retry loop.",
 			"requires_server_capabilities": []string{"note.reference.v1", "note.filters.v1", "knowledge.lookup.v1", "pagination.v1"},
 			"capability_scope":             "Client supports these contracts; verify the current endpoint's meta.capabilities and applied_filters. A client declaration is not server support.",
 			"book_lookup":                  "kbs --scope BOOKSPACE --query <title> [--author <author>] [--book-id <book_id>] --all; disambiguate before selecting topic_id",
@@ -293,7 +300,7 @@ func currentResponse() response {
 		},
 		ResultContracts: map[string][]string{
 			"common_success": {"success=true", "data"},
-			"common_error":   {"success=false", "data=null", "error.code", "error.message", "error.reason", "error.retryable", "request_id?"},
+			"common_error":   {"success=false", "data=null|upload_recovery|uploaded_image", "error.rate_limit_detail?", "error.code", "error.message", "error.reason", "error.retryable", "request_id?"},
 			"save":           {"data.note.note_id", "data.note.title", "data.note.note_url"},
 			"task":           {"data.task_id", "data.status", "data.note_id?", "data.msg?", "data.error_msg?"},
 			"notes":          {"data.notes[]", "data.total", "data.has_more", "data.cursor"},
@@ -304,6 +311,7 @@ func currentResponse() response {
 		},
 		CommandResults: commandResults(),
 		Guarantees: guarantees{
+			SameIdentityRequestQueue: true, SafeNotStartedRetries: true, UploadOperationRecovery: true,
 			IDsAsStrings:             false, // Numeric legacy aliases are retained; use command-specific canonical string fields.
 			StructuredBusinessErrors: true,
 			FinalAsyncSaveResult:     true,

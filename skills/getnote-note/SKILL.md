@@ -19,13 +19,14 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，按�
 }
 ```
 
-失败结果为 `success=false` 或命令退出码非 0，读取 `error.code`、`error.message`、`error.reason`、`error.retryable` 和可选 `request_id`。HTTP 成功、上传完成、出现任务 ID 或拿到空笔记链接，都不能替代最终成功结果。
+失败结果为 `success=false` 或命令退出码非 0，读取 `error.code`、`error.message`、`error.reason`、`error.retryable`、`error.rate_limit_detail`、可选 `request_id` 及 `data.upload_recovery/uploaded_image`。HTTP 成功、上传完成、出现任务 ID 或拿到空笔记链接，都不能替代最终成功结果。
 
 ## 意图路由
 
 | 意图 | 命令入口 |
 |---|---|
 | 保存文字、链接或本地图片 | `getnote save` |
+| 图片运行策略、凭证与原申请状态 | `getnote image-config`、`getnote image-token <extension>`、`getnote image-operation <operation_id>` |
 | 查询异步保存任务 | `getnote task` |
 | 查看最近笔记 | `getnote notes` |
 | 按预算读取少量个人笔记正文/原文 | `getnote notes batch` |
@@ -117,7 +118,7 @@ getnote notes --source dedao --note-type ref --article-url '<reference.article.u
 
 退出码0和 success=true 只代表批量调用成功：逐条检查 status=ok/unavailable/failed/deferred_budget、content_state、partial、pending_ids。成功项正文完整，deferred_budget 整条待读，不能把 omitted 当空正文；未知未来状态原样保留并说明未确认。用户确需全文时再用旧 `getnote note original '<真实note_id>' -o json` 补读，不自动并发20次单条请求。不存在与无权统一 unavailable，不判断对象是否存在；首版不批量读知识库共享笔记，不绕过原单条权限。
 
-参数错误读取 field/supported_values；限流保留 retry_after_seconds。CLI 已对已知只读瞬时429做最多额外2次、累计等待5秒重试；Agent 不叠加重试，日/月配额、写操作与上传凭证不自动重试。
+参数错误读取 field/supported_values；限流保留完整 `error.rate_limit_detail`，按连接与额度指南（CLI 的 `getnote-auth` / 独立 Skill 的 `references/auth.md`）中的“限流与同一操作恢复”处理。只有明确未执行且允许重试的同一步骤由客户端有界重试；Agent 不叠加循环或并发重试。
 
 ## 保存流程
 
@@ -140,11 +141,17 @@ getnote notes --source dedao --note-type ref --article-url '<reference.article.u
 2. CLI 会校验真实文件格式、上传图片并轮询识别任务。
 3. 只有最终笔记详情返回有效 `note_id/title/note_url` 才算成功；“图片已上传”不是“笔记已生成”。
 
+图片凭证与恢复先读 `getnote image-config -o json` 的 `data.runtime`：`governance_enabled`、`upload_quota_enforced`、`rolling_limit/rolling_window_seconds`、`operation_replay`、`idempotency_header`、`operation_status_endpoint`、`dedup_retention_seconds/recovery_deadline`。仅服务声明支持恢复时，才用 `getnote image-token <extension> --operation-id <原操作标识> -o json`；不要向旧服务或治理关闭的服务强塞凭证 `Idempotency-Key`。凭证操作 ID 与保存笔记的 `--idempotency-key` 分开保留。
+
+- 签发断流或 `data.upload_recovery` 出现时，读取其 `kind/operation_id/state/retry_action/retryable`；`query_original_operation` 要求用原 ID 执行 `getnote image-operation <operation_id> -o json`，不是重新申请。将含凭证的结果写入权限 0600 的受控文件供机器读取，不回显聊天。
+- 状态结果保留 `operation_id/upload_id/state/resume_until`。`issued` 且未过 `resume_until` 才复用原 `credential`；`processing` / `needs_reconciliation` 时停止新签发并核对原状态；`expired` 先查已有对象和保存结果，再明确启动新操作。不能换 ID 重领、重传已存在字节或通过重放延长原期限；`dedup_retention_seconds` 不是凭证有效期。`issued` 若缺少 `credential` 或 `resume_until`，保留原 ID 并暂停，报告状态不完整。
+- OSS 已上传而保存受限时，保留 `data.uploaded_image={stage:oss_uploaded,url,client_request_id}`，不再申请 token 或上传。把原 `url` 单独写入权限 0600 的本地文件，使用 `getnote save --image-url-file ./private-uploaded-url.txt --idempotency-key <原笔记键> -o json` 仅续接保存；文件只含一个原 HTTPS 地址，原笔记键取已保留的 `client_request_id`。该地址不得贴聊天或放进命令参数。客户端已耗尽重试时停止本轮自动重试，报告等待建议并保留上述续接材料；不要在等待后从外层再执行 save 来重置客户端重试预算。
+
 ### 异步超时与安全重试
 
 - `getnote save ... -o json` 正常会等待最终结果；若退出码非 0 且输出含 `task_id`、`status=pending|processing`，操作结果仍不确定。
 - 结果不确定时使用 `getnote task <task_id> -o json` 查询原任务。`done|success` 且有有效 `note_id` 后再读取笔记；`failed` 时展示 `error_msg` 或 `msg`。
-- 超时、断流或网络错误后禁止直接再次保存；先查询原任务或最近笔记。只有 CLI/API 明确 `retryable=true` 且已确认原操作没有成功时才重试。
+- 超时、断流或网络错误后禁止直接再次保存；先查询原任务或最近笔记。明确 `not_started/retry_same_operation` 的有界重试交给客户端；其它结果未知的写操作先核对原结果，不凭 `retryable=true` 重复创建。
 
 ## 查询和深层读取
 
@@ -174,6 +181,9 @@ getnote notes --source dedao --note-type ref --article-url '<reference.article.u
 | 命令 | 成功结果必须包含 | 回复规则 |
 |---|---|---|
 | `getnote save … -o json` | `success=true`、`data.note.note_id/title/note_url` | 回复“已保存《标题》”和真实链接。链接/图片先只得到 `task_id` 时还未成功，继续查任务。 |
+| `getnote image-config -o json` | `success=true`、`data.runtime` | 读取当前策略与恢复开关；不硬编码频率或上传限制。 |
+| `getnote image-token <extension> -o json` | `success=true`、`data.access_url` 等临时凭证 | 仅机器读取；能力支持时保留同一 `--operation-id`。 |
+| `getnote image-operation <operation_id> -o json` | `success=true`、`data.operation_id/state/resume_until`，可选 `credential` | 按上面的状态分流，凭证不回显。 |
 | `getnote task <task_id> -o json` | `data.task_id/status/note_id?/msg?/error_msg?` | 仅 `done`/`success` 且有 `note_id` 为完成；`pending`/`processing` 是处理中；`failed` 说明真实原因。 |
 | `getnote notes -o json` | `data.notes[].note_id/title/note_url`；新筛选响应另有 `pagination` | 返回标题、字符串 ID 和真实链接。新筛选按 `pagination.has_more/next_cursor` 翻页；仅无 `pagination` 的旧响应按 `has_more/cursor`。旧 `total` 不能当作筛选后数量。 |
 | `getnote note <id> -o json` | `data.note.note_id/title/note_url/note_type`，按需读 `content` | 先给摘要和链接；私密全文只在用户明确要求时展开。 |

@@ -37,7 +37,7 @@ func (c *Client) FileCapabilities() (*ResourceResponse, error) {
 	return doGet[ResourceResponse](c, "/open/api/v1/resource/knowledge/file/capabilities", nil)
 }
 func (c *Client) FileToken(ext string) (*ResourceResponse, error) {
-	return doGet[ResourceResponse](c, "/open/api/v1/resource/knowledge/file/upload_token", url.Values{"mime_type": {ext}})
+	return c.FileTokenWithOperation(ext, "")
 }
 func (c *Client) FileAdd(req any) (*ResourceResponse, error) {
 	result, err := doPost[ResourceResponse](c, "/open/api/v1/resource/knowledge/file/upload", req)
