@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"math/rand"
 	"net/http"
@@ -42,8 +43,16 @@ func readRetryDelay(req *http.Request, apiErr *RequestError, retry int, remainin
 		return 0, false
 	}
 	readOnly := isReadOnlyGET(req) || (req.Method == http.MethodPost &&
-		(req.URL.Path == "/open/api/v1/resource/recall" || req.URL.Path == "/open/api/v1/resource/recall/knowledge" || req.URL.Path == "/open/api/v1/resource/note/batch-detail"))
-	if !readOnly || (req.Body != nil && req.Body != http.NoBody && req.GetBody == nil) {
+		(req.URL.Path == "/open/api/v1/resource/recall" || req.URL.Path == "/open/api/v1/resource/recall/knowledge" || req.URL.Path == "/open/api/v1/resource/note/batch-detail" || req.URL.Path == "/open/api/v1/resource/note/task/progress"))
+	safe := readOnly
+	if len(apiErr.RateLimitDetail) > 0 {
+		var decision admissionDecision
+		if json.Unmarshal(apiErr.RateLimitDetail, &decision) != nil || decision.RetryAfterMS < 0 || decision.RetryAfterSeconds < 0 || !decision.Retryable || decision.Dimension != "qps" || decision.RequestExecution != "not_started" || decision.RetryAction != "retry_same_operation" {
+			return 0, false
+		}
+		safe = readOnly || knownWrite(req) || (requestBucket(req) == "upload_credential" && req.Header.Get("Idempotency-Key") != "")
+	}
+	if !safe || (req.Body != nil && req.Body != http.NoBody && req.GetBody == nil) {
 		return 0, false
 	}
 	delay := (200 * time.Millisecond) << retry
@@ -53,6 +62,23 @@ func readRetryDelay(req *http.Request, apiErr *RequestError, retry int, remainin
 			return 0, false
 		}
 		delay = time.Duration(*apiErr.RetryAfterSeconds) * time.Second
+	}
+	var decision admissionDecision
+	if json.Unmarshal(apiErr.RateLimitDetail, &decision) == nil && decision.RetryAfterSeconds > 0 {
+		if decision.RetryAfterSeconds > int64(remaining/time.Second) {
+			return 0, false
+		}
+		if secs := time.Duration(decision.RetryAfterSeconds) * time.Second; secs > delay {
+			delay = secs
+		}
+	}
+	if json.Unmarshal(apiErr.RateLimitDetail, &decision) == nil && decision.RetryAfterMS > 0 {
+		if decision.RetryAfterMS > int64(remaining/time.Millisecond) {
+			return 0, false
+		}
+		if ms := time.Duration(decision.RetryAfterMS) * time.Millisecond; ms > delay {
+			delay = ms
+		}
 	}
 	delay += time.Duration(1+rand.Intn(50)) * time.Millisecond
 	return delay, delay <= remaining
@@ -70,7 +96,8 @@ func isReadOnlyGET(req *http.Request) bool {
 		"/open/api/v1/resource/reference/list", "/open/api/v1/resource/knowledge/list", "/open/api/v1/resource/knowledge/subscribe/list",
 		"/open/api/v1/resource/knowledge/notes", "/open/api/v1/resource/knowledge/directories", "/open/api/v1/resource/knowledge/file/capabilities",
 		"/open/api/v1/resource/knowledge/bloggers", "/open/api/v1/resource/knowledge/blogger/contents", "/open/api/v1/resource/knowledge/blogger/content/detail",
-		"/open/api/v1/resource/knowledge/lives", "/open/api/v1/resource/knowledge/live/detail", "/open/api/v1/resource/rate-limit/quota":
+		"/open/api/v1/resource/knowledge/lives", "/open/api/v1/resource/knowledge/live/detail", "/open/api/v1/resource/rate-limit/quota",
+		"/open/api/v1/resource/image/config", "/open/api/v1/resource/image/upload_operation", "/open/api/v1/resource/knowledge/file/upload_operation":
 		return true
 	}
 	return false

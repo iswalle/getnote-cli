@@ -24,13 +24,29 @@ func addFileAndReportCommands() {
 		{"sprouts <YYYY-MM>", "列出指定月份的发芽报告", "getnote sprouts 2026-09 -o json", 1, func(c *client.Client, a []string) (*client.ResourceResponse, error) { return c.Sprouts(a[0]) }},
 		{"sprout <id>", "读取发芽报告原文", "getnote sprout report-alias -o json", 1, func(c *client.Client, a []string) (*client.ResourceResponse, error) { return c.Sprout(a[0]) }},
 		{"file-capabilities", "查询知识库文件格式及大小页数限制", "getnote file-capabilities -o json", 0, func(c *client.Client, a []string) (*client.ResourceResponse, error) { return c.FileCapabilities() }},
+		{"image-config", "查询图片上传能力及当前运行策略", "getnote image-config -o json", 0, func(c *client.Client, a []string) (*client.ResourceResponse, error) { return c.ImageConfig() }},
+		{"image-token <extension>", "申请图片上传凭证；仅供机器使用", "getnote image-token png -o json", 1, func(c *client.Client, a []string) (*client.ResourceResponse, error) { return c.ImageToken(a[0], "") }},
+		{"image-operation <operation_id>", "读取原图片上传申请状态", "getnote image-operation original-id -o json", 1, func(c *client.Client, a []string) (*client.ResourceResponse, error) {
+			return c.UploadOperation("image", a[0])
+		}},
+		{"file-operation <operation_id>", "读取原文件上传申请状态", "getnote file-operation original-id -o json", 1, func(c *client.Client, a []string) (*client.ResourceResponse, error) {
+			return c.UploadOperation("file", a[0])
+		}},
 		{"file-token <extension>", "获取临时OSS文件token；仅供机器传递，不贴到聊天", "getnote file-token HTML -o json > upload-token.json", 1, func(c *client.Client, a []string) (*client.ResourceResponse, error) { return c.FileToken(a[0]) }},
 	} {
 		spec := spec
 		command := &cobra.Command{Use: spec.use, Short: spec.description, Example: "  " + spec.example, Args: cobra.ExactArgs(spec.argc), RunE: func(cmd *cobra.Command, args []string) error {
 			var result *client.ResourceResponse
 			var err error
-			if cmd.Name() == "sprouts" {
+			if cmd.Name() == "image-token" || cmd.Name() == "file-token" {
+				id, _ := cmd.Flags().GetString("operation-id")
+				c := client.New("")
+				if cmd.Name() == "image-token" {
+					result, err = c.ImageToken(args[0], id)
+				} else {
+					result, err = c.FileTokenWithOperation(args[0], id)
+				}
+			} else if cmd.Name() == "sprouts" {
 				sinceID, _ := cmd.Flags().GetString("since-id")
 				limit, _ := cmd.Flags().GetInt("limit")
 				if limit < 1 || limit > 20 {
@@ -45,6 +61,9 @@ func addFileAndReportCommands() {
 			}
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(result)
 		}}
+		if command.Name() == "image-token" || command.Name() == "file-token" {
+			command.Flags().String("operation-id", "", "原凭证申请标识；恢复时必须复用，不能换新标识")
+		}
 		if command.Name() == "sprouts" {
 			command.Flags().String("since-id", "", "上一页返回的游标（字符串）")
 			command.Flags().Int("limit", 20, "每页条数（1–20）")
