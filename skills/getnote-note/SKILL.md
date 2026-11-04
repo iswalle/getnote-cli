@@ -145,7 +145,7 @@ getnote notes --source dedao --note-type ref --article-url '<reference.article.u
 
 - 签发断流或 `data.upload_recovery` 出现时，读取其 `kind/operation_id/state/retry_action/retryable`；`query_original_operation` 要求用原 ID 执行 `getnote image-operation <operation_id> -o json`，不是重新申请。将含凭证的结果写入权限 0600 的受控文件供机器读取，不回显聊天。
 - 状态结果保留 `operation_id/upload_id/state/resume_until`。`issued` 且未过 `resume_until` 才复用原 `credential`；`processing` / `needs_reconciliation` 时停止新签发并核对原状态；`expired` 先查已有对象和保存结果，再明确启动新操作。不能换 ID 重领、重传已存在字节或通过重放延长原期限；`dedup_retention_seconds` 不是凭证有效期。`issued` 若缺少 `credential` 或 `resume_until`，保留原 ID 并暂停，报告状态不完整。
-- OSS 已上传而保存受限时，保留 `data.uploaded_image={stage:oss_uploaded,url,client_request_id}`，不再申请 token 或上传。把原 `url` 单独写入权限 0600 的本地文件，使用 `getnote save --image-url-file ./private-uploaded-url.txt --idempotency-key <原笔记键> -o json` 仅续接保存；文件只含一个原 HTTPS 地址，原笔记键取已保留的 `client_request_id`。该地址不得贴聊天或放进命令参数。客户端已耗尽重试时停止本轮自动重试，报告等待建议并保留上述续接材料；不要在等待后从外层再执行 save 来重置客户端重试预算。
+- OSS 已上传而保存受限或结果未确认时，保留 `data.uploaded_image={stage:oss_uploaded,url,client_request_id,task_id,request}`；`request` 是包含原 `image_urls/title/tags/topic_id/parent_id/client_request_id` 的完整保存请求，不再申请 token 或上传。将整个失败 JSON、`data` 或 `uploaded_image` 对象原样保存到权限 0600 的私有 JSON 文件，核对原结果并确认允许续接后，使用 `getnote save --image-url-file ./private-image-recovery.json -o json` 恢复原参数；有原 `task_id` 时只查询原任务，不再次保存。显式提供的标题、标签、库、父笔记和请求键必须与快照一致，冲突在发请求前拒绝。旧的仅含原 HTTPS 地址的文件仍可用，但必须同时传回原 `--idempotency-key` 以及原有的全部 `--title/--tag/--topic-id/--parent-id` 参数，不能省略或修改。恢复 JSON、凭证和对象私有地址不得贴聊天或放进命令参数。客户端已耗尽重试时停止本轮自动重试，报告等待建议并保留上述材料，不在外层重跑命令来重置重试预算。
 
 ### 异步超时与安全重试
 

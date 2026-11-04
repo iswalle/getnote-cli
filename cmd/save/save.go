@@ -1,6 +1,7 @@
 package save
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -58,18 +60,14 @@ func NewSaveCmd() *cobra.Command {
   getnote save --content-file ./long-note.md --title "Long note"
   pbpaste | getnote save --stdin --title "Clipboard note"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			content, err := resolveContent(cmd, args, contentFile, readStdin)
 			if imageURLFile != "" {
-				raw, readErr := os.ReadFile(imageURLFile)
-				err = readErr
-				content = strings.TrimSpace(string(raw))
-				if err == nil {
-					u, parseErr := url.Parse(content)
-					if parseErr != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
-						return fmt.Errorf("image-url-file 必须仅包含原图片的 HTTPS 地址")
-					}
+				req, taskID, err := readImageResume(cmd, imageURLFile, client.NoteSaveRequest{Title: title, Tags: tags, TopicID: topicID, ParentID: parentID, ClientRequestID: idempotencyKey})
+				if err != nil {
+					return err
 				}
+				return saveUploadedImage(cmd, client.New(""), req, taskID)
 			}
+			content, err := resolveContent(cmd, args, contentFile, readStdin)
 			if err != nil {
 				return err
 			}
@@ -89,14 +87,7 @@ func NewSaveCmd() *cobra.Command {
 				ParentID:        parentID,
 				ClientRequestID: idempotencyKey,
 			}
-			if imageURLFile != "" {
-				if idempotencyKey == "" {
-					return fmt.Errorf("续接图片保存必须提供原 --idempotency-key")
-				}
-				req.NoteType = "img_text"
-				req.ImageURLs = []string{content}
-				req.Title = title
-			} else if strings.HasPrefix(content, "http://") || strings.HasPrefix(content, "https://") {
+			if strings.HasPrefix(content, "http://") || strings.HasPrefix(content, "https://") {
 				req.NoteType = "link"
 				req.LinkURL = content
 				req.Title = title
@@ -141,9 +132,76 @@ func NewSaveCmd() *cobra.Command {
 	cmd.Flags().StringVar(&parentID, "parent-id", "", "创建为指定笔记的子笔记 / Create as a child note")
 	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "重试时复用的幂等键，1-128 位 ASCII / Retry-safe request key")
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "从 UTF-8 文件安全读取长文本 / Read long text from a UTF-8 file")
-	cmd.Flags().StringVar(&imageURLFile, "image-url-file", "", "从私有文件读取已上传图片的原地址；仅续接保存，不重新上传")
+	cmd.Flags().StringVar(&imageURLFile, "image-url-file", "", "从私有文件读取图片恢复 JSON 或原 HTTPS 地址；仅续接原操作，不重新上传")
 	cmd.Flags().BoolVar(&readStdin, "stdin", false, "从标准输入安全读取长文本 / Read long text from stdin")
 	return cmd
+}
+
+func readImageResume(cmd *cobra.Command, path string, flags client.NoteSaveRequest) (client.NoteSaveRequest, string, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return flags, "", err
+	}
+	content := strings.TrimSpace(string(raw))
+	req, taskID := flags, ""
+	if strings.HasPrefix(content, "{") {
+		var object map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &object); err != nil {
+			return req, "", fmt.Errorf("无效的图片恢复 JSON")
+		}
+		if data, ok := object["data"]; ok {
+			object = nil
+			if err := json.Unmarshal(data, &object); err != nil {
+				return req, "", fmt.Errorf("无效的图片恢复 data")
+			}
+		}
+		if image, ok := object["uploaded_image"]; ok {
+			object = nil
+			if err := json.Unmarshal(image, &object); err != nil {
+				return req, "", fmt.Errorf("无效的 uploaded_image 恢复数据")
+			}
+		}
+		var stage, imageURL, key string
+		json.Unmarshal(object["stage"], &stage)
+		json.Unmarshal(object["url"], &imageURL)
+		json.Unmarshal(object["client_request_id"], &key)
+		if value, ok := object["task_id"]; ok && json.Unmarshal(value, &taskID) != nil {
+			return req, "", fmt.Errorf("无效的原图片任务标识")
+		}
+		decoder := json.NewDecoder(bytes.NewReader(object["request"]))
+		decoder.DisallowUnknownFields()
+		req = client.NoteSaveRequest{}
+		if decoder.Decode(&req) != nil || stage != "oss_uploaded" || req.NoteType != "img_text" || len(req.ImageURLs) != 1 || req.Content != "" || req.LinkURL != "" || req.ClientRequestID == "" {
+			return req, "", fmt.Errorf("图片恢复 JSON 缺少完整原保存请求")
+		}
+		if imageURL != req.ImageURLs[0] || key != req.ClientRequestID {
+			return req, "", fmt.Errorf("图片恢复地址或请求键与原保存请求冲突")
+		}
+		for _, field := range []struct{ name, supplied, original string }{
+			{"title", flags.Title, req.Title}, {"topic-id", flags.TopicID, req.TopicID}, {"parent-id", flags.ParentID, req.ParentID}, {"idempotency-key", flags.ClientRequestID, req.ClientRequestID},
+		} {
+			if cmd.Flags().Changed(field.name) && field.supplied != field.original {
+				return req, "", fmt.Errorf("--%s 与原保存请求冲突", field.name)
+			}
+		}
+		if cmd.Flags().Changed("tag") && !slices.Equal(flags.Tags, req.Tags) {
+			return req, "", fmt.Errorf("--tag 与原保存请求冲突")
+		}
+	} else {
+		req.NoteType = "img_text"
+		req.ImageURLs = []string{content}
+	}
+	u, parseErr := url.Parse(req.ImageURLs[0])
+	if parseErr != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
+		return req, "", fmt.Errorf("image-url-file 必须包含原图片 HTTPS 地址或完整恢复 JSON")
+	}
+	if req.ClientRequestID == "" {
+		return req, "", fmt.Errorf("续接图片保存必须提供原 --idempotency-key")
+	}
+	if err := validateIdempotencyKey(req.ClientRequestID); err != nil {
+		return req, "", err
+	}
+	return req, taskID, nil
 }
 
 func resolveContent(cmd *cobra.Command, args []string, contentFile string, readStdin bool) (string, error) {
@@ -293,27 +351,36 @@ func saveImage(
 		ParentID:        parentID,
 		ClientRequestID: idempotencyKey,
 	}
+	return saveUploadedImage(cmd, c, req, "")
+}
+
+func saveUploadedImage(cmd *cobra.Command, c *client.Client, req client.NoteSaveRequest, taskID string) (err error) {
+	defer func() {
+		if err != nil {
+			err = &uploadedImageError{Err: err, URL: req.ImageURLs[0], NoteKey: req.ClientRequestID, TaskID: taskID, Request: req}
+		}
+	}()
+	if taskID != "" {
+		return pollTask(cmd, c, taskID)
+	}
 	resp, err := c.NoteSave(req)
 	if err != nil {
-		return &uploadedImageError{Err: err, URL: token.AccessURL, NoteKey: idempotencyKey}
+		return err
 	}
 
 	// Extract task_id
-	taskID := extractTaskID(resp.Data)
+	taskID = extractTaskID(resp.Data)
 	if taskID == "" {
 		if noteID := extractNoteID(resp.Data); noteID != "" && noteID != "0" {
 			noteResp, detailErr := c.NoteGet(noteID)
 			if detailErr != nil {
-				return &uploadedImageError{Err: detailErr, URL: token.AccessURL, NoteKey: idempotencyKey}
+				return detailErr
 			}
 			return outputFinalNote(cmd, noteResp)
 		}
-		return &uploadedImageError{Err: fmt.Errorf("保存未返回 note_id 或 task_id，不能确认完成"), URL: token.AccessURL, NoteKey: idempotencyKey}
+		return fmt.Errorf("保存未返回 note_id 或 task_id，不能确认完成")
 	}
-	if err := pollTask(cmd, c, taskID); err != nil {
-		return &uploadedImageError{Err: err, URL: token.AccessURL, NoteKey: idempotencyKey, TaskID: taskID}
-	}
-	return nil
+	return pollTask(cmd, c, taskID)
 }
 
 // extractTaskID tries to extract a task_id from a save response data value.
@@ -489,6 +556,7 @@ type uploadedImageError struct {
 	Err          error
 	URL, NoteKey string
 	TaskID       string
+	Request      client.NoteSaveRequest
 }
 
 func (e *uploadedImageError) Error() string {
@@ -496,5 +564,5 @@ func (e *uploadedImageError) Error() string {
 }
 func (e *uploadedImageError) Unwrap() error { return e.Err }
 func (e *uploadedImageError) ErrorData() any {
-	return map[string]any{"uploaded_image": map[string]any{"stage": "oss_uploaded", "url": e.URL, "client_request_id": e.NoteKey, "task_id": e.TaskID}}
+	return map[string]any{"uploaded_image": map[string]any{"stage": "oss_uploaded", "url": e.URL, "client_request_id": e.NoteKey, "task_id": e.TaskID, "request": e.Request}}
 }
