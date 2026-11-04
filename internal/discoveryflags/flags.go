@@ -8,7 +8,7 @@ import (
 
 func BindNotes(cmd *cobra.Command, o *client.DiscoveryOptions, topic bool) {
 	f := cmd.Flags()
-	f.StringVar(&o.NoteType, "note-type", "", "Exact note type, independent of device source: ref=引用, audio=即时录音, local_audio=上传音频, class_audio=课堂录音, meeting=会议, internal_record=内录, recorder_audio/recorder_flash_audio=录音卡长录音/闪念")
+	f.StringVar(&o.NoteType, "note-type", "", "Exact note type, independent of device source: plain_text=文本, link=链接, img_text=图片, ref=引用, audio=即时录音, local_audio=上传音频, class_audio=课堂录音, meeting=会议, internal_record=内录, recorder_audio/recorder_flash_audio=录音卡长录音/闪念")
 	f.StringVar(&o.Source, "source", "", "Exact note source: vendor_moan=recorder station, getseed=recorder card, dedao=Dedao")
 	f.StringVar(&o.ReferenceType, "reference-type", "", "Reference resource type: ebook, course_article, audio_book, unknown")
 	f.StringVar(&o.ReferenceID, "reference-id", "", "Source resource ID; requires --source and --reference-type")
