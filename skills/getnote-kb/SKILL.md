@@ -85,10 +85,12 @@ getnote note original '<返回的 note_id>' -o json
 
 ## 文件夹和归档流程
 
+批量添加/移出：始终核对 `data.failed_note_ids`，按 `data.success_count`（添加）或 `data.removed_count`（移出）报告实际成功数。非空失败列表表示整批未全部完成；CLI 1.9.1 起 JSON 模式返回 `success=false`、退出码 1，错误 JSON 在 stderr，data 保留逐项结果；旧 CLI 可能仍返回 success=true/退出码 0，因此不能只看外层状态。MCP 的 add/remove 工具会标记 `isError=true` 并保留成功数量和失败 ID。部分成功不能说全部失败或全部成功，也不要整批盲目重试；先核对归属，再处理失败项。
+
 1. 用户要求放入文件夹时，用 `gnote kb dir <topic_id> -o json` 读取根目录或指定目录。
 2. 已有文件夹使用 `data.directories[].id` 返回的真实目录 ID；浏览指定目录时把该值传给 `--directory-id`。缺失时先询问是否创建，再用 `mkdir`。
 3. `getnote kb add` 同时传真实 `topic_id`、字符串 `note_id` 和 CLI 帮助中规定的目录参数。
-   一条笔记同一时间只能在一个自有知识库中。笔记已在其他知识库，或已在本知识库（包括根目录）时，`kb add` 仍返回 `success=true`，但该笔记会出现在 `data.failed_note_ids`。换库或放入文件夹需先经用户确认用 `kb remove` 移出，再重新 `kb add`；两步之间失败时笔记暂时不属于任何知识库，应立即重试加入并重新读取目录核对。
+   一条笔记同一时间只能在一个自有知识库中。笔记已在其他知识库，或已在本知识库（包括根目录）时，服务端会把该笔记列入 `data.failed_note_ids`，CLI 按下述批量结果规则报告失败。换库或放入文件夹需先经用户确认用 `kb remove` 移出，再重新 `kb add`；两步之间失败时笔记暂时不属于任何知识库，应立即重试加入并重新读取目录核对。
 4. 每批最多 20 条。移出笔记和删除目录必须先确认；删除目录还必须由 CLI/服务校验为空。
 5. 移动或重命名时只改变用户指定项，未指定的名称或父目录保持不变。
 
@@ -124,8 +126,8 @@ getnote note original '<返回的 note_id>' -o json
 | `getnote kbs-sub --scope <scope> -o json` | `success=true`、`data.topics[].topic_id/name/scope`、`has_more/total` | 只返回该 scope 下真实订阅的他人知识库，通常只读。 |
 | `getnote kb <topic_id> -o json` | `success=true`、`data.notes[].note_id/title/note_type`、`has_more/total` | 返回知识库内真实笔记；需要链接时再用 `note` 读取详情。 |
 | `getnote kb create <name> -o json` | `success=true`、`data?` | 仅创建个人知识库；不得在没有返回 ID 时虚构 `topic_id`。 |
-| `getnote kb add <topic_id> <note_id…> -o json` | `success=true`、`data.success_count`、`data.failed_note_ids` | 最多 20 条；`failed_note_ids` 非空时只报告实际加入的条数，不得说全部加入；需要确认最终目录归属时重新读取目录。 |
-| `getnote kb remove <topic_id> <note_id…> --yes -o json` | `success=true`、`data?` | 最多 20 条；先确认，再说明已从该知识库移出。 |
+| `getnote kb add <topic_id> <note_id…> -o json` | `success`、`data.success_count`、`data.failed_note_ids` | 最多 20 条；`failed_note_ids` 非空时只报告实际加入的条数，不得说全部加入；需要确认最终目录归属时重新读取目录。 |
+| `getnote kb remove <topic_id> <note_id…> --yes -o json` | `success`、`data.removed_count`、`data.failed_note_ids` | 最多 20 条；先确认，再说明已从该知识库移出。 |
 | `gnote kb dir <topic_id> -o json` | `success=true`、`data.current_directory?`、`directories[].id/name`、`resources[].id/directory_id/note_id?/name/type/status`、`total` | 目录主键读取 `directories[].id`；资源归属读取 `resources[].directory_id`，笔记资源用 `resources[].note_id` 验证；旧环境回退 `getnote kb directories`。 |
 | `gnote kb mkdir <topic_id> --name <name> -o json` | `success=true`、`data?` | 也兼容位置参数 `<name>`；二者不可同时使用。若需给出新目录 ID 或层级，随后重新读取目录。 |
 | `gnote kb mvdir <topic_id> <directory_id> … -o json` | `success=true`、`data?` | 只确认用户指定的改名/移动；需要最终名称或父级时重新读取目录。 |

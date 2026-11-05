@@ -206,6 +206,16 @@ func newAddCmd() *cobra.Command {
 				return err
 			}
 			if outputFormat(cmd) == "json" {
+				_, failed := addResult(resp.Data, len(args[1:]))
+				if len(failed) > 0 {
+					return &addRejectedError{
+						RequestError: &client.RequestError{APIError: client.APIError{
+							Code: -1, Reason: "knowledge_notes_rejected", Retryable: false,
+							Message: fmt.Sprintf("%d note(s) not added: %s\n%s", len(failed), strings.Join(failed, ", "), addFailureHint),
+						}},
+						data: resp.Data,
+					}
+				}
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
@@ -229,6 +239,15 @@ func newAddCmd() *cobra.Command {
 	return cmd
 }
 
+// addRejectedError preserves per-note results in the root JSON error envelope.
+type addRejectedError struct {
+	*client.RequestError
+	data any
+}
+
+func (e *addRejectedError) Unwrap() error  { return e.RequestError }
+func (e *addRejectedError) ErrorData() any { return e.data }
+
 const addFailureHint = "一条笔记同一时间只能在一个自有知识库中；已在其他知识库或已在本知识库时会加入失败。" +
 	"如需换库或放入文件夹，请先用 getnote kb remove 移出，再重新加入。"
 
@@ -242,7 +261,11 @@ func addResult(data interface{}, requested int) (added int, failed []string) {
 			failed = append(failed, fmt.Sprint(v))
 		}
 	}
-	switch n := m["success_count"].(type) {
+	rawCount := m["success_count"]
+	if rawCount == nil {
+		rawCount = m["removed_count"]
+	}
+	switch n := rawCount.(type) {
 	case json.Number:
 		if v, err := n.Int64(); err == nil {
 			return int(v), failed
@@ -419,6 +442,16 @@ func newRemoveCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			removed, failed := addResult(resp.Data, len(args[1:]))
+			if len(failed) > 0 {
+				if outputFormat(cmd) != "json" {
+					fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed %d note(s) from %s.\n", removed, args[0])
+				}
+				return &addRejectedError{RequestError: &client.RequestError{APIError: client.APIError{
+					Code: -1, Reason: "knowledge_notes_rejected", Retryable: false,
+					Message: fmt.Sprintf("%d note(s) not removed: %s", len(failed), strings.Join(failed, ", ")),
+				}}, data: resp.Data}
+			}
 			if outputFormat(cmd) == "json" {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
@@ -431,7 +464,7 @@ func newRemoveCmd() *cobra.Command {
 				}
 				return fmt.Errorf("API error: %s", msg)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed %d note(s) from %s.\n", len(args[1:]), args[0])
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed %d note(s) from %s.\n", removed, args[0])
 			return nil
 		},
 	}
