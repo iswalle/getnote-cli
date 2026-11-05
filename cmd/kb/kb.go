@@ -206,6 +206,16 @@ func newAddCmd() *cobra.Command {
 				return err
 			}
 			if outputFormat(cmd) == "json" {
+				_, failed := addResult(resp.Data, len(args[1:]))
+				if len(failed) > 0 {
+					return &addRejectedError{
+						RequestError: &client.RequestError{APIError: client.APIError{
+							Code: -1, Reason: "knowledge_notes_rejected", Retryable: false,
+							Message: fmt.Sprintf("%d note(s) not added: %s\n%s", len(failed), strings.Join(failed, ", "), addFailureHint),
+						}},
+						data: resp.Data,
+					}
+				}
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(resp)
@@ -228,6 +238,15 @@ func newAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&directoryID, "directory-id", "", "Target directory ID; omit for the knowledge-base root")
 	return cmd
 }
+
+// addRejectedError preserves per-note results in the root JSON error envelope.
+type addRejectedError struct {
+	*client.RequestError
+	data any
+}
+
+func (e *addRejectedError) Unwrap() error  { return e.RequestError }
+func (e *addRejectedError) ErrorData() any { return e.data }
 
 const addFailureHint = "一条笔记同一时间只能在一个自有知识库中；已在其他知识库或已在本知识库时会加入失败。" +
 	"如需换库或放入文件夹，请先用 getnote kb remove 移出，再重新加入。"
