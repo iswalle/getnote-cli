@@ -91,7 +91,7 @@ func isReadOnlyGET(req *http.Request) bool {
 	// Credential issuance also uses GET. Retry only operations whose read
 	// semantics are known; future routes remain one-shot until classified.
 	switch req.URL.Path {
-	case "/open/api/v1/resource/note/list", "/open/api/v1/resource/note/detail",
+	case "/open/api/v1/resource/note/outline", "/open/api/v1/resource/note/section", "/open/api/v1/resource/note/list", "/open/api/v1/resource/note/detail",
 		"/open/api/v1/resource/note/marks", "/open/api/v1/resource/note/sprouts", "/open/api/v1/resource/note/sprout",
 		"/open/api/v1/resource/reference/list", "/open/api/v1/resource/knowledge/list", "/open/api/v1/resource/knowledge/subscribe/list",
 		"/open/api/v1/resource/knowledge/notes", "/open/api/v1/resource/knowledge/directories", "/open/api/v1/resource/knowledge/file/capabilities",

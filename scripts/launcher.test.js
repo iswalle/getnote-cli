@@ -17,7 +17,7 @@ test('native install uses the platform binary', () => {
 
 test('Windows-installed package used from WSL falls back to getnote.exe', () => {
   const exe = path.join(bin, 'getnote.exe');
-  assert.equal(resolveBinary('linux', 'x64', bin, only(exe)), exe);
+  assert.equal(resolveBinary('linux', 'x64', bin, only(exe), '5.15.0-microsoft-standard-WSL2'), exe);
 });
 
 test('falls back to the bundled prebuilt binary', () => {
@@ -41,4 +41,11 @@ test('missing binary exits 1 with a clear message instead of an unhandled ENOENT
   assert.equal(r.status, 1);
   assert.match(r.stderr, /getnote: no binary for /);
   assert.doesNotMatch(r.stderr, /ENOENT/);
+});
+
+test('foreign binaries never override native prebuilt or run outside WSL', () => {
+ const exe=path.join(bin,'getnote.exe');const native=path.join(bin,'..','prebuilt','linux-amd64','getnote');
+ assert.equal(resolveBinary('linux','x64',bin,only(exe,native),'microsoft'),native);
+ assert.equal(resolveBinary('darwin','arm64',bin,only(exe),'Darwin'),null);
+ assert.equal(resolveBinary('linux','x64',bin,only(exe),'Linux'),null);
 });

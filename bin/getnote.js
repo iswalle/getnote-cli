@@ -13,20 +13,21 @@ const archNames = { x64: 'amd64', arm64: 'arm64' };
 
 // Candidate binaries in lookup order:
 //   1. bin/<native name>        (installed by postinstall for this OS)
-//   2. bin/<other name>         (package installed by another OS, e.g. Windows npm used from WSL)
-//   3. prebuilt/<os>-<arch>/<native name>  (bundled since v1.5.10)
-function binaryCandidates(platform = os.platform(), arch = os.arch(), binDir = __dirname) {
+//   2. prebuilt/<os>-<arch>/<native name>  (bundled since v1.5.10)
+//   3. bin/getnote.exe          (WSL only, when no native binary exists)
+function binaryCandidates(platform = os.platform(), arch = os.arch(), binDir = __dirname, release = os.release()) {
   const binaryName = platform === 'win32' ? 'getnote.exe' : 'getnote';
-  const otherName = binaryName === 'getnote.exe' ? 'getnote' : 'getnote.exe';
-  const candidates = [path.join(binDir, binaryName), path.join(binDir, otherName)];
+  const candidates = [path.join(binDir, binaryName)];
   const p = platformNames[platform];
   const a = archNames[arch];
   if (p && a) candidates.push(path.join(binDir, '..', 'prebuilt', `${p}-${a}`, binaryName));
+  // Only WSL can use the Windows executable as a last resort.
+  if (platform === 'linux' && /microsoft|wsl/i.test(release)) candidates.push(path.join(binDir, 'getnote.exe'));
   return candidates;
 }
 
-function resolveBinary(platform, arch, binDir, exists = fs.existsSync) {
-  return binaryCandidates(platform, arch, binDir).find((candidate) => exists(candidate)) || null;
+function resolveBinary(platform, arch, binDir, exists = fs.existsSync, release = os.release()) {
+  return binaryCandidates(platform, arch, binDir, release).find((candidate) => exists(candidate)) || null;
 }
 
 function main() {

@@ -94,6 +94,8 @@ func NewNoteCmd() *cobra.Command {
 	cmd.AddCommand(newDeleteCmd())
 	cmd.AddCommand(newShareCmd())
 	cmd.AddCommand(newOriginalCmd())
+	cmd.AddCommand(newOutlineCmd())
+	cmd.AddCommand(newSectionCmd())
 	cmd.AddCommand(newTranscriptCmd())
 	cmd.AddCommand(newAttachmentsCmd())
 	cmd.AddCommand(newTimelineCmd())
@@ -114,7 +116,7 @@ func newChaptersCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return writeDetailResult(cmd, resp.Data.Note, "chapter_timeline", resp.Data.Note.ChapterTimeline)
+			return writeDetailResult(cmd, resp.Data.Note, "chapter_timeline", client.ChapterEndTimes(resp.Data.Note.ChapterTimeline))
 		},
 	}
 }
@@ -160,7 +162,7 @@ func newOriginalCmd() *cobra.Command {
 				if n.WebPage != nil {
 					value = n.WebPage.Content
 				}
-			case "audio", "local_audio":
+			case "audio", "local_audio", "meeting", "recorder_audio", "recorder_flash_audio", "class_audio", "internal_record":
 				source = "audio.original"
 				if n.Audio != nil {
 					value = n.Audio.Original

@@ -31,6 +31,7 @@ description: 使用得到大脑保存文字、链接、图片和长笔记，按�
 | 查看最近笔记 | `getnote notes` |
 | 按预算读取少量个人笔记正文/原文 | `getnote notes batch` |
 | 查看详情或字段 | `getnote note` |
+| 长会议/长笔记定向阅读 | `getnote note outline` → `getnote note section` |
 | 引用/链接/文字原文 | `getnote note original` |
 | 录音、会议或课堂转写 | `getnote note transcript` |
 | 图片、音频和文件附件 | `getnote note attachments` |
@@ -77,7 +78,7 @@ getnote note original '<note_id>' -o json
 | ref | ref_content | 用户评论，不是引用原文 |
 | plain_text | content | 用户正文 |
 | link | web_page.content | 通常是摘要 |
-| audio / local_audio | audio.original | 通常是摘要 |
+| audio / local_audio / meeting / recorder_audio / recorder_flash_audio / class_audio / internal_record | audio.original | 通常是摘要 |
 
 录音按真实类型选择：即时录音/普通录音用 `--note-type audio`，上传的音频文件用 `local_audio`，自己录制的课堂笔记用 `class_audio`，会议录音用 `meeting`，系统内录用 `internal_record`，录音卡长录音/闪念分别用 `recorder_audio` / `recorder_flash_audio`。这些类型与得到课程引用不同；用户未限定平台时不加 `--source dedao` 或课程筛选。只说“录音”且模式不明时保留候选并说明类型，不能把上传音频当即时录音。
 
@@ -116,9 +117,23 @@ getnote notes --source dedao --note-type ref --article-url '<reference.article.u
 
 不超过20个已定位个人笔记用 `getnote notes batch '<note_id_1>' '<note_id_2>' --fields original -o json`。默认 fields=content,ref_content,reference；original 显式选择，引用原文来自 ref_content，个人评论来自 content。默认32000个Unicode码点，--max-total-chars 可设1..64000，服务端另有1MiB上限；不是给旧单条详情加截断。
 
-退出码0和 success=true 只代表批量调用成功：逐条检查 status=ok/unavailable/failed/deferred_budget、content_state、partial、pending_ids。成功项正文完整，deferred_budget 整条待读，不能把 omitted 当空正文；未知未来状态原样保留并说明未确认。用户确需全文时再用旧 `getnote note original '<真实note_id>' -o json` 补读，不自动并发20次单条请求。不存在与无权统一 unavailable，不判断对象是否存在；首版不批量读知识库共享笔记，不绕过原单条权限。
+退出码0和 success=true 只代表批量调用成功：逐条检查 status=ok/unavailable/failed/deferred_budget、content_state、partial、pending_ids。成功项正文完整，deferred_budget 整条待读，不能把 omitted 当空正文；未知未来状态原样保留并说明未确认。未读长文先用 `getnote note outline '<真实note_id>' -o json` 定位，再用 section 按需补读，不自动并发20次单条请求。不存在与无权统一 unavailable，不判断对象是否存在；首版不批量读知识库共享笔记，不绕过原单条权限。
 
 参数错误读取 field/supported_values；限流保留完整 `error.rate_limit_detail`，按连接与额度指南（CLI 的 `getnote-auth` / 独立 Skill 的 `references/auth.md`）中的“限流与同一操作恢复”处理。只有明确未执行且允许重试的同一步骤由客户端有界重试；Agent 不叠加循环或并发重试。
+
+## 长笔记按需读取
+
+先核验 `getnote note outline --help`、`getnote note section --help` 和真实响应 `meta.capabilities` 中的 `note.progressive_read.v1`。只有测试环境先通过不代表生产已经支持；不支持或接口失败时说明原因，不自动改为整篇拉取。
+
+```bash
+getnote note outline '<真实note_id>' -o json
+getnote note section '<真实note_id>' --keyword '绩效|晋升' -o json
+getnote note section '<真实note_id>' --offset '<上次返回的offset>' --limit 8000 --version '<上次返回的version>' -o json
+```
+
+返回 `data.id/text/total/version/offset_unit`；text 是有界目录/节选及后续读取指引。offset 单位为 UTF-16，必须原样使用，不能按汉字数、Python 字符数或字节数计算。普通读取默认最多8000单元；关键词不传 limit 搜索到文末，传 limit 仅搜索指定窗口，窗口无命中不会回退前文。版本变化先重新取目录；末尾停止，不能无限重读。不要把录音 AI 总结说成转写原话、把引用评论说成原文，或把节选说成全文。旧 `note`、`original`、`transcript` 的完整读取仍保留，用于用户明确要求导出或完整取回内容。
+
+职场场景：用户说“帮我准备和领导谈晋升”，先按线索定位其个人复盘/会议笔记，取目录，再查“成果|晋升|反馈”的原话，回答时注明实际读取范围。用户只想讨论一般职场问题时，不擅自遍历个人笔记；个人数据须已有授权。固定合作知识库的免授权权益不是这套个人读取 API，不能用本地命令绕过权限。
 
 ## 保存流程
 
@@ -187,11 +202,13 @@ getnote notes --source dedao --note-type ref --article-url '<reference.article.u
 | `getnote task <task_id> -o json` | `data.task_id/status/note_id?/msg?/error_msg?` | 仅 `done`/`success` 且有 `note_id` 为完成；`pending`/`processing` 是处理中；`failed` 说明真实原因。 |
 | `getnote notes -o json` | `data.notes[].note_id/title/note_url`；新筛选响应另有 `pagination` | 返回标题、字符串 ID 和真实链接。新筛选按 `pagination.has_more/next_cursor` 翻页；仅无 `pagination` 的旧响应按 `has_more/cursor`。旧 `total` 不能当作筛选后数量。 |
 | `getnote note <id> -o json` | `data.note.note_id/title/note_url/note_type`，按需读 `content` | 先给摘要和链接；私密全文只在用户明确要求时展开。 |
+| `getnote note outline <id> -o json` | `data.id/text/total/version/offset_unit` | 目录不是正文；使用返回的 UTF-16 offset。 |
+| `getnote note section <id> -o json` | `data.text/version/offset_unit` | 节选/关键词定位；保持版本，读完停止。 |
 | `getnote note original <id> -o json` | `data.note_id/title/original/original_source` | 只把 `original` 当原文；原文不可用会失败，不能拿评论或摘要补全。 |
 | `getnote note transcript <id> -o json` | `data.note_id/title/transcript` | 仅录音类笔记可用；不可用时如实说明。 |
 | `getnote note attachments <id> -o json` | `data.note_id/title/attachments[]` | 列出真实附件，不把笔记封面冒充附件。 |
 | `getnote note timeline <id> -o json` | `data.note_id/title/timeline` | 仅在存在录音/会议时间线时展示。 |
-| `getnote note chapters <id> -o json` | `data.note_id/title/chapter_timeline` | `items[].start_ms` 为毫秒；空数组表示无可解析章节，不拿标记补齐。 |
+| `getnote note chapters <id> -o json` | `data.note_id/title/chapter_timeline` | `items[].start_ms/end_ms` 为毫秒；仅用下一章起点推导缺失的结束时间，标记 end_source=next_chapter_start，末章未知为 null；空数组表示无可解析章节，不拿标记补齐。 |
 | `gnote note quick <id> -o json` | `data.note_id/title/quick_note` | 返回现场快捷笔记；旧环境回退 `getnote note quick-note`。 |
 | `getnote note todos <id> -o json` | `data.note_id/title/meeting_todos[]` | 保留每项 `source`；这是从明确会议总结章节按规则解析，不说成上游原生待办。 |
 | `getnote note update <id> … -o json` | `success=true`、`data?` | 修改正文或全量标签前必须 `--yes`；需要展示最终内容时再读一次 `note`。 |

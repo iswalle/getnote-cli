@@ -502,3 +502,17 @@ $ getnote search "工作日志" --limit 7 -o json
 ## 录音台与录音卡笔记
 
 录音台（AI录音台/MOAN）按 `getnote notes --source vendor_moan --all -o json` 查找，录音卡（GetSeed）使用 `--source getseed`。来源和 note_type 独立：查设备全部笔记不额外限制 audio/meeting，录音卡长录音和闪念均保留。可叠加创建/编辑时间与知识库条件；完整性以真实分页、partial/warnings 和授权范围为准，不包含设备端未同步的会议记录。转写用 `getnote note transcript <note_id>` 读取。
+
+## 长笔记按需阅读（1.10.0 候选版，待正式发布）
+
+新增目录与分段命令，依赖服务端 `note.progressive_read.v1`。旧 `note`、`note original`、`note transcript` 保持兼容，不自动改成截断结果。没有分段能力或版本变化时明确报错，不自动回退整篇拉取。
+
+```bash
+getnote note outline '<真实笔记ID>' -o json
+getnote note section '<真实笔记ID>' --keyword '绩效|晋升|反馈' -o json
+getnote note section '<真实笔记ID>' --offset '<返回的offset>' --version '<返回的version>' -o json
+```
+
+普通读取默认最多8000个 UTF-16 单元，offset 原样使用；关键词不传 limit 搜索到文末，显式 limit 只搜索该窗口。目录、摘要和节选不能当作全文。职场沟通场景先定位自己的复盘或会议笔记，再按需提取原话，不擅自遍历全部个人数据。
+
+原文读取补齐会议、录音卡、课堂和内录类型。章节输出可用下一章起点补充 `end_ms`，标明 `end_source=next_chapter_start`；末章未知为 null，不改变原详情接口。当前分支同时集成 PR #39（完整笔记链接）和 #40（启动诊断），并修正跨系统安装时优先使用包内本机程序，仅 WSL 允许最后回退 Windows 程序。

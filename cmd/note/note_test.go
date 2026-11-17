@@ -94,6 +94,9 @@ func TestOriginalSelectsOnlyTheTypeSpecificSource(t *testing.T) {
 		{"local audio", `{"note_type":"local_audio","content":"AI summary","audio":{"original":"local transcript"}}`, "local transcript", "audio.original", ""},
 		{"unknown", `{"note_type":"unknown","content":"AI summary"}`, "", "", "unsupported"},
 	}
+	for _, kind := range []string{"meeting", "recorder_audio", "recorder_flash_audio", "class_audio", "internal_record"} {
+		cases = append(cases, struct{ name, noteJSON, wantOriginal, wantSource, wantError string }{kind, fmt.Sprintf(`{"note_type":%q,"content":"summary","audio":{"original":"raw transcript"}}`, kind), "raw transcript", "audio.original", ""})
+	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("GETNOTE_API_KEY", "test-key")
