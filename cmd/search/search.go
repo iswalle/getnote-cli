@@ -104,7 +104,7 @@ func NewSearchCmd() *cobra.Command {
 					{Value: scoreText(r.Score), Width: cols[3].Width},
 					{Value: r.CreatedAt, Width: cols[4].Width},
 					{Value: ui.Truncate(body, cols[5].Width), Width: cols[5].Width},
-					{Value: r.NoteURL, Width: cols[6].Width},
+					{Value: r.NoteURL, Width: cols[6].Width, NoTruncate: true},
 				}
 				fmt.Fprint(out, ui.PrintRow(row, sep))
 			}

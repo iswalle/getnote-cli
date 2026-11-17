@@ -57,3 +57,58 @@ func TestApplyLimitKeepsPaginationAtLastVisibleNote(t *testing.T) {
 		t.Fatalf("cursor = %q / %q", resp.Data.Cursor, resp.Data.NextCursor)
 	}
 }
+
+func TestTerminalNotesPreservesFullNoteURL(t *testing.T) {
+	const noteID = "1234567890123456789"
+	const productionURL = "https://www.biji.com/note/" + noteID
+	const serverURL = "https://notes.example.com/workspaces/example/note/" + noteID + "?source=cli&view=original#details"
+	title := strings.Repeat("示", 25)
+
+	for _, tc := range []struct {
+		name    string
+		noteURL string
+		webURL  string
+		wantURL string
+	}{
+		{name: "production URL", wantURL: productionURL},
+		{name: "server URL with query and fragment", noteURL: serverURL, wantURL: serverURL},
+		{name: "custom web URL fallback", webURL: "https://getnote.staging.example.com/app/", wantURL: "https://getnote.staging.example.com/app/note/" + noteID},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprintf(w, `{"success":true,"data":{"notes":[{"note_id":%q,"title":%q,"note_type":"plain_text","created_at":"2026-01-01 12:00:00","note_url":%q}],"has_more":false}}`, noteID, title, tc.noteURL)
+			}))
+			defer server.Close()
+			t.Setenv("GETNOTE_API_URL", server.URL)
+			t.Setenv("GETNOTE_API_KEY", "test-api-key")
+			t.Setenv("GETNOTE_CLIENT_ID", "test-client-id")
+			t.Setenv("GETNOTE_WEB_URL", tc.webURL)
+
+			root := &cobra.Command{Use: "getnote"}
+			root.PersistentFlags().StringP("output", "o", "table", "")
+			root.AddCommand(NewNotesCmd())
+			root.SetArgs([]string{"notes", "--limit", "20"})
+			var out bytes.Buffer
+			root.SetOut(&out)
+			root.SetErr(&out)
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+
+			var row string
+			for _, line := range strings.Split(out.String(), "\n") {
+				if strings.HasPrefix(line, noteID) {
+					row = line
+					break
+				}
+			}
+			if !strings.HasSuffix(strings.TrimSpace(row), tc.wantURL) {
+				t.Errorf("note row does not contain the complete URL %q: %s", tc.wantURL, row)
+			}
+			if strings.Contains(row, title) || !strings.Contains(row, strings.Repeat("示", 19)+"…") {
+				t.Errorf("title should retain its existing truncation: %s", row)
+			}
+		})
+	}
+}
