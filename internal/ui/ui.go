@@ -94,24 +94,29 @@ func Col(s string, width int, sep string) string {
 	return PadRight(Truncate(s, width), width) + sep
 }
 
-// PrintRow writes one table row to buf (returns the formatted line).
-// cols is a slice of (value, width) pairs; sep is the column separator.
+// PrintRow formats one table row; sep is the column separator.
 func PrintRow(cols []ColSpec, sep string) string {
 	var sb strings.Builder
 	for i, c := range cols {
 		if i > 0 {
 			sb.WriteString(sep)
 		}
-		sb.WriteString(PadRight(Truncate(c.Value, c.Width), c.Width))
+		value := c.Value
+		if !c.NoTruncate {
+			value = Truncate(value, c.Width)
+		}
+		sb.WriteString(PadRight(value, c.Width))
 	}
 	sb.WriteString("\n")
 	return sb.String()
 }
 
-// ColSpec holds a column value and its fixed display width.
+// ColSpec holds a column value and its display width.
 type ColSpec struct {
 	Value string
 	Width int
+	// NoTruncate preserves the full value, treating Width as a minimum width.
+	NoTruncate bool
 }
 
 // PrintHeader writes the header row matching PrintRow column widths.

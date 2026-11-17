@@ -125,6 +125,8 @@ func commandResults() map[string]commandResult {
 		"note": {
 			SuccessFields: []string{"success=true", "data.note.note_id", "data.note.title", "data.note.note_url", "data.note.note_type", "data.note.content?"},
 		},
+		"note outline": {SuccessFields: []string{"success=true", "data.id", "data.text", "data.version", "data.total", "data.offset_unit=utf16"}, Notes: "Directory for progressive reads. Require note.progressive_read.v1. Offsets are UTF-16, not bytes or code points."},
+		"note section": {SuccessFields: []string{"success=true", "data.text", "data.version", "data.offset_unit=utf16"}, Notes: "Bounded read or literal keyword lookup. Preserve offset/version; changed version means refresh outline. Never automatically fall back to full content."},
 		"note original": {
 			SuccessFields: []string{"success=true", "data.note_id", "data.title", "data.original", "data.original_source"},
 		},
@@ -247,7 +249,7 @@ func currentResponse() response {
 			"file_transfer":  {"upload", "image-config", "image-token", "image-operation", "file-capabilities", "file-token", "file-operation", "file-add"},
 			"reports":        {"marks", "sprouts", "sprout"},
 			"connection":     {"doctor", "capabilities", "auth", "auth login", "auth status", "auth logout", "setup"},
-			"notes":          {"save", "task", "notes", "notes batch", "references list", "note", "note original", "note transcript", "note attachments", "note timeline", "note chapters", "note quick-note", "note todos", "note update", "note delete", "note share"},
+			"notes":          {"save", "task", "notes", "notes batch", "references list", "note", "note outline", "note section", "note original", "note transcript", "note attachments", "note timeline", "note chapters", "note quick-note", "note todos", "note update", "note delete", "note share"},
 			"search":         {"search"},
 			"knowledge_base": {"kbs", "kbs-sub", "kb", "kb create", "kb add", "kb remove", "kb directories", "kb directory-create", "kb directory-update", "kb directory-delete", "kb bloggers", "kb blogger-follow", "kb blogger-contents", "kb blogger-content", "kb lives", "kb live", "kb live-follow"},
 			"tags":           {"tag", "tag list", "tag add", "tag remove"},

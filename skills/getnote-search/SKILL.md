@@ -71,7 +71,7 @@ getnote notes --source dedao --note-type ref --article-url '<真实文章URL>' -
 
 ### 读取原文与评论
 
-对不超过20个已定位的个人笔记，使用 `getnote notes batch '<note_id_1>' '<note_id_2>' --fields original -o json`；引用原文来自 ref_content，查个人评论改用 fields=content。保留每条 status、content_state、pending_ids、partial；deferred_budget 表示整条待读，不能说完整，也不自动并发20次单条读取。用户确需未读全文时使用旧 `getnote note original '<note_id>' -o json`。知识库共享详情继续原单条权限路径，不用个人批量绕过权限。
+对不超过20个已定位的个人笔记，使用 `getnote notes batch '<note_id_1>' '<note_id_2>' --fields original -o json`；引用原文来自 ref_content，查个人评论改用 fields=content。保留每条 status、content_state、pending_ids、partial；deferred_budget 表示整条待读，不能说完整，也不自动并发20次单条读取。未读长文使用 `getnote note outline '<note_id>' -o json` 定位，再用 `getnote note section '<note_id>' --keyword '反馈|行动' -o json` 按需读取；沿返回的 UTF-16 offset/version 续读，不把节选当全文。 知识库共享详情继续原单条权限路径，不用个人批量绕过权限。
 
 只记得评论时先语义搜索实质文本并读 content 核对；已指定课程就先按课程缩小，不因 preview 没出现评论而排除。定位候选多于20条时保留用户线索继续缩小或分页按需读取，不下载整个账号正文。同一篇文稿的不同笔记 ID 是不同划线，不按文章 ID 合并。
 
