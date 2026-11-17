@@ -20,7 +20,7 @@
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
-    "test": "node --test scripts/postinstall.test.js",
+    "test": "node --test scripts/postinstall.test.js scripts/launcher.test.js",
     "prepare-package": "bash scripts/prepare-package.sh",
     "prepack": "bash scripts/prepare-package.sh"
   },
