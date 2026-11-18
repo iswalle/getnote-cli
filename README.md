@@ -58,11 +58,11 @@ allowBuilds:
 
 ## 使用要求
 
-> **需要得到大脑（Get笔记）会员**
->
-> OpenAPI（包括本 CLI 和 Skill）仅对**得到大脑会员**开放。未开通会员时执行命令会提示 `OpenAPI 仅对会员开放`。
->
-> 开通会员：[前往得到大脑会员购买页](https://www.biji.com/checkout?product_alias=9Ab36BB3ZD&spm=openapi_cli)。
+**免费账号也可以使用，无需先开通会员。** 登录授权后即可使用 CLI 和 Skill 读写笔记、搜索、上传图片和文件；免费与会员享有不同额度。
+
+运行 `getnote quota -o json` 查看账号实时额度。专项配额和企业代授权保持各自规则；额度耗尽后按接口返回的重置时间等待，不连续重试。
+
+需要更高默认额度时，可[升级会员](https://www.biji.com/checkout?product_alias=9Ab36BB3ZD&spm=openapi_cli)。
 
 ---
 
