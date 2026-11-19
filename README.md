@@ -12,6 +12,14 @@ npm install -g @getnote/cli@latest && getnote setup
 
 它会自动找到本机装了哪些 AI，给它们装上得到大脑 Skill，再打开浏览器让你登录一次。装完运行 `getnote doctor` 确认一切正常。WorkBuddy 装完要重启；OpenClaw（小龙虾）、QClaw 会提示你去 ClawHub 点一下确认。
 
+**国内网络下载慢**：先把 npm 换成国内镜像，再执行上面的命令：
+
+```bash
+npm config set registry https://registry.npmmirror.com
+```
+
+这样后面接入 AI 时下载的东西也会走镜像。不要只在安装命令后面加 `--registry`，那样只有第一步走镜像。
+
 **只要命令行**
 
 ```bash
@@ -21,7 +29,7 @@ getnote auth login
 
 也可以在 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载对应系统的程序，放进 `PATH`。
 
-- 安装包已自带各平台程序，不需要访问 GitHub；国内用户配置 npm 镜像（如 npmmirror）即可
+- 安装包已自带各平台程序，不需要访问 GitHub
 - pnpm 10 以上：在 `pnpm-workspace.yaml` 里加 `allowBuilds: { '@getnote/cli': true }` 后重新 `pnpm install`
 - 装好后 `getnote` 和 `gnote` 两个命令都能用
 

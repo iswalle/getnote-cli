@@ -151,3 +151,7 @@ jobs:
 
       - name: Publish main package
         run: npm publish --access public
+
+      - name: Ask npmmirror to sync
+        continue-on-error: true
+        run: curl -fsS -m 30 -X PUT "https://registry-direct.npmmirror.com/-/package/$(node -p "require('./package.json').name")/syncs"
