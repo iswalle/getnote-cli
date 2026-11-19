@@ -1,439 +1,117 @@
-# 得到大脑（Get笔记） CLI
+# 得到大脑（Get笔记）CLI
 
-得到大脑（Get笔记）的命令行工具，让你在终端和 AI Agent 里直接管理笔记和知识库。
-
-存链接、记文字、搜笔记、管知识库——一条命令搞定，支持脚本和 AI Agent 调用。
-
----
+在终端里存链接、记文字、搜笔记、整理知识库。也可以交给 AI（Claude Code、Codex、Cursor、WorkBuddy 等）直接调用。
 
 ## 安装
 
-### 让本地 AI 自动完成安装（推荐）
-
-适用于 OpenClaw（小龙虾）、QClaw、Claude Code、Codex、GitHub Copilot、Cursor、Gemini CLI、Windsurf、OpenCode、Cline 和 WorkBuddy：
+**推荐：一条命令装好 CLI，并接入本机 AI**
 
 ```bash
 npm install -g @getnote/cli@latest && getnote setup
 ```
 
-这条命令会把 CLI 安装到稳定的全局路径、自动识别本机平台、安装五个 Skills，并引导完成一次得到大脑授权。安装时保留醒目的 `SKILLS` 开场，最终只显示每个平台是否安装成功，以及唯一需要用户完成的下一步，不再展示 `universal`、`symlink`、`overwrites` 等内部安装细节。WorkBuddy 安装后需要重启；OpenClaw（小龙虾）和 QClaw 的 Skill 由平台管理，命令会给出对应的 ClawHub 确认入口。
+它会自动找到本机装了哪些 AI，给它们装上得到大脑 Skill，再打开浏览器让你登录一次。装完运行 `getnote doctor` 确认一切正常。WorkBuddy 装完要重启；OpenClaw（小龙虾）、QClaw 会提示你去 ClawHub 点一下确认。
 
-安装后运行：
-
-```bash
-getnote doctor -o json
-```
-
-安装完成后，`getnote` 和更短的 `gnote` 可以互换使用，例如 `gnote notes`。
-
-### 只安装命令行
+**只要命令行**
 
 ```bash
 npm install -g @getnote/cli
 getnote auth login
 ```
 
-或者从 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载对应平台的二进制文件，放到 `$PATH` 里。
+也可以在 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载对应系统的程序，放进 `PATH`。
 
-**pnpm 10+ 用户**：pnpm 默认会拦截依赖包的构建脚本。请在工作区的 `pnpm-workspace.yaml` 中允许 `@getnote/cli` 运行安装脚本：
+- 安装包已自带各平台程序，不需要访问 GitHub；国内用户配置 npm 镜像（如 npmmirror）即可
+- pnpm 10 以上：在 `pnpm-workspace.yaml` 里加 `allowBuilds: { '@getnote/cli': true }` 后重新 `pnpm install`
+- 装好后 `getnote` 和 `gnote` 两个命令都能用
 
-```yaml
-allowBuilds:
-  '@getnote/cli': true
-```
+## 登录和额度
 
-然后重新执行 `pnpm install`。也可以直接从 [Releases](https://github.com/iswalle/getnote-cli/releases) 下载对应平台的二进制文件并放入 `$PATH`。
-
-### 安装机制说明
-
-从 v1.5.10 起，npm 包**内置所有平台的二进制文件**（macOS/Linux/Windows，x64/ARM64），安装时**不再依赖 GitHub**。
-
-安装时由 postinstall 从 npm 包内的 prebuilt/ 目录复制当前平台二进制，不会访问 GitHub。
-
-**中国大陆用户**：只需配置 npm Registry 镜像（例如 npmmirror），即可获取完整 npm 包；不需要额外配置二进制下载地址。
-
-**包大小**：压缩后 ~22MB，解压后 ~55MB（包含 6 个平台二进制）。
-
----
-
-## 使用要求
-
-所有得到大脑用户授权后都可以调用，会员享有更高额度（[了解会员](https://www.biji.com/checkout?product_alias=9Ab36BB3ZD&spm=openapi_cli)）。
-
-运行 `getnote quota -o json` 查看当前额度；额度用完后按返回的重置时间等待。
-
----
-
-## 开始使用
-
-如果已经单独安装 CLI，还可以为 Codex、Claude Code、Cursor 补装内置的五个原子 Skill：
 ```bash
-npx skills add iswalle/getnote-cli -y -g
+getnote auth login     # 打开浏览器授权
+getnote auth status    # 看登录状态
+getnote quota          # 看当前额度
 ```
 
-使用 `getnote setup` 时不需要再执行这条命令。
+所有得到大脑用户授权后都可以调用，会员享有更高额度（[了解会员](https://www.biji.com/checkout?product_alias=9Ab36BB3ZD&spm=openapi_cli)）。额度用完后按提示的时间再试。
 
-登录：
+## 常用操作
+
 ```bash
-getnote auth login
-```
-会自动打开浏览器完成授权。也可以直接用 API Key（需同时传入 Client ID）：
-```bash
-getnote auth login --api-key gk_live_xxx --client-id cli_xxx
+# 存
+getnote save https://example.com/article --tag 阅读   # 存链接，自动抓取正文
+getnote save "周五前回复王总的邮件" --tag 待办        # 记一条文字
+getnote save ./photo.jpg                              # 存图片
+getnote save --content-file ./long.md --title 周报    # 长文本从文件读
+
+# 找
+getnote notes                                  # 最近 20 条
+getnote search "LLM 推荐阅读"                   # 语义搜索
+getnote search "产品设计" --kb <知识库ID>        # 只在某个知识库里搜
+getnote notes --source vendor_moan --all       # 录音台的笔记（录音卡用 getseed）
+
+# 读
+getnote note <笔记ID>                           # 看详情
+getnote note transcript <笔记ID>                # 录音、会议的转写原文
+getnote note outline <笔记ID>                   # 长笔记先看目录
+getnote note section <笔记ID> --keyword 定价     # 再按关键词或位置读一段
+
+# 整理
+getnote kbs                                    # 我的知识库
+getnote kb add <知识库ID> <笔记ID>              # 加进知识库
+getnote tag add <笔记ID> 重要                   # 打标签
+getnote note share <笔记ID>                     # 生成公开分享链接
+getnote note delete <笔记ID>                    # 删除（进回收站，可在 App 恢复）
+
+# 导出
+getnote notes --all -o json > all-notes.json
 ```
 
-开始用：
-```bash
-# 存一篇文章
-getnote save https://example.com/article --tag 阅读
+笔记正文里写上 `https://biji.com/note/<笔记ID>`，就能链接到另一条笔记。
 
-# 记一条文字
-getnote save "周五前要回复王总的邮件" --tag 待办
+## 给 AI 用
 
-# 看最近的笔记
-getnote notes
-```
+- 所有命令加 `-o json` 输出结构化结果，AI 可以直接读
+- `skills/` 里是 5 个 Skill（笔记、搜索、知识库、标签、登录诊断），告诉 AI 什么时候用哪个命令。`getnote setup` 会自动装好；单独补装：`npx skills add iswalle/getnote-cli -y -g`
+- `getnote capabilities -o json` 列出当前版本支持的全部命令和返回字段，AI 以它为准
+- 笔记 ID 一律按字符串处理，不要转成数字
 
 ## 检查和升级
 
-`doctor` 会同时检查 CLI 路径、npm 安装一致性、账号授权、OpenAPI 连通性、版本更新和已检测 AI 平台的 Skill 状态：
-
 ```bash
-getnote doctor -o json
+getnote doctor            # 检查安装、登录、网络和 AI 接入
+getnote update --check    # 看有没有新版本
+getnote update            # 升级 CLI，同步 Skill，再检查一遍
+getnote update --cli-only # 只升级 CLI
 ```
 
-机器或 AI 应同时读取 `ready` 和 `status`：`ready=true,status=ready` 表示完整可用；`ready=true,status=degraded` 表示核心 API 可用但仍有非阻断问题；`ready=false` 表示存在阻断问题。`issues` 提供稳定问题码、严重级别和是否阻断，`next_actions` 给出修复动作与是否需要用户确认；`integrations` 区分“检测到 AI 应用”和“对应 Skill 已安装”。`--offline` 只检查本地环境，此时 `local_ready` 表示本地结果、`ready=null,status=partial` 表示远端状态未知。默认只返回检测到的平台，需要排查全部平台时加 `--all-platforms`。
-
-```bash
-# 查看当前版本并检查是否有新版
-getnote version --check-update
-
-# 只检查，不安装
-getnote update --check
-
-# 升级 CLI、同步全部已检测 AI 的 Skills，并运行 doctor 验证
-getnote update
-```
-
-独立二进制升级会校验 GitHub Release 的 SHA-256；npm 安装会升级整个 `@getnote/cli` 包。升级成功后，`getnote update` 会使用新版 CLI 运行 `setup` 和 `doctor`，让二进制、元数据、内置 Skills 和本机 AI 接入状态保持一致。
-
-只想升级 CLI、不需要同步 Skills 时：
-
-```bash
-getnote update --cli-only
-```
-
----
-
-## 典型使用场景
-
-**场景 1：边看边存**
-```bash
-# 存链接，自动抓取页面内容
-getnote save https://simonwillison.net/2024/llms-reading-list/ --tag ai
-
-# 存完自动展示笔记内容，不用再手动查
-```
-
-**场景 2：搜索笔记**
-```bash
-# 全局搜索
-getnote search "LLM 推荐阅读"
-
-# 在某个知识库内搜索
-getnote search "产品设计" --kb vnrOAaGY
-```
-
-**按书名、作者或课程查找**
-
-```bash
-# 按书名查书库；query 不匹配作者
-getnote kbs --scope BOOKSPACE --query '沙之书' --all -o json
-
-# 只有作者线索时用 author
-getnote kbs --scope BOOKSPACE --author '博尔赫斯' --all -o json
-
-# 使用返回的 topic_id 读取全部笔记；只要划线时再加 --note-type ref
-getnote kb '<topic_id>' --page-size 20 --all -o json
-
-# 得到课程文稿：先列出引用定位信息，再核对课程名和文稿标题
-getnote notes --source dedao --note-type ref --reference-type course_article --page-size 20 -o json
-
-# 定位后读取完整内容
-getnote note '<note_id>' -o json
-```
-
-书名和作者同时传入时须同时匹配。课程列表没有课程名筛选参数，AI 根据返回的来源元数据匹配，并按 `pagination.next_cursor` 继续查询。语义搜索 Top-K 不是全部笔记；搜索为空也不能证明没有相关内容。
-
-**场景 3：管理知识库**
-```bash
-# 列出默认知识库；特殊类型使用 --scope
-getnote kbs
-getnote kbs --scope BOOKSPACE
-
-# 查看某个知识库的笔记
-getnote kb vnrOAaGY --all
-
-# 把笔记加入知识库
-getnote kb add vnrOAaGY 1234567890
-```
-
-**场景 4：脚本批处理**
-```bash
-# 导出所有笔记为 JSON
-getnote notes --all -o json > all-notes.json
-
-# 取出某条笔记的正文
-getnote note 1234567890 --field content | pbcopy
-```
-
----
-
-## AI Agent 使用
-
-所有命令支持 `-o json` 输出结构化数据，AI Agent 可以直接解析：
-
-```bash
-getnote notes -o json
-getnote note 1234567890 -o json
-getnote search "关键词" -o json
-getnote save https://example.com -o json   # 自动轮询，返回最终笔记
-```
-
-保存、列表、详情和搜索的 JSON 结果都会返回当前环境可打开的 `note_url`。测试环境会返回测试站地址，生产环境返回 `https://www.biji.com/note/{id}`。
-
-`skills/` 目录是 CLI 内置的五个原子 Skill，也是本地 Agent 的唯一维护源。安装后 AI Agent 可以直接用自然语言操作笔记：
-
-```bash
-npx skills add iswalle/getnote-cli -y -g
-```
-
-安装后在 Claude Code / Cursor 里说「帮我搜一下关于 RAG 的笔记」即可直接调用。
-
-独立的聚合 Skill 面向 OpenClaw（小龙虾）及 QClaw 等生态客户端和 WorkBuddy，只负责意图理解，底层仍调用同一个 CLI，不再维护第二套 OpenAPI 请求实现。
-
----
-
-## 完整命令参考
-
-### 课程定位与按需正文
-
-以下为本分支的增量能力，需当前服务端声明对应 capability；安装 CLI 不代表服务已发布。旧命令与默认正文行为保留。
-
-```bash
-getnote references list --source dedao --resource-type course --query '课程名' --author '准确老师姓名' --all -o json
-getnote notes --source dedao --course-type '66' --course-id '<返回的course_id>' --note-type ref --all -o json
-getnote notes batch '<note_id_1>' '<note_id_2>' --fields original --max-total-chars 32000 -o json
-getnote search '主题' --response-mode snippet --max-snippet-chars 400 -o json
-```
-
-课程名可 exact/prefix，老师精确匹配；query/author 至少一个。ID 全程用字符串，课程 ID 与课节 ID 不互换。查课程需沿空页的有效游标继续；课程与知识库交集、课程内语义搜索尚未开放。批量只读个人笔记，最多20个去重ID、默认32000/上限64000个Unicode码点及1MiB；保留 status/pending_ids，整条超预算可改用旧单条详情读取。snippet full 表示完整命中片段，不能冒充全文。新选项要求当前接口 capability 与筛选回显，不接受旧服务忽略筛选的成功结果。
-
-课程响应的 `coverage` 说明实际覆盖范围，省略类型也不表示包含未关联课程身份的心得或录音。JSON 输出及 `--all` 保留该对象中的未知类型和新增字段；任一页的 `partial` 或警告都会保留，存在未解决问题时 `traversal.completed=false`，不能因分页结束便声称结果完整。
-
-错误保留合法值及完整 `error.rate_limit_detail`。明确 `not_started/retry_same_operation` 的 QPS 拒绝由客户端复用同一步骤，最多额外重试 2 次、累计等待不超过 5 秒；日/月额度等到重置，上传滚动额度先完成已有操作，零限额联系管理员，配置不可用暂停。Agent 不叠加重试循环。同一身份队列仅在进程内协调，跨 CLI 进程、token 和 MCP 调用仍需排队；频率以实时策略为准。
-
-### 认证
-
-```
-getnote auth login                   OAuth 登录（浏览器授权）
-getnote auth login --api-key <key> --client-id <id>  直接用 API Key 登录
-getnote auth status                  查看当前登录状态
-getnote auth logout                  退出登录
-getnote doctor                       检查安装、登录和 API 连通性
-getnote capabilities                 查看当前版本的稳定能力
-getnote setup                        为本机 AI 安装原子 Skill 并引导授权
-```
-
-### 保存笔记
-
-```
-getnote save <url|文字|图片路径>      保存链接/文字/图片笔记
-  --title <标题>                      可选标题
-  --tag <标签>                        标签（可重复）
-  --topic-id <topic_id>               直接存入普通/书籍/客户档案知识库
-  --parent-id <note_id>               创建子笔记（ID 推荐传字符串）
-  --idempotency-key <key>             同一创建请求重试时复用的幂等键
-  --content-file <文件>               从 UTF-8 文件读取长文本，避免命令行转义和长度限制
-  --stdin                              从标准输入读取长文本
-
-getnote task <task_id>               查看异步任务进度
-```
-
-链接笔记是异步处理的，CLI 会自动轮询等待完成，完成后直接展示内容。`-o json` 模式下静默轮询，返回最终笔记 JSON。
-
-### 查看和管理笔记
-
-```
-getnote notes                        最近 20 条笔记
-  --limit <n>                        自定义数量
-  --all                              获取全部（自动翻页）
-
-getnote note <id>                    笔记详情
-  --field <字段名>                   只输出某个字段的值
-                                     （id/note_url/title/content/type/
-                                       created_at/url/excerpt/
-                                       web_content/audio_original）
-
-getnote note original <id>           按笔记类型直接输出真实原文
-getnote note transcript <id>         直接输出录音、会议或课堂转写原文
-getnote note attachments <id>        列出图片、音频和文件附件
-getnote note timeline <id>           读取录音或会议时间线
-getnote note chapters <id>           读取独立章节时间线，不等同于标记
-getnote note quick-note <id>         读取录音快捷笔记
-getnote note todos <id>              读取会议总结中明确章节解析出的待办
-
-getnote note update <id>             更新笔记
-  --title <标题>
-  --content <内容>                   仅文字笔记可用
-  --tag <标签>                       逗号分隔，会替换现有标签
-
-getnote note delete <id>             删除笔记（移入回收站）
-  -y                                 跳过确认
-
-getnote note share <id>              生成公开分享链接
-  --exclude-audio                    分享时排除音频
-```
-
-### 字段语义说明（适合 AI Agent 参考）
-
-不同笔记类型的原文字段不同；`content` 可能是正文、AI 总结或个人评论：
-
-| 笔记类型 | 原文字段 | 正文 / 总结 / 评论字段 |
-|---------|---------|------------|
-| 普通文字笔记 | `content` | `content`（正文） |
-| 引用 / 划线笔记 | `ref_content` | `content`（个人评论） |
-| 链接/网页笔记 | `web_content` | `content` |
-| 录音笔记 | `audio_original` | `content` |
-| 知识库博主内容 | `post_media_text`（via `kb blogger-content`）| `content` |
-| 知识库直播 | `post_media_text`（via `kb live`）| `post_summary` |
-
-> **AI Agent 提示**：用户要求“读原文”时优先使用 `getnote note original`；明确要求录音、会议或课堂转写时使用 `getnote note transcript`，避免把 AI 摘要误当成原文。
-
-### 搜索
-
-```
-getnote search <关键词>              全局语义搜索
-  --limit <n>                        返回数量（默认 10）
-  --kb <topic_id>                    限定在某个知识库内搜索
-```
-
-### 标签
-
-```
-getnote tag add <note_id> <标签>     给笔记加标签
-getnote tag remove <note_id> <tag_id>  按标签 ID 删除笔记标签
-getnote tag list <note_id>           查看笔记的所有标签
-```
-
-### 知识库
-
-```
-getnote kbs                          列出 DEFAULT 知识库
-  --scope <scope>                    指定 DEFAULT / BOOKSPACE / CUSTOMER / TEAMSPACE
-  --query <名称>                     按知识库名 / 书名查找
-  --author <作者>                    按书籍作者查找（仅 BOOKSPACE）
-  --book-id <book_id>                 按书籍 ID 查找（仅 BOOKSPACE）
-  --page-size <n>                    每页数量；新查询默认 20
-  --all                              按返回分页遍历；kbs-sub 同样支持上述查找参数
-
-getnote kb <topic_id>                知识库内的笔记
-  --limit <n>
-  --all                              获取全部
-  --no-content                       JSON 输出时省略 content 字段（节省 AI token）
-
-getnote kb create <名称>             新建知识库
-  --desc <描述>
-
-getnote kb add <topic_id> <note_id> [note_id...]     加入知识库
-getnote kb add <topic_id> <note_id> --directory-id <id>  加入指定文件夹
-getnote kb remove <topic_id> <note_id> [note_id...]  移出知识库
-getnote kb directories <topic_id>                    浏览文件夹和资源
-getnote kb directory-create <topic_id> <名称>        创建文件夹
-getnote kb directory-update <topic_id> <id> --name <名称>  重命名或移动文件夹
-getnote kb directory-delete <topic_id> <id> --yes    删除空文件夹
-getnote kb blogger-follow <topic_id> <抖音链接>      订阅抖音博主
-getnote kb live-follow <topic_id> <url>              订阅得到直播课，直播结束后 AI 摘要自动入库
-
-getnote kbs [--scope DEFAULT]                        获取我创建/管理的知识库，默认只返回 DEFAULT
-getnote kbs-sub [--scope DEFAULT]                    获取我订阅的知识库，默认只返回 DEFAULT
-# --scope 可选：DEFAULT、CUSTOMER、BOOKSPACE、TEAMSPACE
-```
-
-常用目录命令提供短别名，旧命令继续兼容：
-
-```bash
-gnote kb dir <topic_id>
-gnote kb mkdir <topic_id> <名称>
-gnote kb mvdir <topic_id> <directory_id> --name <新名称>
-gnote kb rmdir <topic_id> <directory_id> --yes
-gnote note quick <note_id>
-```
-
----
-
-### 文件上传与独立报告
-
-- `getnote note chapters <id> -o json` 读取章节；`note timeline` 保留录音 moments，`marks <note_id>` 独立读取标记。
-- `sprouts <YYYY-MM>` 列表从 `data.tasks[].sprouts[]` 取真实报告 id，再运行 `sprout <id>`；不要将 task_id 当报告 id。
-- `file-capabilities` 查询当前格式、大小及页数限制，不在 Agent 中写死限制。
-
-云 MCP 已授权时，无需再登录 CLI：MCP 获取临时上传 token，将 JSON 经受控文件或 stdin 交给 `getnote upload <file> --max-size-bytes <能力接口上限>`。此命令不读取 CLI 身份凭证，只向 OSS 上传，返回 `stage=oss_uploaded` 和文件元数据。随后由同一个已授权 MCP 提交知识库入库并查询最终 `SUCCESS`；上传成功不等于入库完成。不要将 token 放入命令参数、聊天或日志。
-
-CLI 已登录时也可使用 `file-token <extension>` 获取 token、`upload` 直传，再用 `file-add <topic_id> <directory_id> --metadata-file <上传结果文件>` 提交。临时 token 不提供通用 OpenAPI 权限。
-
-`image-config` / `file-capabilities` 的 runtime 声明 `operation_replay`、幂等头和状态入口时，凭证命令可保留 `--operation-id`；旧服务或治理关闭时不发送凭证幂等头。签发结果未知或失败 `data.upload_recovery` 要求查询原操作时，分别使用 `image-operation <operation_id>` / `file-operation <operation_id>`。`issued` 且未过 `resume_until` 复用原凭证，`processing/needs_reconciliation` 停止新签发，`expired` 先查已有对象与保存/入库结果；重放不延长原期限。
-
-图片已上传而保存被限流时，失败 `data.uploaded_image` 保留对象地址和原 `client_request_id`。把原 HTTPS 地址写入权限 0600 的私有文件，使用 `getnote save --image-url-file ./private-uploaded-url.txt --idempotency-key <原笔记键> -o json` 续接保存，不重领 token 或重传图片。凭证、签名 URL 和对象私有地址不贴聊天、不放命令参数。支持情况以 capabilities 的 `same_identity_request_queue/safe_not_started_retries/upload_operation_recovery` 和服务 runtime 为准。
-
-`file-add -o json` 保留历史数字字段 `id`、`topic_id`、`directory_id`，同时提供精确的十进制字符串 `id_str`、`topic_id_str`、`directory_id_str`；新消费者应使用后者，避免 JavaScript 大整数精度损失。旧服务端缺少字符串字段时，CLI 会无损补齐。`capabilities.guarantees.ids_as_strings=false` 表示不保证所有历史 ID 字段均为字符串，各命令的推荐字段以 `command_results` 为准。
-
-发芽月份必须是合法的 `YYYY-MM`；非法月份在发请求前报错。`note chapters <id>` 读取章节时间线，与录音标记独立；没有可识别章节时返回空 `items`。
-
----
-
-## 全局参数
-
-| 参数 | 说明 |
-|------|------|
-| `--api-key <key>` | 临时覆盖 API Key |
-| `-o, --output json\|table` | 输出格式（默认 table） |
-
----
+## 全部命令
+
+用 `getnote <命令> --help` 查看每个命令的参数。
+
+| 分类 | 命令 |
+| --- | --- |
+| 登录与环境 | `auth login/status/logout`、`setup`、`doctor`、`quota`、`update`、`version`、`capabilities` |
+| 保存 | `save`（链接、文字、图片）、`task`（查看链接处理进度） |
+| 查找 | `notes`（可按来源、类型、时间筛选）、`search`、`references`（按课程或老师找） |
+| 读取 | `note`、`note original/transcript/outline/section`、`note attachments/timeline/chapters/quick-note/todos`、`notes batch`、`marks`、`sprouts`、`sprout` |
+| 修改 | `note update`、`note delete`、`note share`、`tag add/remove/list` |
+| 知识库 | `kbs`、`kbs-sub`、`kb`、`kb create/add/remove`、`kb directories` 及目录增删改、`kb blogger-follow`、`kb live-follow` 等 |
+| 文件上传 | `file-capabilities`、`file-token`、`upload`、`file-add`、`image-config`、`image-token` 等 |
 
 ## 配置
 
-凭证保存在 `~/.getnote/config.json`：
-
-```json
-{
-  "api_key": "gk_live_xxx",
-  "client_id": "cli_xxx"
-}
-```
-
-也支持环境变量（优先级更高）：
+登录信息保存在 `~/.getnote/config.json`。也可以用环境变量，优先级更高：
 
 | 变量 | 说明 |
-|------|------|
+| --- | --- |
 | `GETNOTE_API_KEY` | API Key |
 | `GETNOTE_CLIENT_ID` | Client ID |
-| `GETNOTE_API_URL` | 覆盖 API 地址 |
-| `GETNOTE_WEB_URL` | 覆盖笔记网页地址；通常无需设置，CLI 会随 API 环境自动选择 |
-
-`GETNOTE_API_URL` 可传站点根地址、`/open` 或完整 `/open/api/v1`，业务请求和 OAuth 会同时使用该地址；未设置时仍使用生产环境。
-
-### 新版 API 兼容约定
-
-- `note_id`、`parent_note_id`、`children_ids`、`cursor` 等雪花 ID 按字符串无损输出；历史 `id` / `next_cursor` 数字字段继续保留。
-- HTTP 200 且 `success:false` 仍按失败处理并返回非零退出码；错误保留 `code/reason/retryable/field/constraint/expected_type/request_id`。
-- `getnote save --idempotency-key` 用于防止网络重试产生重复笔记；同一请求必须复用同一个键。
-
----
+| `GETNOTE_API_URL` | 换成别的 API 地址，一般不用设 |
 
 ## 从源码构建
 
-需要 Go 1.24.2+。
+需要 Go 1.24.2 以上：
 
 ```bash
 git clone https://github.com/iswalle/getnote-cli.git
@@ -441,76 +119,25 @@ cd getnote-cli
 make install
 ```
 
----
+## 更新日志
 
-## 🚀 进阶用法：用笔记内链实践柳比歇夫时间日志法
+| 版本 | 日期 | 主要变化 |
+| --- | --- | --- |
+| v1.10.1 | 2026-11-18 | 文档：说明所有用户都能调用，会员额度更高 |
+| v1.10.0 | 2026-11-17 | 长笔记先看目录再按段读；表格输出显示完整笔记链接；修复部分系统找不到程序的问题 |
+| v1.9.0 | 2026-11-04 | 遇到限流自动排队、有限重试；上传中断后能接着传，不重复上传 |
+| v1.7.0 | 2026-10-13 | 按书名、作者找书；按引用来源和时间筛选笔记 |
+| v1.6.0 | 2026-09-24 | 上传文件到知识库；读取标记、发芽报告和章节时间线 |
+| v1.5.x | 2026-08 | 一键接入本机 AI；`doctor` 诊断；知识库目录管理；订阅抖音博主 |
 
-柳比歇夫时间日志法的核心是**每天记录自己把时间花在了哪里**，事后统计、复盘、改进。
-
-结合 得到大脑（Get笔记）内链，可以用脚本自动串联：
-
-```bash
-# 每天早上新建当天日志，内链到关联项目笔记
-$ getnote save "今天工作日志 - 以下是进展：\n参考：biji.com/note/{note_id}" --tag 日志
-
-# 每周查看本周日志，复盘时间分配
-$ getnote search "工作日志" --limit 7 -o json
-```
-
-**内链格式**：在笔记正文里用 `https://biji.com/note/{note_id}` 引用其他笔记。示例：
-
-```
-参考上次的讨论：https://biji.com/note/1234567890000000001
-```
-
----
-
-## 🆕 更新日志
-
-| 日期 | 版本 | 新能力 | 适合怎么用 |
-|------|------|--------|------------|
-| 2026-11-04 | **v1.9.0** | 按服务端限流决策排队与有界重试；查询和恢复原图片、文件凭证；图片续接保留完整原保存请求 | 限流后复用原对象、请求键和目标位置；结果未知时先查询原操作，不重复上传 |
-| 2026-10-13 | **v1.7.1** | 修复订阅书库布尔筛选字段解析错误；完善随包 Skill 的作者、课程、文稿和评论查找规则 | 按作者查书籍；搜索未命中时在同一来源范围补查，区分全部笔记与划线 |
-| 2026-10-13 | **v1.7.0** | 支持书名、作者、书籍 ID 定位；引用来源与时间筛选；保留分页和来源元数据 | 列表定位后通过 detail 读取完整笔记，分别核对原文与评论；Top-K 不代表全量 |
-| 2026-09-24 | **v1.6.0** | 支持文件上传、临时 OSS 上传凭据，以及独立标记、发芽和章节时间线 | 云 MCP 已授权时可用 CLI 直传文件，提交入库后确认解析状态 |
-| 2026-09-02 | **v1.5.8** | 1. `kbs` 与 `kbs-sub` 默认只返回 `DEFAULT` 知识库<br>2. 新增 `--scope`，可按 `CUSTOMER`、`BOOKSPACE`、`TEAMSPACE` 精确读取<br>3. 订阅列表不再混入自己创建的知识库 | 避免书籍库和自有库挤占订阅列表分页；需要特殊知识库时显式选择 scope |
-| 2026-08-19 | **v1.5.6** | 1. `getnote update` 默认升级 CLI、同步五个领域 Skill 并运行诊断<br>2. capabilities 2.2 提供机器可读的安装、更新、验证与平台托管边界<br>3. 移除失效的 `install.sh` 引导 | 用户只说“安装”或“更新”即可，AI Agent 无需让用户选择内部组件，并能按统一成功条件完成验收 |
-| 2026-08-19 | **v1.5.5** | 1. 一键安装自动识别本机 AI Agent，并按平台显示安装结果<br>2. 新增 GitHub Copilot、Gemini CLI、Windsurf、OpenCode 和 Cline 自动安装<br>3. OpenClaw（小龙虾）和 QClaw 仅在检测到时提供 ClawHub 确认入口<br>4. 保留 `SKILLS` 品牌开场，隐藏底层安装术语<br>5. `doctor` 按平台真实目录检查 Skill 状态 | 用户只需运行一次安装命令；AI 能根据结构化结果判断安装状态并给出明确修复动作 |
-| 2026-08-17 | **v1.5.3** | 1. `doctor` 新增稳定问题码、阻断级别、修复动作、平台 Skill 状态和在线/离线就绪语义<br>2. 诊断失败提供可靠退出码，JSON 保持单一、可解析<br>3. npm 与独立二进制采用匹配的升级路径，Release 下载增加 SHA-256 校验<br>4. WorkBuddy Skills 整套预检并支持失败回滚<br>5. 严格校验输出格式与多余参数 | 让技术用户和 AI 都能准确判断环境是否真正可用，并根据结构化结果完成修复；同时避免版本分裂、半安装和未校验更新包 |
-| 2026-08-14 | **v1.5.2** | 1. 补齐团队知识库、订阅知识库与文件夹操作的执行边界<br>2. 明确目录、资源及笔记 ID 的结构化结果字段，避免 AI 猜字段<br>3. 搜索结果按字符串 `note_id` 去重，不把同一笔记的多个命中片段重复展示<br>4. 完善“这条笔记”、录音分享与权限失败的安全处理 | 提升 CLI 内置 Skills 在知识库整理、搜索和笔记管理场景中的理解与执行准确度；本次不改变既有 CLI 命令和授权凭证 |
-| 2026-08-13 | **v1.5.1** | 1. 修复通过 `npx setup` 安装后命令指向临时 npm 缓存的问题<br>2. 同时提供稳定的 `getnote` / `gnote` 双命令<br>3. 自动把五个领域 Skill 安装到 WorkBuddy<br>4. 重复安装保留已有授权凭证 | 在 WorkBuddy、Codex、Claude Code 或 Cursor 中重复执行同一条安装命令即可修复或升级，不需要重新授权 |
-| 2026-08-13 | **v1.5.0** | 1. 支持浏览、创建、移动和删除知识库目录<br>2. 笔记可直接加入指定目录，支持已有团队知识库 `TEAMSPACE` 的成员读取与管理员维护<br>3. 支持订阅抖音博主并读取博主内容<br>4. 新增录音原文、链接原文、附件、时间线、快捷笔记和会议待办等一级命令<br>5. 完善结构化结果、错误原因、短命令、`doctor` 和升级检查 | 让人和 AI 用同一套命令完成知识库整理、资料归档和深层笔记读取；失败时能识别原因，不再猜参数或把未完成任务当成成功 |
-| 2026-08-11 | **v1.4.0** | 1. Skill 2.0 稳定执行契约<br>2. 所有子命令完整 `-h` / `--help`<br>3. `getnote update --check` 与升级引导<br>4. `--content-file` / `--stdin` 安全保存长文本 | 让独立 Skill 和 CLI 内置原子 Skills 共用同一套真实命令，降低 AI 猜参数和长内容转义失败的概率 |
-| 2026-04-23 | **v1.1.1** | 1. 笔记内链<br>2. 保存分享链接自动变笔记 | 1. 用内链串联每天的工作日志和项目笔记，实践时间日志法<br>2. 收到别人发来的分享链接直接存入笔记 |
-| 2026-04-16 | **v1.1.0** | 1. `getnote note share`：生成分享链接<br>2. `getnote kb live-follow`：订阅得到直播 | 1. 把笔记一键分享给朋友<br>2. 在知识库里订阅得到直播课，直播结束后 AI 摘要自动入库 |
-| 2026-04-03 | **v1.0.x** | 1. `getnote kb bloggers/lives`：查看博主和直播列表<br>2. `getnote update`：自动升级 | 1. 查看订阅博主的内容更新和直播摘要<br>2. 直接运行 `getnote update` 升级到最新版 |
-
----
+更早的版本见 [Releases](https://github.com/iswalle/getnote-cli/releases)。
 
 ## 相关链接
 
-- [得到大脑（Get笔记）官网](https://biji.com)
-- [开放平台文档](https://www.biji.com/openapi)
+- [得到大脑官网](https://biji.com)
+- [开放平台](https://www.biji.com/openapi)
 - [问题反馈](https://github.com/iswalle/getnote-cli/issues)
 
 ## License
 
 [MIT](https://opensource.org/licenses/MIT)
-
-## 录音台与录音卡笔记
-
-录音台（AI录音台/MOAN）按 `getnote notes --source vendor_moan --all -o json` 查找，录音卡（GetSeed）使用 `--source getseed`。来源和 note_type 独立：查设备全部笔记不额外限制 audio/meeting，录音卡长录音和闪念均保留。可叠加创建/编辑时间与知识库条件；完整性以真实分页、partial/warnings 和授权范围为准，不包含设备端未同步的会议记录。转写用 `getnote note transcript <note_id>` 读取。
-
-## 长笔记按需阅读（1.10.0 候选版，待正式发布）
-
-新增目录与分段命令，依赖服务端 `note.progressive_read.v1`。旧 `note`、`note original`、`note transcript` 保持兼容，不自动改成截断结果。没有分段能力或版本变化时明确报错，不自动回退整篇拉取。
-
-```bash
-getnote note outline '<真实笔记ID>' -o json
-getnote note section '<真实笔记ID>' --keyword '绩效|晋升|反馈' -o json
-getnote note section '<真实笔记ID>' --offset '<返回的offset>' --version '<返回的version>' -o json
-```
-
-普通读取默认最多8000个 UTF-16 单元，offset 原样使用；关键词不传 limit 搜索到文末，显式 limit 只搜索该窗口。目录、摘要和节选不能当作全文。职场沟通场景先定位自己的复盘或会议笔记，再按需提取原话，不擅自遍历全部个人数据。
-
-原文读取补齐会议、录音卡、课堂和内录类型。章节输出可用下一章起点补充 `end_ms`，标明 `end_source=next_chapter_start`；末章未知为 null，不改变原详情接口。当前分支同时集成 PR #39（完整笔记链接）和 #40（启动诊断），并修正跨系统安装时优先使用包内本机程序，仅 WSL 允许最后回退 Windows 程序。
