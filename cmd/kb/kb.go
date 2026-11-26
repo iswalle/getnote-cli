@@ -144,7 +144,7 @@ func renderNoteRows(table *tablewriter.Table, data client.KBNoteListData) {
 	for _, n := range data.Notes {
 		table.Append([]string{
 			n.NoteID,
-			ui.Truncate(n.DisplayName(), 40),
+			ui.Truncate(n.TitleWithGeneration(n.DisplayName()), 40),
 			n.NoteType,
 			n.CreatedAt,
 		})

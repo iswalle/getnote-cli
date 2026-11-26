@@ -124,7 +124,7 @@ getnote note original '<返回的 note_id>' -o json
 | `getnote file-operation <operation_id> -o json` | `success=true`、`data.operation_id/state/resume_until`，可选 `credential` | 保留原 ID，按状态复用/等待/核对，凭证不回显。 |
 | `getnote kbs --scope <scope> -o json` | `success=true`、`data.topics[].topic_id/name/scope/stats`、`has_more/total` | 默认 scope 为 `DEFAULT`；特殊类型必须显式传 scope。 |
 | `getnote kbs-sub --scope <scope> -o json` | `success=true`、`data.topics[].topic_id/name/scope`、`has_more/total` | 只返回该 scope 下真实订阅的他人知识库，通常只读。 |
-| `getnote kb <topic_id> -o json` | `success=true`、`data.notes[].note_id/title/note_type`、`has_more/total` | 返回知识库内真实笔记；需要链接时再用 `note` 读取详情。 |
+| `getnote kb <topic_id> -o json` | `success=true`、`data.notes[].note_id/title/note_type`、`has_more/total` | 返回知识库内真实笔记；需要链接时再用 `note` 读取详情。笔记带 `generation_status` 且不是 `completed` 时正文还没生成完或失败，不当最终内容，稍后再读详情；字段缺失不等于 completed。 |
 | `getnote kb create <name> -o json` | `success=true`、`data?` | 仅创建个人知识库；不得在没有返回 ID 时虚构 `topic_id`。 |
 | `getnote kb add <topic_id> <note_id…> -o json` | `success`、`data.success_count`、`data.failed_note_ids` | 最多 20 条；`failed_note_ids` 非空时只报告实际加入的条数，不得说全部加入；需要确认最终目录归属时重新读取目录。 |
 | `getnote kb remove <topic_id> <note_id…> --yes -o json` | `success`、`data.removed_count`、`data.failed_note_ids` | 最多 20 条；先确认，再说明已从该知识库移出。 |

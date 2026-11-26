@@ -79,7 +79,7 @@ getnote notes --source dedao --note-type ref --article-url '<真实文章URL>' -
 
 仅当上面的路径选择需要语义搜索时执行；没有指定知识库不等于必须先语义搜索。
 
-定位时可显式使用 `getnote search '<主题>' --response-mode snippet --max-snippet-chars 400 -o json`，需当前接口声明 search.snippet.v1。旧调用不加参数仍返回原契约。摘要 full 只表示本次命中的完整片段，不是全文；保留 snippet_source、truncated、content_state 和资源身份，未知来源/类型原样保留。需要全文时读真实笔记详情。
+定位时可显式使用 `getnote search '<主题>' --response-mode snippet --max-snippet-chars 400 -o json`，需当前接口声明 search.snippet.v1。旧调用不加参数仍返回原契约。摘要 full 只表示本次命中的完整片段，不是全文；保留 snippet_source、truncated、content_state 和资源身份，未知来源/类型原样保留。需要全文时读真实笔记详情。详情或列表带 `generation_status` 且不是 `completed` 时，正文还在生成或失败，不当最终内容引用，稍后再读详情。
 
 1. 用户没有指定知识库时，执行 `getnote search <query> --limit <1-10> -o json`。默认上限是 10，不能自行放大。
 2. 用户指定知识库名称时，先按其类型执行 `getnote kbs --scope <scope> -o json`；默认查 `DEFAULT`，书籍、客户档案和团队知识库分别使用 `BOOKSPACE`、`CUSTOMER`、`TEAMSPACE`。用返回的真实 `topic_id` 和 `scope` 匹配；同名或意图不明确时必须让用户选择。

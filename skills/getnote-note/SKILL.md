@@ -89,6 +89,8 @@ getnote notes --note-type local_audio --all -o json
 
 `original` 只按真实类型读取上述字段，并返回 `original_source`；原文缺失或类型不支持会报错，不能把评论或定位片段补成原文。列表中的 `content_state` 会标明正文被省略；详情接口返回完整正文和元数据。用 `metadata_state.reference/topics` 区分完整、部分、不可用的元数据；缺失的作者、书 ID、来源 URL 不猜测补写。
 
+列表、详情和知识库笔记里的 `generation_status` 表示 AI 生成进度：只有 `completed` 才是最终内容；`generating`、`attachment_processing`、`initializing` 时正文可能为空或只有一半，先告诉用户“还在生成”，过一会儿再用 `getnote note '<note_id>' -o json` 读详情；`failed` 说明生成失败，不把残缺正文当结果；`unknown` 或未知新值原样说明。字段缺失是旧服务端，不等于 completed，按原有方式读取即可。
+
 得到课程无需知识库：已知课程名/老师时先按搜索 Skill 执行 `getnote references list --source dedao --resource-type course --query '<课程名>' --all -o json`，再用真实课程容器身份筛选；author 精确匹配老师，query 可显式 prefix。同名版本先消歧，topics=[] 不阻断；不要求用户提供内部 ID。
 
 ```bash
@@ -201,7 +203,7 @@ getnote note section '<真实note_id>' --offset '<上次返回的offset>' --limi
 | `getnote image-operation <operation_id> -o json` | `success=true`、`data.operation_id/state/resume_until`，可选 `credential` | 按上面的状态分流，凭证不回显。 |
 | `getnote task <task_id> -o json` | `data.task_id/status/note_id?/msg?/error_msg?` | 仅 `done`/`success` 且有 `note_id` 为完成；`pending`/`processing` 是处理中；`failed` 说明真实原因。 |
 | `getnote notes -o json` | `data.notes[].note_id/title/note_url`；新筛选响应另有 `pagination` | 返回标题、字符串 ID 和真实链接。新筛选按 `pagination.has_more/next_cursor` 翻页；仅无 `pagination` 的旧响应按 `has_more/cursor`。旧 `total` 不能当作筛选后数量。 |
-| `getnote note <id> -o json` | `data.note.note_id/title/note_url/note_type`，按需读 `content` | 先给摘要和链接；私密全文只在用户明确要求时展开。 |
+| `getnote note <id> -o json` | `data.note.note_id/title/note_url/note_type`，按需读 `content`；可选 `generation_status` | 先给摘要和链接；私密全文只在用户明确要求时展开。`generation_status` 存在且不是 `completed` 时正文不是最终内容，稍后再读详情。 |
 | `getnote note outline <id> -o json` | `data.id/text/total/version/offset_unit` | 目录不是正文；使用返回的 UTF-16 offset。 |
 | `getnote note section <id> -o json` | `data.text/version/offset_unit` | 节选/关键词定位；保持版本，读完停止。 |
 | `getnote note original <id> -o json` | `data.note_id/title/original/original_source` | 只把 `original` 当原文；原文不可用会失败，不能拿评论或摘要补全。 |

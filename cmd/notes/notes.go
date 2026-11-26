@@ -126,7 +126,7 @@ func printHeader(cmd *cobra.Command) {
 func printRow(cmd *cobra.Command, n client.Note) {
 	row := []ui.ColSpec{
 		{Value: ui.NoteID(n.NoteID, n.ID), Width: cols[0].Width},
-		{Value: n.DisplayName(), Width: cols[1].Width},
+		{Value: n.TitleWithGeneration(n.DisplayName()), Width: cols[1].Width},
 		{Value: n.NoteType, Width: cols[2].Width},
 		{Value: n.CreatedAt, Width: cols[3].Width},
 		{Value: n.NoteURL, Width: cols[4].Width, NoTruncate: true},

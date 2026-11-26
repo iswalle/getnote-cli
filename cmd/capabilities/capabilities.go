@@ -118,12 +118,14 @@ func commandResults() map[string]commandResult {
 			Notes:         "Only done|success with a non-empty note_id is a completed save. failed is terminal.",
 		},
 		"notes": {
-			SuccessFields: []string{"success=true", "data.notes[].note_id", "data.notes[].title", "data.notes[].note_url", "data.has_more", "data.cursor", "data.total"},
+			SuccessFields: []string{"success=true", "data.notes[].note_id", "data.notes[].title", "data.notes[].note_url", "data.has_more", "data.cursor", "data.total", "data.notes[].generation_status?"},
+			Notes:         "generation_status is completed|generating|attachment_processing|initializing|failed|unknown; absent on older servers means not reported, not completed. Anything but completed means content may be empty or partial: do not treat it as final, re-read the note detail later.",
 		},
 		"notes batch":     {SuccessFields: []string{"success=true", "data.items[].note_id", "data.items[].status", "data.pending_ids", "data.partial"}, Notes: "Personal notes only, one backend batch, at most20 distinct IDs. Deferred bodies are not truncated success; explicitly read individual notes if needed."},
 		"references list": {SuccessFields: []string{"success=true", "data.resources[].course_type", "data.resources[].course_id", "data.pagination|data.traversal"}, Notes: "Match course name exact/prefix and teacher exact. Empty pages with advancing cursor may still continue. IDs are strings, not article IDs."},
 		"note": {
-			SuccessFields: []string{"success=true", "data.note.note_id", "data.note.title", "data.note.note_url", "data.note.note_type", "data.note.content?"},
+			SuccessFields: []string{"success=true", "data.note.note_id", "data.note.title", "data.note.note_url", "data.note.note_type", "data.note.content?", "data.note.generation_status?"},
+			Notes:         "generation_status is completed|generating|attachment_processing|initializing|failed|unknown; absent on older servers means not reported, not completed. Anything but completed means content may be empty or partial: do not treat it as final, re-read the note detail later.",
 		},
 		"note outline": {SuccessFields: []string{"success=true", "data.id", "data.text", "data.version", "data.total", "data.offset_unit=utf16"}, Notes: "Directory for progressive reads. Require note.progressive_read.v1. Offsets are UTF-16, not bytes or code points."},
 		"note section": {SuccessFields: []string{"success=true", "data.text", "data.version", "data.offset_unit=utf16"}, Notes: "Bounded read or literal keyword lookup. Preserve offset/version; changed version means refresh outline. Never automatically fall back to full content."},
@@ -176,7 +178,8 @@ func commandResults() map[string]commandResult {
 			Notes:         "Defaults to --scope DEFAULT and contains only knowledge bases created by others that the user actually subscribed to.",
 		},
 		"kb": {
-			SuccessFields: []string{"success=true", "data.notes[].note_id", "data.notes[].title", "data.notes[].note_type", "data.has_more", "data.total"},
+			SuccessFields: []string{"success=true", "data.notes[].note_id", "data.notes[].title", "data.notes[].note_type", "data.has_more", "data.total", "data.notes[].generation_status?"},
+			Notes:         "generation_status is completed|generating|attachment_processing|initializing|failed|unknown; absent on older servers means not reported, not completed. Anything but completed means content may be empty or partial: do not treat it as final, re-read the note detail later.",
 		},
 		"kb create": {
 			SuccessFields: []string{"success=true", "data?"},
