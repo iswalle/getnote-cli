@@ -3,6 +3,7 @@ package note
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/iswalle/getnote-cli/internal/client"
@@ -49,7 +50,10 @@ func NewNoteCmd() *cobra.Command {
 			if n.NoteURL != "" {
 				table.Append([]string{"Note URL", n.NoteURL})
 			}
-			table.Append([]string{"Title", n.DisplayName()})
+			table.Append([]string{"Title", n.TitleWithGeneration(n.DisplayName())})
+			if notice := n.GenerationNotice(); notice != "" {
+				table.Append([]string{"Generation", n.GenerationStatus + "（" + notice + "，正文可能为空或不完整，稍后再读详情）"})
+			}
 			table.Append([]string{"Type", n.NoteType})
 			table.Append([]string{"Created", n.CreatedAt})
 			table.Append([]string{"Updated", n.UpdatedAt})
@@ -89,7 +93,7 @@ func NewNoteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, note_url, title, display_title, content, ref_content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags)")
+	cmd.Flags().StringVar(&field, "field", "", "Output a single field value (id, note_url, title, display_title, content, ref_content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags, generation_status)")
 	cmd.AddCommand(newUpdateCmd())
 	cmd.AddCommand(newDeleteCmd())
 	cmd.AddCommand(newShareCmd())
@@ -329,8 +333,13 @@ func printField(n client.Note, field string) error {
 		val = n.Source
 	case "tags":
 		val = strings.Join(n.TagNames(), ", ")
+	case "generation_status":
+		val = n.GenerationStatus
 	default:
-		return fmt.Errorf("unknown field %q; valid: id, note_url, title, display_title, content, ref_content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags", field)
+		return fmt.Errorf("unknown field %q; valid: id, note_url, title, display_title, content, ref_content, type, created_at, updated_at, url, excerpt, web_content, audio_original, source, tags, generation_status", field)
+	}
+	if field != "generation_status" && n.GenerationNotice() != "" {
+		fmt.Fprintf(os.Stderr, "warning: generation_status=%s; content may be empty or partial, re-read the note detail later\n", n.GenerationStatus)
 	}
 	fmt.Println(val)
 	return nil

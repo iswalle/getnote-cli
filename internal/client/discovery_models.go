@@ -159,6 +159,45 @@ type DiscoveryNoteFields struct {
 	Preview       *NotePreview       `json:"preview,omitempty"`
 	ContentState  *NoteContentState  `json:"content_state,omitempty"`
 	MetadataState *NoteMetadataState `json:"metadata_state,omitempty"`
+	// GenerationStatus is completed, generating, attachment_processing,
+	// initializing, failed or unknown. Older servers omit it; empty means
+	// "not reported", never "completed".
+	GenerationStatus string `json:"generation_status,omitempty"`
+}
+
+// GenerationNotice returns a short user-facing marker when the server says
+// the note content is not final yet. Missing status and completed return "".
+func (f DiscoveryNoteFields) GenerationNotice() string {
+	return GenerationNotice(f.GenerationStatus)
+}
+
+// TitleWithGeneration prefixes the marker so table truncation never hides it.
+func (f DiscoveryNoteFields) TitleWithGeneration(title string) string {
+	if notice := f.GenerationNotice(); notice != "" {
+		return "[" + notice + "] " + title
+	}
+	return title
+}
+
+// GenerationNotice maps a generation_status value to a short Chinese marker.
+// Unknown future values are shown verbatim so they are never hidden.
+func GenerationNotice(status string) string {
+	switch status {
+	case "", "completed":
+		return ""
+	case "generating":
+		return "生成中"
+	case "attachment_processing":
+		return "附件处理中"
+	case "initializing":
+		return "初始化中"
+	case "failed":
+		return "生成失败"
+	case "unknown":
+		return "状态未知"
+	default:
+		return status
+	}
 }
 
 func (n Note) DisplayName() string {
